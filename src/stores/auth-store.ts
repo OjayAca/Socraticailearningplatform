@@ -52,6 +52,8 @@ interface AuthState {
   signOut: () => Promise<void>;
   /** Sets the user's role and writes it to Firestore. */
   setRole: (role: UserRole) => Promise<void>;
+  /** Updates the user's display name. */
+  updateDisplayName: (displayName: string) => Promise<void>;
   /** Clears the current error message. */
   clearError: () => void;
 }
@@ -145,6 +147,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }));
     } catch (err) {
       set({ error: getFirebaseErrorMessage(err) });
+      throw err;
+    }
+  },
+
+  updateDisplayName: async (displayName: string) => {
+    const { firebaseUser } = get();
+    if (!firebaseUser) {
+      set({ error: "No user signed in." });
+      return;
+    }
+    
+    set({ isLoading: true, error: null });
+    try {
+      // 1. Update Firebase Auth Profile
+      await updateProfile(firebaseUser, { displayName });
+      
+      // 2. Update Firestore Document
+      const userRef = doc(db, "users", firebaseUser.uid);
+      await setDoc(userRef, { displayName }, { merge: true });
+      
+      // 3. Update Local Store State
+      set((state) => ({
+        firebaseUser: { ...firebaseUser, displayName } as User,
+        userProfile: state.userProfile
+          ? { ...state.userProfile, displayName }
+          : null,
+        isLoading: false,
+      }));
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err), isLoading: false });
       throw err;
     }
   },

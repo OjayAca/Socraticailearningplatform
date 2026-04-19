@@ -141,3 +141,16 @@ export interface SocraticResponse {
   /** AI-evaluated critical thinking score adjustment. */
   ctScoreDelta?: number;
 }
+
+// ─── Notification Types ─────────────────────────────────────
+
+/** A notification intended for a specific user. */
+export interface AppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  read: boolean;
+  actionUrl?: string; // e.g., '/student/history' or '/teacher/review/123'
+  createdAt: Timestamp;
+}

@@ -27,10 +27,14 @@ import {
   BookOpen,
   MessageSquare,
   AlertCircle,
+  Bell,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSessionStore } from "@/stores/session-store";
+import { ProfileContent, SettingsContent, NotificationContent } from "./SharedScreens";
+import { useNotificationStore } from "@/stores/notification-store";
+import { Session } from "@/types";
 
 // ─── Teacher Layout ─────────────────────────────────────────
 
@@ -47,6 +51,7 @@ function TeacherLayout({
 }) {
   const navigate = useNavigate();
   const { userProfile, signOut } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
 
   const displayName = userProfile?.displayName || "Teacher";
   const initials = displayName
@@ -62,14 +67,14 @@ function TeacherLayout({
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col">
+      <div className="w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-shrink-0 flex flex-col">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center text-white">
             <BrainCircuit className="w-5 h-5" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900">
+          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
             SocratAI
           </span>
         </div>
@@ -79,42 +84,67 @@ function TeacherLayout({
             onClick={() => navigate("/teacher/dashboard")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "dashboard"
-                ? "bg-emerald-50 text-emerald-700"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <Activity className="w-5 h-5" /> Dashboard
           </button>
           <button
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
-              activeTab === "students"
-                ? "bg-emerald-50 text-emerald-700"
-                : "text-slate-600 hover:bg-slate-100"
-            }`}
-          >
-            <Users className="w-5 h-5" /> Students
-          </button>
-          <button
+            onClick={() => navigate("/teacher/submissions")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "submissions"
-                ? "bg-emerald-50 text-emerald-700"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <FileText className="w-5 h-5" /> Submissions
           </button>
+          <button
+            onClick={() => navigate("/teacher/notifications")}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
+              activeTab === "notifications"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
+            <div className="relative">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              )}
+            </div>
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-auto bg-emerald-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>
+            )}
+          </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-200 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <button
+            onClick={() => navigate("/teacher/profile")}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
+              activeTab === "profile"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
             <User className="w-5 h-5" /> Profile
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+          <button
+            onClick={() => navigate("/teacher/settings")}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
+              activeTab === "settings"
+                ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
             <Settings className="w-5 h-5" /> Settings
           </button>
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:text-red-700 transition-colors font-medium text-sm"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:text-red-700 dark:hover:text-red-400 transition-colors font-medium text-sm"
           >
             <LogOut className="w-5 h-5" /> Sign Out
           </button>
@@ -123,18 +153,18 @@ function TeacherLayout({
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-10 px-8 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-800">
+        <header className="sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 px-8 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
             Teacher Dashboard
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
                 {displayName}
               </p>
-              <p className="text-xs text-slate-500">{userProfile?.email}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">{userProfile?.email}</p>
             </div>
-            <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-700 font-bold border-2 border-white shadow-sm">
+            <div className="w-10 h-10 bg-emerald-100 dark:bg-emerald-900/40 rounded-full flex items-center justify-center text-emerald-700 dark:text-emerald-400 font-bold border-2 border-white dark:border-emerald-900 shadow-sm">
               {initials}
             </div>
           </div>
@@ -627,3 +657,110 @@ export function TeacherReview() {
     </TeacherLayout>
   );
 }
+
+// ─── Submissions Wrapper Screen ──────────────────────────────────
+export function TeacherSubmissionsScreen() {
+  const navigate = useNavigate();
+  const { sessionHistory, fetchTeacherSessions, isLoading } = useSessionStore();
+  const { firebaseUser } = useAuthStore();
+
+  useEffect(() => {
+    if (firebaseUser?.uid) fetchTeacherSessions();
+  }, [firebaseUser?.uid, fetchTeacherSessions]);
+
+  return (
+    <TeacherLayout activeTab="submissions">
+      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Student Submissions</h2>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">
+            Review submitted work from students.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
+          </div>
+        ) : sessionHistory.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center">
+            <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              No submissions to review yet.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
+            {sessionHistory.map((session: Session) => {
+              const statusColors: Record<string, string> = {
+                submitted: "bg-amber-50 text-amber-700",
+                reviewed: "bg-emerald-50 text-emerald-700",
+                returned: "bg-red-50 text-red-700",
+                in_progress: "bg-blue-50 text-blue-700",
+              };
+
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => navigate(`/teacher/review/${session.id}`)}
+                  className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white">
+                        {session.topic || session.originalQuestion?.slice(0, 40) || "Unknown Topic"}
+                      </h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {session.studentName || "Anonymous Student"} • {session.subject}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        statusColors[session.status] || "bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      {session.status.toUpperCase()}
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </TeacherLayout>
+  );
+}
+
+// ─── Profile & Settings Screens ─────────────────────────────
+
+export function TeacherProfileScreen() {
+  return (
+    <TeacherLayout activeTab="profile">
+      <ProfileContent />
+    </TeacherLayout>
+  );
+}
+
+export function TeacherSettingsScreen() {
+  return (
+    <TeacherLayout activeTab="settings">
+      <SettingsContent />
+    </TeacherLayout>
+  );
+}
+
+export function TeacherNotificationsScreen() {
+  return (
+    <TeacherLayout activeTab="notifications">
+      <NotificationContent />
+    </TeacherLayout>
+  );
+}
+

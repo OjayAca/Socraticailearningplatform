@@ -11,7 +11,7 @@
 
 import { createBrowserRouter, Outlet } from "react-router";
 import { Splash, Login, SignUp, RoleSelection } from "./components/AuthScreens";
-import { StudentDashboard, TaskStart } from "./components/StudentScreens";
+import { StudentDashboard, TaskStart, StudentProfileScreen, StudentSettingsScreen, StudentHistoryScreen, StudentNotificationsScreen } from "./components/StudentScreens";
 import {
   SessionTrigger,
   SessionQuestioning,
@@ -23,7 +23,7 @@ import {
   SessionLog,
   SessionConfirmation,
 } from "./components/SessionScreens";
-import { TeacherDashboard, TeacherReview } from "./components/TeacherScreens";
+import { TeacherDashboard, TeacherReview, TeacherProfileScreen, TeacherSettingsScreen, TeacherSubmissionsScreen, TeacherNotificationsScreen } from "./components/TeacherScreens";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 /**
@@ -59,6 +59,10 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute requiredRole="student" />,
         children: [
           { path: "student/dashboard", Component: StudentDashboard },
+          { path: "student/profile", Component: StudentProfileScreen },
+          { path: "student/settings", Component: StudentSettingsScreen },
+          { path: "student/history", Component: StudentHistoryScreen },
+          { path: "student/notifications", Component: StudentNotificationsScreen },
           { path: "student/task", Component: TaskStart },
           { path: "session/trigger", Component: SessionTrigger },
           { path: "session/questioning", Component: SessionQuestioning },
@@ -77,6 +81,10 @@ export const router = createBrowserRouter([
         element: <ProtectedRoute requiredRole="teacher" />,
         children: [
           { path: "teacher/dashboard", Component: TeacherDashboard },
+          { path: "teacher/profile", Component: TeacherProfileScreen },
+          { path: "teacher/settings", Component: TeacherSettingsScreen },
+          { path: "teacher/submissions", Component: TeacherSubmissionsScreen },
+          { path: "teacher/notifications", Component: TeacherNotificationsScreen },
           { path: "teacher/review/:sessionId?", Component: TeacherReview },
         ],
       },

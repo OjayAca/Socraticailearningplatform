@@ -13,6 +13,8 @@ import { RouterProvider } from "react-router";
 import { router } from "./routes";
 import { useAuthStore } from "@/stores/auth-store";
 
+import { ThemeProvider } from "next-themes";
+
 /**
  * The top-level App component.
  *
@@ -26,5 +28,9 @@ export default function App() {
     return unsubscribe;
   }, [initialize]);
 
-  return <RouterProvider router={router} />;
+  return (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <RouterProvider router={router} />
+    </ThemeProvider>
+  );
 }

@@ -25,6 +25,8 @@ import {
 import { motion } from "motion/react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useSessionStore } from "@/stores/session-store";
+import { ProfileContent, SettingsContent, NotificationContent } from "./SharedScreens";
+import { useNotificationStore } from "@/stores/notification-store";
 
 // ─── Sidebar Layout ─────────────────────────────────────────
 
@@ -44,6 +46,7 @@ function StudentLayout({
 }) {
   const navigate = useNavigate();
   const { userProfile, signOut } = useAuthStore();
+  const { unreadCount } = useNotificationStore();
 
   const displayName = userProfile?.displayName || "Student";
   const initials = displayName
@@ -60,14 +63,14 @@ function StudentLayout({
   }
 
   return (
-    <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 overflow-hidden">
+    <div className="flex flex-col md:flex-row h-full w-full bg-slate-50 dark:bg-slate-950 overflow-hidden">
       {/* Sidebar */}
-      <div className="w-full md:w-64 bg-white border-r border-slate-200 flex-shrink-0 flex flex-col">
+      <div className="w-full md:w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-shrink-0 flex flex-col">
         <div className="p-6 flex items-center gap-3">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white">
             <BrainCircuit className="w-5 h-5" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900">
+          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
             SocratAI
           </span>
         </div>
@@ -77,42 +80,67 @@ function StudentLayout({
             onClick={() => navigate("/student/dashboard")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "dashboard"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <Activity className="w-5 h-5" /> Dashboard
           </button>
           <button
+            onClick={() => navigate("/student/history")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "history"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
             <History className="w-5 h-5" /> Previous Sessions
           </button>
           <button
+            onClick={() => navigate("/student/notifications")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "notifications"
-                ? "bg-indigo-50 text-indigo-700"
-                : "text-slate-600 hover:bg-slate-100"
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <Bell className="w-5 h-5" /> Notifications
+            <div className="relative">
+              <Bell className="w-5 h-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+              )}
+            </div>
+            Notifications
+            {unreadCount > 0 && (
+              <span className="ml-auto bg-indigo-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>
+            )}
           </button>
         </nav>
 
-        <div className="p-4 border-t border-slate-200 space-y-2">
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <button
+            onClick={() => navigate("/student/profile")}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
+              activeTab === "profile"
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
             <User className="w-5 h-5" /> Profile
           </button>
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 text-slate-600 hover:text-slate-900 transition-colors font-medium text-sm">
+          <button
+            onClick={() => navigate("/student/settings")}
+            className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
+              activeTab === "settings"
+                ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300"
+                : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            }`}
+          >
             <Settings className="w-5 h-5" /> Settings
           </button>
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:text-red-700 transition-colors font-medium text-sm"
+            className="w-full flex items-center gap-3 px-4 py-2.5 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors font-medium text-sm"
           >
             <LogOut className="w-5 h-5" /> Sign Out
           </button>
@@ -121,20 +149,20 @@ function StudentLayout({
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-10 px-8 py-4 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-slate-800">
+        <header className="sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 px-8 py-4 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-slate-800 dark:text-white">
             Welcome, {displayName.split(" ")[0]}! 👋
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-sm font-semibold text-slate-900">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
                 {displayName}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 {userProfile?.email || ""}
               </p>
             </div>
-            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-white shadow-sm">
+            <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-full flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold border-2 border-white dark:border-indigo-900 shadow-sm">
               {initials}
             </div>
           </div>
@@ -175,37 +203,37 @@ export function StudentDashboard() {
       >
         {/* Progress Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
-            <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-2">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg flex items-center justify-center mb-2">
               <BrainCircuit className="w-5 h-5" />
             </div>
-            <span className="text-slate-500 text-sm font-medium">
+            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
               Critical Thinking Score
             </span>
-            <span className="text-3xl font-bold text-slate-900">
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">
               {stats.averageCTScore}
-              <span className="text-lg text-slate-400">/100</span>
+              <span className="text-lg text-slate-400 dark:text-slate-500">/100</span>
             </span>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
-            <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-2">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center mb-2">
               <Activity className="w-5 h-5" />
             </div>
-            <span className="text-slate-500 text-sm font-medium">
+            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
               Tasks Completed
             </span>
-            <span className="text-3xl font-bold text-slate-900">
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">
               {stats.sessionsCompleted}
             </span>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
-            <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center mb-2">
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-2">
+            <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-lg flex items-center justify-center mb-2">
               <BookOpen className="w-5 h-5" />
             </div>
-            <span className="text-slate-500 text-sm font-medium">
+            <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
               Current Streak
             </span>
-            <span className="text-3xl font-bold text-slate-900">
+            <span className="text-3xl font-bold text-slate-900 dark:text-white">
               {stats.currentStreak} Days
             </span>
           </div>
@@ -233,22 +261,22 @@ export function StudentDashboard() {
 
         {/* Recent Activity */}
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-slate-900">Recent Sessions</h3>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white">Recent Sessions</h3>
 
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
             </div>
           ) : sessionHistory.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-              <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-              <p className="text-slate-500 font-medium">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center">
+              <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400 font-medium">
                 No sessions yet. Start your first one!
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100">
-              {sessionHistory.map((session) => {
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
+              {sessionHistory.slice(0, 3).map((session) => {
                 const statusColors: Record<string, string> = {
                   in_progress: "bg-blue-50 text-blue-700",
                   submitted: "bg-amber-50 text-amber-700",
@@ -265,17 +293,18 @@ export function StudentDashboard() {
                 return (
                   <div
                     key={session.id}
-                    className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/student/review/${session.id}`)}
+                    className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500">
+                      <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400">
                         <BookOpen className="w-6 h-6" />
                       </div>
                       <div>
-                        <h4 className="font-semibold text-slate-900">
+                        <h4 className="font-semibold text-slate-900 dark:text-white">
                           {session.topic || session.originalQuestion?.slice(0, 40)}
                         </h4>
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
                           {session.subject}
                         </p>
                       </div>
@@ -288,11 +317,19 @@ export function StudentDashboard() {
                       >
                         {statusLabels[session.status] || session.status}
                       </span>
-                      <ChevronRight className="w-5 h-5 text-slate-400" />
+                      <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                     </div>
                   </div>
                 );
               })}
+              {sessionHistory.length > 3 && (
+                <div 
+                  className="p-4 text-center text-sm font-medium text-indigo-600 dark:text-indigo-400 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors rounded-b-2xl"
+                  onClick={() => navigate("/student/history")}
+                >
+                  View all previous sessions
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -416,3 +453,115 @@ export function TaskStart() {
     </StudentLayout>
   );
 }
+
+// ─── Profile, Settings & Others ─────────────────────────────
+
+export function StudentProfileScreen() {
+  return (
+    <StudentLayout activeTab="profile">
+      <ProfileContent />
+    </StudentLayout>
+  );
+}
+
+export function StudentSettingsScreen() {
+  return (
+    <StudentLayout activeTab="settings">
+      <SettingsContent />
+    </StudentLayout>
+  );
+}
+
+export function StudentNotificationsScreen() {
+  return (
+    <StudentLayout activeTab="notifications">
+      <NotificationContent />
+    </StudentLayout>
+  );
+}
+
+export function StudentHistoryScreen() {
+  const navigate = useNavigate();
+  const { sessionHistory, fetchStudentSessions, isLoading } = useSessionStore();
+  const { firebaseUser } = useAuthStore();
+
+  useEffect(() => {
+    if (firebaseUser?.uid) fetchStudentSessions(firebaseUser.uid);
+  }, [firebaseUser?.uid, fetchStudentSessions]);
+
+  return (
+    <StudentLayout activeTab="history">
+      <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Previous Sessions</h2>
+          <p className="text-slate-500 dark:text-slate-400 mt-2">
+            Review your past learning activities and AI feedback.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+          </div>
+        ) : sessionHistory.length === 0 ? (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center">
+            <BookOpen className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
+            <p className="text-slate-500 dark:text-slate-400 font-medium">
+              No sessions found.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
+            {sessionHistory.map((session) => {
+              const statusColors: Record<string, string> = {
+                in_progress: "bg-blue-50 text-blue-700",
+                submitted: "bg-amber-50 text-amber-700",
+                reviewed: "bg-emerald-50 text-emerald-700",
+                returned: "bg-red-50 text-red-700",
+              };
+              const statusLabels: Record<string, string> = {
+                in_progress: "In Progress",
+                submitted: "Submitted",
+                reviewed: "Reviewed",
+                returned: "Returned",
+              };
+
+              return (
+                <div
+                  key={session.id}
+                  onClick={() => navigate(`/student/review/${session.id}`)}
+                  className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400">
+                      <History className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-slate-900 dark:text-white">
+                        {session.topic || session.originalQuestion?.slice(0, 40) || "Unknown Topic"}
+                      </h4>
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {session.subject} • {new Date(session.completedAt?.toMillis() || session.createdAt?.toMillis() || Date.now()).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span
+                      className={`hidden sm:inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                        statusColors[session.status] || "bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      {statusLabels[session.status] || session.status}
+                    </span>
+                    <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </StudentLayout>
+  );
+}
+
