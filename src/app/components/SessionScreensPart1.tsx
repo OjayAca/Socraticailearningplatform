@@ -1,15 +1,66 @@
-import { useNavigate } from "react-router";
-import { X, Send, User, Lightbulb, Map, ArrowRight, CornerDownRight, CheckCircle2, ChevronRight, HelpCircle } from "lucide-react";
-import { motion } from "motion/react";
+/**
+ * Session screens — Part 1: Trigger, Questioning, Productive, Hints, Logic Map.
+ *
+ * These components manage the interactive Socratic conversation between
+ * the student and the AI. All messages are stored in the Zustand session store
+ * and sent to the Gemini/Ollama AI engine for real responses.
+ *
+ * @module components/SessionScreensPart1
+ */
 
-// Shared Session Layout
-export function SessionLayout({ children, progress, showMap = false, currentStepText }: { children: React.ReactNode, progress: number, showMap?: boolean, currentStepText: string }) {
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
+import {
+  X,
+  Send,
+  Lightbulb,
+  Map,
+  CheckCircle2,
+  HelpCircle,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
+import { motion } from "motion/react";
+import { useSessionStore } from "@/stores/session-store";
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  startSession,
+  sendStudentResponse,
+  generateHint,
+  extractLogicMap,
+} from "@/lib/socratic-engine";
+import type { ChatMessage, LogicMapNode } from "@/types";
+
+// ─── Session Layout ─────────────────────────────────────────
+
+/**
+ * Shared layout for all session screens.
+ * Provides header with progress, main chat area, and optional logic map panel.
+ */
+export function SessionLayout({
+  children,
+  progress,
+  showMap = false,
+  currentStepText,
+  logicMapNodes = [],
+}: {
+  children: React.ReactNode;
+  progress: number;
+  showMap?: boolean;
+  currentStepText: string;
+  logicMapNodes?: LogicMapNode[];
+}) {
   const navigate = useNavigate();
+  const { activeSession } = useSessionStore();
+
   return (
     <div className="flex h-full w-full bg-slate-50 overflow-hidden font-sans text-slate-900">
-      
       {/* Main Workspace Area */}
-      <div className={`flex flex-col flex-1 ${showMap ? 'w-2/3 border-r border-slate-200' : 'w-full'} transition-all duration-300`}>
+      <div
+        className={`flex flex-col flex-1 ${
+          showMap ? "w-2/3 border-r border-slate-200" : "w-full"
+        } transition-all duration-300`}
+      >
         {/* Top Header */}
         <header className="flex-shrink-0 bg-white border-b border-slate-200 px-6 py-4 flex flex-col gap-4">
           <div className="flex items-center justify-between">
@@ -18,11 +69,15 @@ export function SessionLayout({ children, progress, showMap = false, currentStep
                 SA
               </div>
               <div>
-                <h1 className="font-bold text-slate-800">Socratic Session: Math</h1>
-                <p className="text-sm text-slate-500 font-medium">Topic: Quadratic Equations</p>
+                <h1 className="font-bold text-slate-800">
+                  Socratic Session: {activeSession?.subject || ""}
+                </h1>
+                <p className="text-sm text-slate-500 font-medium">
+                  {activeSession?.topic || ""}
+                </p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => navigate("/student/dashboard")}
               className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
               title="Exit Session"
@@ -30,14 +85,17 @@ export function SessionLayout({ children, progress, showMap = false, currentStep
               <X className="w-6 h-6" />
             </button>
           </div>
-          
+
           <div className="w-full space-y-2">
             <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
               <span>{currentStepText}</span>
               <span>{progress}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div className="bg-indigo-600 h-2 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+              <div
+                className="bg-indigo-600 h-2 rounded-full transition-all duration-500"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           </div>
         </header>
@@ -48,39 +106,58 @@ export function SessionLayout({ children, progress, showMap = false, currentStep
         </div>
       </div>
 
-      {/* Logic Map Panel (Screen 10+) */}
+      {/* Logic Map Panel */}
       {showMap && (
-        <div className="w-1/3 bg-white flex flex-col border-l border-slate-200">
+        <div className="w-1/3 bg-white flex flex-col border-l border-slate-200 hidden lg:flex">
           <div className="p-4 border-b border-slate-100 flex items-center gap-2 bg-slate-50">
             <Map className="w-5 h-5 text-indigo-600" />
             <h2 className="font-bold text-slate-800">Logic Map</h2>
           </div>
           <div className="flex-1 p-6 overflow-y-auto space-y-6">
-            <div className="relative pl-6 space-y-8 before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-              
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full border border-white bg-indigo-600 shadow shrink-0 z-10 text-white font-bold text-xs -ml-[11px] md:mx-auto">1</div>
-                <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] bg-white p-4 rounded-xl border border-indigo-100 shadow-sm shadow-indigo-50">
-                  <h3 className="font-bold text-slate-800 text-sm">Identify Goal</h3>
-                  <p className="text-xs text-slate-500 mt-1">Find roots of x² - 5x + 6 = 0</p>
+            <div className="relative pl-6 space-y-8 before:absolute before:inset-0 before:ml-[11px] before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+              {logicMapNodes.map((node) => (
+                <div
+                  key={node.step}
+                  className="relative flex items-center justify-between group"
+                >
+                  <div
+                    className={`flex items-center justify-center w-6 h-6 rounded-full border border-white shadow shrink-0 z-10 font-bold text-xs -ml-[11px] ${
+                      node.completed
+                        ? "bg-indigo-600 text-white"
+                        : "bg-slate-200 text-slate-500"
+                    }`}
+                  >
+                    {node.step}
+                  </div>
+                  <div
+                    className={`w-[calc(100%-2rem)] p-4 rounded-xl border shadow-sm ${
+                      node.completed
+                        ? "bg-white border-indigo-100 shadow-indigo-50"
+                        : "bg-slate-50 border-slate-200 border-dashed"
+                    }`}
+                  >
+                    <h3
+                      className={`text-sm ${
+                        node.completed
+                          ? "font-bold text-slate-800"
+                          : "font-semibold text-slate-500"
+                      }`}
+                    >
+                      {node.title}
+                    </h3>
+                    {node.description && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        {node.description}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full border border-white bg-indigo-600 shadow shrink-0 z-10 text-white font-bold text-xs -ml-[11px] md:mx-auto">2</div>
-                <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] bg-white p-4 rounded-xl border border-indigo-100 shadow-sm shadow-indigo-50">
-                  <h3 className="font-bold text-slate-800 text-sm">Choose Method</h3>
-                  <p className="text-xs text-slate-500 mt-1">Factoring vs Quadratic Formula</p>
-                </div>
-              </div>
-              
-              <div className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
-                <div className="flex items-center justify-center w-6 h-6 rounded-full border border-white bg-slate-200 shadow shrink-0 z-10 text-slate-500 font-bold text-xs -ml-[11px] md:mx-auto">3</div>
-                <div className="w-[calc(100%-2rem)] md:w-[calc(50%-1.5rem)] bg-slate-50 p-4 rounded-xl border border-slate-200 border-dashed shadow-sm">
-                  <h3 className="font-semibold text-slate-500 text-sm">Execute Steps</h3>
-                </div>
-              </div>
-
+              ))}
+              {logicMapNodes.length === 0 && (
+                <p className="text-sm text-slate-400 italic text-center py-8">
+                  Logic map will appear as you work through the problem...
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -89,48 +166,127 @@ export function SessionLayout({ children, progress, showMap = false, currentStep
   );
 }
 
-// Chat Bubbles Components
-function StudentBubble({ text }: { text: string }) {
+// ─── Chat Bubble Components ─────────────────────────────────
+
+/** Renders a student message bubble (right-aligned, indigo). */
+export function StudentBubble({ text }: { text: string }) {
+  const { userProfile } = useAuthStore();
+  const initials = (userProfile?.displayName || "S")
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex justify-end gap-3 w-full max-w-2xl ml-auto">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex justify-end gap-3 w-full max-w-2xl ml-auto"
+    >
       <div className="bg-indigo-600 text-white p-4 rounded-2xl rounded-tr-sm shadow-sm shadow-indigo-100/50 flex-1">
         <p className="text-sm font-medium leading-relaxed">{text}</p>
       </div>
       <div className="w-8 h-8 rounded-full bg-indigo-100 flex-shrink-0 flex items-center justify-center text-indigo-700 font-bold text-xs shadow-sm">
-        AS
+        {initials}
       </div>
     </motion.div>
   );
 }
 
-function AIBubble({ text, children }: { text?: string, children?: React.ReactNode }) {
+/** Renders an AI message bubble (left-aligned, white). */
+export function AIBubble({
+  text,
+  children,
+}: {
+  text?: string;
+  children?: React.ReactNode;
+}) {
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3 w-full max-w-2xl mr-auto">
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex gap-3 w-full max-w-2xl mr-auto"
+    >
       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm shadow-slate-100">
         SA
       </div>
       <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-slate-200 shadow-sm shadow-slate-100 flex-1 space-y-4">
-        {text && <p className="text-sm text-slate-700 font-medium leading-relaxed">{text}</p>}
+        {text && (
+          <p className="text-sm text-slate-700 font-medium leading-relaxed">
+            {text}
+          </p>
+        )}
         {children}
       </div>
     </motion.div>
   );
 }
 
-// Common Chat Input
-function ChatInput({ onAction, buttonText = "Submit Response" }: { onAction: () => void, buttonText?: string }) {
+/** AI thinking indicator (animated dots). */
+function AIThinking() {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="flex gap-3 w-full max-w-2xl mr-auto"
+    >
+      <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm shadow-slate-100">
+        SA
+      </div>
+      <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-slate-200 shadow-sm flex items-center gap-1.5">
+        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
+        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:150ms]" />
+        <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:300ms]" />
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Chat Input ─────────────────────────────────────────────
+
+/** Chat input textarea with send button. */
+function ChatInput({
+  onSend,
+  disabled = false,
+  placeholder = "Type your response here...",
+}: {
+  onSend: (message: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [input, setInput] = useState("");
+
+  function handleSend() {
+    if (!input.trim() || disabled) return;
+    onSend(input.trim());
+    setInput("");
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
+
   return (
     <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-end gap-2 max-w-2xl w-full mx-auto mt-auto">
-      <textarea 
-        rows={2} 
-        className="w-full resize-none outline-none p-3 text-sm text-slate-800" 
-        placeholder="Type your response here..."
-      ></textarea>
+      <textarea
+        rows={2}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={disabled}
+        className="w-full resize-none outline-none p-3 text-sm text-slate-800 disabled:opacity-50"
+        placeholder={placeholder}
+      />
       <div className="flex flex-col gap-2 p-1">
-        <button 
-          onClick={onAction}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors shadow-md shadow-indigo-200"
-          title={buttonText}
+        <button
+          onClick={handleSend}
+          disabled={disabled || !input.trim()}
+          className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Send"
         >
           <Send className="w-4 h-4" />
         </button>
@@ -139,161 +295,475 @@ function ChatInput({ onAction, buttonText = "Submit Response" }: { onAction: () 
   );
 }
 
-// Screen 6
+// ─── Session Trigger (Screen 7) ─────────────────────────────
+
+/**
+ * The opening of a session — the AI receives the student's question
+ * and returns the first Socratic probe.
+ */
 export function SessionTrigger() {
   const navigate = useNavigate();
+  const { activeSession, addMessage, setStep, setAIThinking, isAIThinking } =
+    useSessionStore();
+  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const hasStarted = useRef(false);
+
+  // Auto-start the session on mount
+  useEffect(() => {
+    if (hasStarted.current || !activeSession) return;
+    hasStarted.current = true;
+
+    async function initSession() {
+      if (!activeSession) return;
+      setAIThinking(true);
+      try {
+        const response = await startSession(
+          activeSession.subject,
+          activeSession.originalQuestion
+        );
+        setAiResponse(response);
+
+        // Add the student's original question as first message
+        addMessage({
+          id: `msg-${Date.now()}-student`,
+          role: "student",
+          content: activeSession.originalQuestion,
+          timestamp: Date.now(),
+        });
+        // Add AI's response
+        addMessage({
+          id: `msg-${Date.now()}-ai`,
+          role: "ai",
+          content: response,
+          timestamp: Date.now(),
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to start AI session"
+        );
+      } finally {
+        setAIThinking(false);
+      }
+    }
+
+    initSession();
+  }, [activeSession, addMessage, setAIThinking]);
+
+  if (!activeSession) {
+    navigate("/student/task");
+    return null;
+  }
+
   return (
     <SessionLayout progress={10} currentStepText="Step 1: Initial Filter">
-      <StudentBubble text="What is the answer to x² - 5x + 6 = 0?" />
-      
-      <AIBubble>
-        <div className="space-y-4">
-          <p className="text-sm text-slate-700 font-medium leading-relaxed">
-            I won't give you the final answer right away. Remember our goal: <span className="text-indigo-600 font-bold">Think First, Don't Copy First.</span>
-          </p>
-          <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-2">
-            <h4 className="font-bold text-indigo-900 text-sm flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-indigo-600" /> Let's figure this out together.
-            </h4>
-            <p className="text-sm text-indigo-800">To start, what kind of equation are we looking at?</p>
-          </div>
-          
-          <div className="flex items-center gap-3 pt-2">
-            <button 
-              onClick={() => navigate("/session/questioning")}
-              className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
-            >
-              Proceed to Questioning
-            </button>
-            <button 
-              onClick={() => navigate("/student/dashboard")}
-              className="text-slate-500 hover:text-slate-700 px-4 py-2 font-semibold text-sm"
-            >
-              Exit Session
-            </button>
-          </div>
+      <StudentBubble text={activeSession.originalQuestion} />
+
+      {isAIThinking && <AIThinking />}
+
+      {error && (
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm max-w-2xl mr-auto ml-11">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{error}</span>
         </div>
-      </AIBubble>
+      )}
+
+      {aiResponse && (
+        <AIBubble>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 font-medium leading-relaxed">
+              {aiResponse}
+            </p>
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setStep("questioning");
+                  navigate("/session/questioning");
+                }}
+                className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
+              >
+                Continue to Questioning
+              </button>
+              <button
+                onClick={() => navigate("/student/dashboard")}
+                className="text-slate-500 hover:text-slate-700 px-4 py-2 font-semibold text-sm"
+              >
+                Exit Session
+              </button>
+            </div>
+          </div>
+        </AIBubble>
+      )}
     </SessionLayout>
   );
 }
 
-// Screen 7
+// ─── Session Questioning (Screen 8) ─────────────────────────
+
+/** The main interactive chat — real AI-powered Socratic questioning. */
 export function SessionQuestioning() {
   const navigate = useNavigate();
+  const {
+    activeSession,
+    addMessage,
+    setStep,
+    setAIThinking,
+    isAIThinking,
+  } = useSessionStore();
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [exchangeCount, setExchangeCount] = useState(0);
+
+  const scrollToBottom = useCallback(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [activeSession?.messages.length, isAIThinking, scrollToBottom]);
+
+  if (!activeSession) {
+    navigate("/student/task");
+    return null;
+  }
+
+  /** Sends student message to AI and stores the response. */
+  async function handleSendMessage(message: string) {
+    const studentMsg: ChatMessage = {
+      id: `msg-${Date.now()}-student`,
+      role: "student",
+      content: message,
+      timestamp: Date.now(),
+    };
+    addMessage(studentMsg);
+    setAIThinking(true);
+
+    try {
+      const { message: aiText } = await sendStudentResponse(
+        activeSession!.messages,
+        message
+      );
+
+      const aiMsg: ChatMessage = {
+        id: `msg-${Date.now()}-ai`,
+        role: "ai",
+        content: aiText,
+        timestamp: Date.now(),
+      };
+      addMessage(aiMsg);
+      setExchangeCount((c) => c + 1);
+    } catch {
+      addMessage({
+        id: `msg-${Date.now()}-error`,
+        role: "ai",
+        content:
+          "I'm having trouble connecting right now. Please try sending your message again.",
+        timestamp: Date.now(),
+      });
+    } finally {
+      setAIThinking(false);
+    }
+  }
+
+  /** Determines progress based on exchange count. */
+  const progress = Math.min(20 + exchangeCount * 10, 60);
+
   return (
-    <SessionLayout progress={20} currentStepText="Step 1 of 5: Questioning">
-      <StudentBubble text="What is the answer to x² - 5x + 6 = 0?" />
-      <AIBubble text="I won't give you the final answer right away. Let's figure this out together. To start, what kind of equation are we looking at?" />
-      
+    <SessionLayout
+      progress={progress}
+      currentStepText={`Step ${Math.min(Math.floor(exchangeCount / 2) + 1, 5)} of 5: Questioning`}
+    >
+      {/* Render all messages */}
+      {activeSession.messages.map((msg) =>
+        msg.role === "student" ? (
+          <StudentBubble key={msg.id} text={msg.content} />
+        ) : (
+          <AIBubble key={msg.id} text={msg.content} />
+        )
+      )}
+
+      {isAIThinking && <AIThinking />}
+
+      <div ref={chatEndRef} />
+
       <div className="mt-auto">
-        <div className="max-w-2xl mx-auto flex justify-start mb-2">
-          <button 
-            onClick={() => navigate("/session/hints")}
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+        <div className="max-w-2xl mx-auto flex justify-between mb-2">
+          <button
+            onClick={() => {
+              setStep("hints");
+              navigate("/session/hints");
+            }}
+            disabled={isAIThinking}
+            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
           >
             <HelpCircle className="w-3.5 h-3.5" /> I need a hint
           </button>
+
+          {exchangeCount >= 2 && (
+            <button
+              onClick={() => {
+                setStep("logic_map");
+                navigate("/session/logic-map");
+              }}
+              disabled={isAIThinking}
+              className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" /> Ready to continue →
+            </button>
+          )}
         </div>
-        <ChatInput onAction={() => navigate("/session/productive")} />
+        <ChatInput onSend={handleSendMessage} disabled={isAIThinking} />
       </div>
     </SessionLayout>
   );
 }
 
-// Screen 8
+// ─── Productive Response (Screen 9) ─────────────────────────
+
+/** Alias that redirects to the questioning flow with context. */
 export function SessionProductive() {
   const navigate = useNavigate();
-  return (
-    <SessionLayout progress={40} currentStepText="Step 2 of 5: Applying Concepts">
-      <StudentBubble text="What is the answer to x² - 5x + 6 = 0?" />
-      <AIBubble text="I won't give you the final answer right away. Let's figure this out together. To start, what kind of equation are we looking at?" />
-      <StudentBubble text="It has an x squared, so I think it's a quadratic equation." />
-      
-      <AIBubble>
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg w-max font-semibold text-xs border border-emerald-100">
-            <CheckCircle2 className="w-4 h-4" /> Good start!
-          </div>
-          <p className="text-sm text-slate-700 font-medium leading-relaxed">
-            Spot on. Now, what formula or concept might apply to solve a quadratic equation?
-          </p>
-        </div>
-      </AIBubble>
-
-      <div className="mt-auto">
-        <div className="max-w-2xl mx-auto flex justify-start mb-2">
-          <button 
-            onClick={() => navigate("/session/hints")}
-            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
-          >
-            <HelpCircle className="w-3.5 h-3.5" /> I need a hint
-          </button>
-        </div>
-        <ChatInput onAction={() => navigate("/session/logic-map")} />
-      </div>
-    </SessionLayout>
-  );
+  useEffect(() => {
+    navigate("/session/questioning", { replace: true });
+  }, [navigate]);
+  return null;
 }
 
-// Screen 9
+// ─── Session Hints (Screen 10) ──────────────────────────────
+
+/** Progressive hint screen — generates hints via AI. */
 export function SessionHints() {
   const navigate = useNavigate();
+  const { activeSession, setAIThinking, isAIThinking } = useSessionStore();
+  const [hints, setHints] = useState<string[]>([]);
+  const [currentLevel, setCurrentLevel] = useState(0);
+
+  if (!activeSession) {
+    navigate("/student/task");
+    return null;
+  }
+
+  /** Generates the next hint level. */
+  async function handleGetHint() {
+    const nextLevel = currentLevel + 1;
+    if (nextLevel > 3) return;
+
+    setAIThinking(true);
+    try {
+      const hint = await generateHint(
+        nextLevel,
+        activeSession!.originalQuestion,
+        activeSession!.messages
+      );
+      setHints((prev) => [...prev, hint]);
+      setCurrentLevel(nextLevel);
+    } catch {
+      setHints((prev) => [
+        ...prev,
+        "Could not generate a hint right now. Try rethinking the problem from scratch.",
+      ]);
+    } finally {
+      setAIThinking(false);
+    }
+  }
+
+  // Auto-generate first hint on mount
+  useEffect(() => {
+    if (hints.length === 0) {
+      handleGetHint();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <SessionLayout progress={20} currentStepText="Step 1 of 5: Questioning (Hint Provided)">
-      <StudentBubble text="What is the answer to x² - 5x + 6 = 0?" />
-      <AIBubble text="I won't give you the final answer right away. Let's figure this out together. To start, what kind of equation are we looking at?" />
-      
+    <SessionLayout
+      progress={20}
+      currentStepText="Step 1 of 5: Questioning (Hint Provided)"
+    >
+      {/* Show recent messages for context */}
+      {activeSession.messages.slice(-2).map((msg) =>
+        msg.role === "student" ? (
+          <StudentBubble key={msg.id} text={msg.content} />
+        ) : (
+          <AIBubble key={msg.id} text={msg.content} />
+        )
+      )}
+
+      {/* Hint Panel */}
       <div className="max-w-2xl mr-auto w-full">
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm relative ml-11 space-y-4">
-          <div className="absolute -left-3 top-4 w-3 h-3 bg-amber-50 border-t border-l border-amber-200 rotate-45 transform"></div>
-          
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 shadow-sm ml-11 space-y-4">
           <div className="flex items-center gap-2 text-amber-800 font-bold text-sm mb-2">
             <Lightbulb className="w-4 h-4" /> Progressive Hints
           </div>
 
           <div className="space-y-3">
-            <div className="flex gap-3 items-start">
-              <span className="w-5 h-5 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">1</span>
-              <p className="text-sm text-amber-900 font-medium">Identify the highest power of 'x' in the given data.</p>
-            </div>
-            <div className="flex gap-3 items-start">
-              <span className="w-5 h-5 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">2</span>
-              <p className="text-sm text-amber-900 font-medium">Recall the related concept: equations with x² are called...?</p>
-            </div>
+            {hints.map((hint, idx) => (
+              <div key={idx} className="flex gap-3 items-start">
+                <span className="w-5 h-5 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                  {idx + 1}
+                </span>
+                <p className="text-sm text-amber-900 font-medium">{hint}</p>
+              </div>
+            ))}
+            {isAIThinking && (
+              <div className="flex gap-3 items-center">
+                <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                <span className="text-sm text-amber-700">
+                  Generating hint...
+                </span>
+              </div>
+            )}
           </div>
 
-          <button 
-            onClick={() => navigate("/session/productive")}
-            className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-4 py-2 rounded-lg text-sm transition-colors mt-2"
-          >
-            Got it, Try Again
-          </button>
+          <div className="flex gap-3 pt-2">
+            {currentLevel < 3 && (
+              <button
+                onClick={handleGetHint}
+                disabled={isAIThinking}
+                className="bg-amber-100 hover:bg-amber-200 text-amber-800 font-bold px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50"
+              >
+                Need More Help ({currentLevel}/3)
+              </button>
+            )}
+            <button
+              onClick={() => navigate("/session/questioning")}
+              className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors"
+            >
+              Got it, Try Again
+            </button>
+          </div>
         </div>
       </div>
     </SessionLayout>
   );
 }
 
-// Screen 10
+// ─── Logic Map (Screen 11) ──────────────────────────────────
+
+/** Logic map screen — AI extracts reasoning steps from conversation. */
 export function SessionLogicMap() {
   const navigate = useNavigate();
-  return (
-    <SessionLayout progress={60} showMap={true} currentStepText="Step 3 of 5: Execution">
-      <StudentBubble text="What is the answer to x² - 5x + 6 = 0?" />
-      <AIBubble text="To start, what kind of equation are we looking at?" />
-      <StudentBubble text="It has an x squared, so I think it's a quadratic equation." />
-      <AIBubble text="Good start! Now, what formula or concept might apply?" />
-      <StudentBubble text="We can factor it or use the quadratic formula." />
-      
-      <AIBubble>
-        <p className="text-sm text-slate-700 font-medium leading-relaxed">
-          Excellent reasoning. Factoring looks easiest here. What two numbers multiply to 6 and add to -5?
-        </p>
-      </AIBubble>
+  const {
+    activeSession,
+    addMessage,
+    setStep,
+    setAIThinking,
+    isAIThinking,
+    updateLogicMap,
+  } = useSessionStore();
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const [mapNodes, setMapNodes] = useState<LogicMapNode[]>(
+    activeSession?.logicMap || []
+  );
+  const hasExtracted = useRef(false);
 
-      <div className="mt-auto">
-        <ChatInput onAction={() => navigate("/session/draft")} />
+  // Auto-extract logic map on mount
+  useEffect(() => {
+    if (hasExtracted.current || !activeSession) return;
+    hasExtracted.current = true;
+
+    async function doExtract() {
+      if (!activeSession) return;
+      try {
+        const nodes = await extractLogicMap(
+          activeSession.originalQuestion,
+          activeSession.messages
+        );
+        setMapNodes(nodes);
+        updateLogicMap(nodes);
+      } catch {
+        console.error("Failed to extract logic map");
+      }
+    }
+
+    doExtract();
+  }, [activeSession, updateLogicMap]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [activeSession?.messages.length, isAIThinking]);
+
+  if (!activeSession) {
+    navigate("/student/task");
+    return null;
+  }
+
+  /** Sends student message in logic map view. */
+  async function handleSendMessage(message: string) {
+    const studentMsg: ChatMessage = {
+      id: `msg-${Date.now()}-student`,
+      role: "student",
+      content: message,
+      timestamp: Date.now(),
+    };
+    addMessage(studentMsg);
+    setAIThinking(true);
+
+    try {
+      const { message: aiText } = await sendStudentResponse(
+        activeSession!.messages,
+        message
+      );
+      addMessage({
+        id: `msg-${Date.now()}-ai`,
+        role: "ai",
+        content: aiText,
+        timestamp: Date.now(),
+      });
+
+      // Re-extract logic map after each exchange
+      const nodes = await extractLogicMap(
+        activeSession!.originalQuestion,
+        [...activeSession!.messages, studentMsg]
+      );
+      setMapNodes(nodes);
+      updateLogicMap(nodes);
+    } catch {
+      addMessage({
+        id: `msg-${Date.now()}-error`,
+        role: "ai",
+        content: "Connection issue. Please try again.",
+        timestamp: Date.now(),
+      });
+    } finally {
+      setAIThinking(false);
+    }
+  }
+
+  return (
+    <SessionLayout
+      progress={60}
+      showMap={true}
+      currentStepText="Step 3 of 5: Execution"
+      logicMapNodes={mapNodes}
+    >
+      {/* Render all messages */}
+      {activeSession.messages.map((msg) =>
+        msg.role === "student" ? (
+          <StudentBubble key={msg.id} text={msg.content} />
+        ) : (
+          <AIBubble key={msg.id} text={msg.content} />
+        )
+      )}
+
+      {isAIThinking && <AIThinking />}
+
+      <div ref={chatEndRef} />
+
+      <div className="mt-auto space-y-2">
+        <div className="max-w-2xl mx-auto flex justify-end">
+          <button
+            onClick={() => {
+              setStep("draft");
+              navigate("/session/draft");
+            }}
+            disabled={isAIThinking}
+            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-4 py-2 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" /> I'm ready to write my
+            answer →
+          </button>
+        </div>
+        <ChatInput onSend={handleSendMessage} disabled={isAIThinking} />
       </div>
     </SessionLayout>
   );

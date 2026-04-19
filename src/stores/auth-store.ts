@@ -1,0 +1,232 @@
+/**
+ * Authentication state management via Zustand.
+ *
+ * Manages the current user profile, authentication loading state,
+ * and provides actions for sign-in, sign-up, sign-out, and role selection.
+ *
+ * @module stores/auth-store
+ */
+
+import { create } from "zustand";
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  onAuthStateChanged,
+  updateProfile,
+  GoogleAuthProvider,
+  signInWithPopup,
+  type User,
+} from "firebase/auth";
+import {
+  doc,
+  getDoc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import type { UserProfile, UserRole } from "@/types";
+
+// ─── Store Shape ─────────────────────────────────────────────
+
+interface AuthState {
+  /** The Firebase Auth user object (null when signed out). */
+  firebaseUser: User | null;
+  /** The Firestore user profile (null until loaded). */
+  userProfile: UserProfile | null;
+  /** True while the initial auth state is being resolved. */
+  isLoading: boolean;
+  /** Error message from the most recent auth operation. */
+  error: string | null;
+
+  // ── Actions ──────────────────────────────────────────────
+  /** Initializes the auth listener. Call once in App.tsx. */
+  initialize: () => () => void;
+  /** Signs in with email and password. */
+  signIn: (email: string, password: string) => Promise<void>;
+  /** Creates a new account with email and password. */
+  signUp: (name: string, email: string, password: string) => Promise<void>;
+  /** Signs in with Google OAuth popup. */
+  signInWithGoogle: () => Promise<void>;
+  /** Signs out the current user. */
+  signOut: () => Promise<void>;
+  /** Sets the user's role and writes it to Firestore. */
+  setRole: (role: UserRole) => Promise<void>;
+  /** Clears the current error message. */
+  clearError: () => void;
+}
+
+// ─── Store Implementation ────────────────────────────────────
+
+export const useAuthStore = create<AuthState>((set, get) => ({
+  firebaseUser: null,
+  userProfile: null,
+  isLoading: true,
+  error: null,
+
+  initialize: () => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        try {
+          const profile = await fetchOrCreateProfile(user);
+          set({ firebaseUser: user, userProfile: profile, isLoading: false });
+        } catch (err) {
+          console.error("Error fetching/creating profile:", err);
+          set({
+            firebaseUser: user,
+            userProfile: null,
+            isLoading: false,
+            error: "Failed to connect to database. Please check Firestore Database rules.",
+          });
+        }
+      } else {
+        set({ firebaseUser: null, userProfile: null, isLoading: false });
+      }
+    });
+    return unsubscribe;
+  },
+
+  signIn: async (email: string, password: string) => {
+    set({ error: null, isLoading: true });
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err), isLoading: false });
+      throw err;
+    }
+  },
+
+  signUp: async (name: string, email: string, password: string) => {
+    set({ error: null, isLoading: true });
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(credential.user, { displayName: name });
+      await createUserProfile(credential.user, name);
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err), isLoading: false });
+      throw err;
+    }
+  },
+
+  signInWithGoogle: async () => {
+    set({ error: null, isLoading: true });
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err), isLoading: false });
+      throw err;
+    }
+  },
+
+  signOut: async () => {
+    set({ error: null });
+    try {
+      await firebaseSignOut(auth);
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err) });
+      throw err;
+    }
+  },
+
+  setRole: async (role: UserRole) => {
+    const { firebaseUser } = get();
+    if (!firebaseUser) {
+      set({ error: "No user signed in." });
+      return;
+    }
+    try {
+      const userRef = doc(db, "users", firebaseUser.uid);
+      await setDoc(userRef, { role }, { merge: true });
+      set((state) => ({
+        userProfile: state.userProfile
+          ? { ...state.userProfile, role }
+          : null,
+      }));
+    } catch (err) {
+      set({ error: getFirebaseErrorMessage(err) });
+      throw err;
+    }
+  },
+
+  clearError: () => set({ error: null }),
+}));
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+/**
+ * Fetches the Firestore user profile, creating one if it doesn't exist.
+ *
+ * @param user - The Firebase Auth user.
+ * @returns The user's Firestore profile.
+ */
+async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
+  const userRef = doc(db, "users", user.uid);
+  const snapshot = await getDoc(userRef);
+
+  if (snapshot.exists()) {
+    return { uid: user.uid, ...snapshot.data() } as UserProfile;
+  }
+
+  return createUserProfile(user, user.displayName || "User");
+}
+
+/**
+ * Creates a new Firestore user profile document.
+ *
+ * @param user - The Firebase Auth user.
+ * @param displayName - The user's display name.
+ * @returns The newly created profile.
+ */
+async function createUserProfile(
+  user: User,
+  displayName: string
+): Promise<UserProfile> {
+  const profile: Omit<UserProfile, "uid"> = {
+    displayName,
+    email: user.email || "",
+    role: null,
+    createdAt: serverTimestamp() as any,
+    stats: {
+      sessionsCompleted: 0,
+      averageCTScore: 0,
+      currentStreak: 0,
+      lastSessionDate: null,
+    },
+  };
+
+  const userRef = doc(db, "users", user.uid);
+  await setDoc(userRef, profile);
+  return { uid: user.uid, ...profile };
+}
+
+/**
+ * Maps Firebase error codes to user-friendly messages.
+ *
+ * @param error - The caught error from a Firebase operation.
+ * @returns A human-readable error string.
+ */
+function getFirebaseErrorMessage(error: unknown): string {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code: string }).code;
+    switch (code) {
+      case "auth/email-already-in-use":
+        return "This email is already registered. Try logging in instead.";
+      case "auth/invalid-email":
+        return "Please enter a valid email address.";
+      case "auth/weak-password":
+        return "Password must be at least 6 characters.";
+      case "auth/user-not-found":
+      case "auth/wrong-password":
+      case "auth/invalid-credential":
+        return "Invalid email or password. Please try again.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Please wait a moment and try again.";
+      case "auth/popup-closed-by-user":
+        return "Sign-in popup was closed. Please try again.";
+      default:
+        return `Authentication error: ${code}`;
+    }
+  }
+  return "An unexpected error occurred. Please try again.";
+}
