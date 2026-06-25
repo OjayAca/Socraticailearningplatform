@@ -24,7 +24,7 @@ import {
   setDoc,
   serverTimestamp,
 } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, firebaseSetupMessage, isFirebaseConfigured } from "@/lib/firebase";
 import type { UserProfile, UserRole } from "@/types";
 
 // ─── Store Shape ─────────────────────────────────────────────
@@ -67,6 +67,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   initialize: () => {
+    if (!auth || !isFirebaseConfigured) {
+      set({
+        firebaseUser: null,
+        userProfile: null,
+        isLoading: false,
+        error: firebaseSetupMessage,
+      });
+      return () => {};
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
@@ -91,7 +101,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signIn: async (email: string, password: string) => {
     set({ error: null, isLoading: true });
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(requireAuth(), email, password);
     } catch (err) {
       set({ error: getFirebaseErrorMessage(err), isLoading: false });
       throw err;
@@ -101,7 +111,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUp: async (name: string, email: string, password: string) => {
     set({ error: null, isLoading: true });
     try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
+      const credential = await createUserWithEmailAndPassword(requireAuth(), email, password);
       await updateProfile(credential.user, { displayName: name });
       await createUserProfile(credential.user, name);
     } catch (err) {
@@ -114,7 +124,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null, isLoading: true });
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(requireAuth(), provider);
     } catch (err) {
       set({ error: getFirebaseErrorMessage(err), isLoading: false });
       throw err;
@@ -124,7 +134,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signOut: async () => {
     set({ error: null });
     try {
-      await firebaseSignOut(auth);
+      await firebaseSignOut(requireAuth());
     } catch (err) {
       set({ error: getFirebaseErrorMessage(err) });
       throw err;
@@ -138,7 +148,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     try {
-      const userRef = doc(db, "users", firebaseUser.uid);
+      const userRef = doc(requireDb(), "users", firebaseUser.uid);
       await setDoc(userRef, { role }, { merge: true });
       set((state) => ({
         userProfile: state.userProfile
@@ -164,7 +174,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await updateProfile(firebaseUser, { displayName });
       
       // 2. Update Firestore Document
-      const userRef = doc(db, "users", firebaseUser.uid);
+      const userRef = doc(requireDb(), "users", firebaseUser.uid);
       await setDoc(userRef, { displayName }, { merge: true });
       
       // 3. Update Local Store State
@@ -193,7 +203,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
  * @returns The user's Firestore profile.
  */
 async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
-  const userRef = doc(db, "users", user.uid);
+  const userRef = doc(requireDb(), "users", user.uid);
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
@@ -227,9 +237,23 @@ async function createUserProfile(
     },
   };
 
-  const userRef = doc(db, "users", user.uid);
+  const userRef = doc(requireDb(), "users", user.uid);
   await setDoc(userRef, profile);
   return { uid: user.uid, ...profile };
+}
+
+function requireAuth() {
+  if (!auth) {
+    throw new Error(firebaseSetupMessage);
+  }
+  return auth;
+}
+
+function requireDb() {
+  if (!db) {
+    throw new Error(firebaseSetupMessage);
+  }
+  return db;
 }
 
 /**
@@ -239,6 +263,10 @@ async function createUserProfile(
  * @returns A human-readable error string.
  */
 function getFirebaseErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message === firebaseSetupMessage) {
+    return firebaseSetupMessage;
+  }
+
   if (typeof error === "object" && error !== null && "code" in error) {
     const code = (error as { code: string }).code;
     switch (code) {

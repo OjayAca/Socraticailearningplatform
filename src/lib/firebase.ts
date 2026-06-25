@@ -7,9 +7,9 @@
  * @module lib/firebase
  */
 
-import { initializeApp } from "firebase/app";
-import { getAuth, connectAuthEmulator } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import { initializeApp, type FirebaseApp } from "firebase/app";
+import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
+import { getFirestore, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,14 +21,35 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
 };
 
+const requiredConfigKeys = [
+  "apiKey",
+  "authDomain",
+  "projectId",
+  "appId",
+] as const;
+
+const isPlaceholderValue = (value: unknown): boolean =>
+  typeof value !== "string" ||
+  value.trim() === "" ||
+  value.startsWith("your_");
+
+export const isFirebaseConfigured = requiredConfigKeys.every(
+  (key) => !isPlaceholderValue(firebaseConfig[key])
+);
+
+export const firebaseSetupMessage =
+  "Firebase is not configured yet. Add your VITE_FIREBASE_* values to a .env file to enable sign-in and database features.";
+
 /** The initialized Firebase app instance. */
-export const firebaseApp = initializeApp(firebaseConfig);
+export const firebaseApp: FirebaseApp | null = isFirebaseConfigured
+  ? initializeApp(firebaseConfig)
+  : null;
 
 /** Firebase Authentication service instance. */
-export const auth = getAuth(firebaseApp);
+export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
 
 /** Cloud Firestore database instance. */
-export const db = getFirestore(firebaseApp);
+export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
 
 /**
  * Connect to local Firebase Emulators for development.
@@ -36,7 +57,7 @@ export const db = getFirestore(firebaseApp);
  * Uncomment the lines below and call this function if you want to use emulators.
  */
 export function connectToEmulators(): void {
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && auth && db) {
     connectAuthEmulator(auth, "http://localhost:9099");
     connectFirestoreEmulator(db, "localhost", 8080);
     console.info("[Firebase] Connected to local emulators");

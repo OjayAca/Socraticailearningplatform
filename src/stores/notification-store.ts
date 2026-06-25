@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { AppNotification } from "@/types";
-import { db } from "@/lib/firebase";
+import { db, firebaseSetupMessage } from "@/lib/firebase";
 import {
   collection,
   query,
@@ -35,6 +35,12 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   unsubscribeSnapshot: null,
 
   listenToNotifications: (userId: string) => {
+    const database = db;
+    if (!database) {
+      set({ isLoading: false });
+      return;
+    }
+
     // Unsubscribe if one is already running
     const prevUnsub = get().unsubscribeSnapshot;
     if (prevUnsub) prevUnsub();
@@ -42,7 +48,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isLoading: true });
 
     const q = query(
-      collection(db, "notifications"),
+      collection(database, "notifications"),
       where("userId", "==", userId),
       orderBy("createdAt", "desc")
     );
@@ -69,7 +75,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   },
 
   markAsRead: async (notificationId: string) => {
-    const notificationRef = doc(db, "notifications", notificationId);
+    const notificationRef = doc(requireDb(), "notifications", notificationId);
     await updateDoc(notificationRef, { read: true });
   },
 
@@ -80,13 +86,13 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     // Process them in parallel
     await Promise.all(
       unreadNotifications.map((n) =>
-        updateDoc(doc(db, "notifications", n.id), { read: true })
+        updateDoc(doc(requireDb(), "notifications", n.id), { read: true })
       )
     );
   },
 
   generateMockNotification: async (userId: string, isTeacher: boolean) => {
-    await addDoc(collection(db, "notifications"), {
+    await addDoc(collection(requireDb(), "notifications"), {
       userId,
       title: isTeacher ? "New Student Submission" : "Socratic Review Ready",
       message: isTeacher
@@ -98,3 +104,10 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
   },
 }));
+
+function requireDb() {
+  if (!db) {
+    throw new Error(firebaseSetupMessage);
+  }
+  return db;
+}

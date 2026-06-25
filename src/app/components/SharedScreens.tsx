@@ -3,7 +3,7 @@ import { User, Settings, Mail, Shield, CheckCircle2, Loader2, ArrowRight, Sun, M
 import { motion } from "motion/react";
 import { useAuthStore } from "@/stores/auth-store";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, firebaseSetupMessage } from "@/lib/firebase";
 import { useTheme } from "next-themes";
 import { useNotificationStore } from "@/stores/notification-store";
 
@@ -157,7 +157,10 @@ export function SettingsContent() {
   const [isSending, setIsSending] = useState(false);
 
   async function handleResetPassword() {
-    if (!userProfile?.email) return;
+    if (!userProfile?.email || !auth) {
+      console.error(firebaseSetupMessage);
+      return;
+    }
     setIsSending(true);
     try {
       await sendPasswordResetEmail(auth, userProfile.email);

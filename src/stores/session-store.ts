@@ -21,7 +21,7 @@ import {
   limit,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, firebaseSetupMessage } from "@/lib/firebase";
 import type {
   Session,
   SessionStep,
@@ -147,7 +147,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         hintsUsed: 0,
       };
 
-      const docRef = await addDoc(collection(db, "sessions"), sessionData);
+      const docRef = await addDoc(collection(requireDb(), "sessions"), sessionData);
       const newSession: Session = {
         ...sessionData,
         id: docRef.id,
@@ -166,7 +166,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   loadSession: async (sessionId) => {
     set({ isLoading: true, error: null });
     try {
-      const docRef = doc(db, "sessions", sessionId);
+      const docRef = doc(requireDb(), "sessions", sessionId);
       const snapshot = await getDoc(docRef);
       if (!snapshot.exists()) {
         throw new Error("Session not found");
@@ -185,7 +185,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const q = query(
-        collection(db, "sessions"),
+        collection(requireDb(), "sessions"),
         where("studentId", "==", studentId),
         orderBy("createdAt", "desc"),
         limit(20)
@@ -205,7 +205,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const q = query(
-        collection(db, "sessions"),
+        collection(requireDb(), "sessions"),
         where("status", "in", ["submitted", "reviewed", "returned"]),
         orderBy("createdAt", "desc"),
         limit(50)
@@ -280,7 +280,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      const sessionRef = doc(db, "sessions", activeSession.id);
+      const sessionRef = doc(requireDb(), "sessions", activeSession.id);
       await updateDoc(sessionRef, {
         status: "submitted",
         currentStep: "confirmation",
@@ -309,7 +309,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (!activeSession) return;
 
     try {
-      const sessionRef = doc(db, "sessions", activeSession.id);
+      const sessionRef = doc(requireDb(), "sessions", activeSession.id);
       await updateDoc(sessionRef, {
         currentStep: activeSession.currentStep,
         messages: activeSession.messages,
@@ -327,7 +327,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   submitFeedback: async (sessionId, comment, action) => {
     set({ isLoading: true, error: null });
     try {
-      const sessionRef = doc(db, "sessions", sessionId);
+      const sessionRef = doc(requireDb(), "sessions", sessionId);
       const newStatus: SessionStatus = action === "approved" ? "reviewed" : "returned";
       await updateDoc(sessionRef, {
         status: newStatus,
@@ -353,3 +353,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   clearActiveSession: () => set({ activeSession: null }),
   clearError: () => set({ error: null }),
 }));
+
+function requireDb() {
+  if (!db) {
+    throw new Error(firebaseSetupMessage);
+  }
+  return db;
+}
