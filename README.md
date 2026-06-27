@@ -1,20 +1,22 @@
-# SocratAI Learning Platform
+# MINDGUIDE
 
-> **Think First, Don't Copy First** — An AI-powered Socratic learning assistant.
+> **Reason Before Reveal** - A Socratic AI-based learning platform.
 
-SocratAI guides students through problems using the Socratic method. Instead of providing direct answers, the AI asks probing questions that develop critical thinking skills. Teachers can then review the student's thinking process and provide feedback.
+MINDGUIDE helps students strengthen critical thinking in Quantitative Methods and Discrete Mathematics through guided Socratic questioning. Instead of providing direct answers, the AI asks probing questions that help students explain their reasoning, build a logic trail, and reflect on their solution process. Teachers can then review the student's thinking log and provide feedback.
+
+Full capstone title: **MINDGUIDE: A Socratic AI-Based Learning Platform for Enhancing Critical Thinking in Quantitative Methods and Discrete Mathematics.**
 
 ## Features
 
-- 🎯 **Socratic AI Questioning** — AI guides students step-by-step (never gives answers directly)
-- 🛡️ **Answer-Block Filter** — Detects pasted answers and redirects to genuine reasoning
-- 💡 **Progressive Hints** — 3-level hint system (subtle → moderate → strong)
-- 🗺️ **Logic Map** — Visual representation of the student's reasoning process
-- 📝 **Draft & Reflection** — Students write their answer, methodology, and reflections
-- 📊 **Critical Thinking Score** — AI-evaluated score based on reasoning quality
-- 👨‍🏫 **Teacher Dashboard** — Review submitted thinking logs, approve or return with feedback
-- 🔐 **Firebase Authentication** — Email/password + Google OAuth
-- ☁️ **Cloud Firestore** — Real-time data persistence
+- **Socratic AI Questioning** - AI guides students step-by-step without giving direct answers
+- **Answer-Block Filter** - Detects pasted answers and redirects to genuine reasoning
+- **Progressive Hints** - 3-level hint system from subtle to stronger guidance
+- **Logic Map** - Visual representation of the student's reasoning process
+- **Draft & Reflection** - Students write their answer, methodology, and reflections
+- **Critical Thinking Score** - AI-evaluated score based on reasoning quality
+- **Teacher Workspace** - Review submitted thinking logs, approve, or return with feedback
+- **Firebase Authentication** - Email/password + Google OAuth
+- **Cloud Firestore** - Real-time data persistence
 
 ## Tech Stack
 
@@ -53,8 +55,8 @@ SocratAI guides students through problems using the Socratic method. Instead of 
 
 3. **Firebase Setup:**
    - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
-   - Enable **Authentication** → Email/Password and Google providers
-   - Enable **Cloud Firestore** → Start in test mode
+   - Enable **Authentication** -> Email/Password and Google providers
+   - Enable **Cloud Firestore** -> Start in test mode
    - Copy the web app config into your `.env` file
 
 4. **Run locally:**
@@ -78,29 +80,29 @@ If you prefer to use a local model instead of Gemini:
 
 ## Project Structure
 
-```
+```text
 src/
-├── app/
-│   ├── components/
-│   │   ├── AuthScreens.tsx         # Login, Signup, Role Selection
-│   │   ├── StudentScreens.tsx      # Student Dashboard, Task Start
-│   │   ├── TeacherScreens.tsx      # Teacher Dashboard, Review
-│   │   ├── SessionScreensPart1.tsx # Trigger, Questioning, Hints, Logic Map
-│   │   ├── SessionScreensPart2.tsx # Draft, Review, Log, Confirmation
-│   │   └── ProtectedRoute.tsx      # Route guard
-│   ├── App.tsx
-│   └── routes.tsx
-├── lib/
-│   ├── firebase.ts      # Firebase init
-│   ├── ai-config.ts     # AI provider config
-│   ├── gemini.ts        # Gemini/Ollama client
-│   ├── prompts.ts       # System prompts & templates
-│   └── socratic-engine.ts # AI orchestration
-├── stores/
-│   ├── auth-store.ts    # Auth state (Zustand)
-│   └── session-store.ts # Session state (Zustand)
-└── types/
-    └── index.ts         # TypeScript interfaces
+|-- app/
+|   |-- components/
+|   |   |-- AuthScreens.tsx         # Login, Signup, Role Selection
+|   |   |-- StudentScreens.tsx      # Student Dashboard, Task Start
+|   |   |-- TeacherScreens.tsx      # Teacher Workspace, Review
+|   |   |-- SessionScreensPart1.tsx # Trigger, Questioning, Hints, Logic Map
+|   |   |-- SessionScreensPart2.tsx # Draft, Review, Log, Confirmation
+|   |   `-- ProtectedRoute.tsx      # Route guard
+|   |-- App.tsx
+|   `-- routes.tsx
+|-- lib/
+|   |-- firebase.ts        # Firebase init
+|   |-- ai-config.ts       # AI provider config
+|   |-- gemini.ts          # Gemini/Ollama client
+|   |-- prompts.ts         # System prompts & templates
+|   `-- socratic-engine.ts # AI orchestration
+|-- stores/
+|   |-- auth-store.ts      # Auth state (Zustand)
+|   `-- session-store.ts   # Session state (Zustand)
+`-- types/
+    `-- index.ts           # TypeScript interfaces
 ```
 
 ## Team

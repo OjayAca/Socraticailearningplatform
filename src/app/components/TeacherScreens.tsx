@@ -11,7 +11,6 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   FileText,
-  Users,
   Activity,
   BrainCircuit,
   Settings,
@@ -21,7 +20,6 @@ import {
   CheckCircle2,
   RotateCcw,
   ChevronRight,
-  Eye,
   Clock,
   Loader2,
   BookOpen,
@@ -53,7 +51,7 @@ function TeacherLayout({
   const { userProfile, signOut } = useAuthStore();
   const { unreadCount } = useNotificationStore();
 
-  const displayName = userProfile?.displayName || "Teacher";
+  const displayName = userProfile?.displayName || "System Administrator";
   const initials = displayName
     .split(" ")
     .map((n) => n[0])
@@ -75,7 +73,7 @@ function TeacherLayout({
             <BrainCircuit className="w-5 h-5" />
           </div>
           <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
-            SocratAI
+            MINDGUIDE
           </span>
         </div>
 
@@ -98,7 +96,7 @@ function TeacherLayout({
                 : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             }`}
           >
-            <FileText className="w-5 h-5" /> Submissions
+            <FileText className="w-5 h-5" /> Learner Records
           </button>
           <button
             onClick={() => navigate("/teacher/notifications")}
@@ -155,7 +153,7 @@ function TeacherLayout({
       <div className="flex-1 overflow-y-auto">
         <header className="sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 z-10 px-8 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-            Teacher Dashboard
+            System Administrator Workspace
           </h1>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
@@ -175,9 +173,9 @@ function TeacherLayout({
   );
 }
 
-// ─── Teacher Dashboard ──────────────────────────────────────
+// ─── Teacher Workspace ──────────────────────────────────────
 
-/** Teacher dashboard with student submissions from Firestore. */
+/** Teacher workspace with student submissions from Firestore. */
 export function TeacherDashboard() {
   const navigate = useNavigate();
   const { sessionHistory, fetchTeacherSessions, isLoading } =
@@ -194,7 +192,10 @@ export function TeacherDashboard() {
       !searchTerm ||
       session.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       session.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      session.topic.toLowerCase().includes(searchTerm.toLowerCase());
+      session.topic.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (session.detectedMisconception ?? "")
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" || session.status === statusFilter;
@@ -203,7 +204,7 @@ export function TeacherDashboard() {
   });
 
   const pendingCount = sessionHistory.filter(
-    (s) => s.status === "submitted"
+    (s) => s.status === "completed" || s.status === "submitted"
   ).length;
   const reviewedCount = sessionHistory.filter(
     (s) => s.status === "reviewed"
@@ -219,6 +220,16 @@ export function TeacherDashboard() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-5xl mx-auto space-y-8"
       >
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900">
+            System Administrator Dashboard
+          </h2>
+          <p className="text-slate-500 mt-2">
+            Monitor learner sessions, selected topics, misconceptions,
+            scorecard results, and completion status.
+          </p>
+        </div>
+
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-2">
@@ -237,7 +248,7 @@ export function TeacherDashboard() {
               <CheckCircle2 className="w-5 h-5" />
             </div>
             <span className="text-slate-500 text-sm font-medium">
-              Reviewed
+              Reviewed Records
             </span>
             <span className="text-3xl font-bold text-slate-900">
               {reviewedCount}
@@ -248,7 +259,7 @@ export function TeacherDashboard() {
               <RotateCcw className="w-5 h-5" />
             </div>
             <span className="text-slate-500 text-sm font-medium">
-              Returned
+              Follow-up Needed
             </span>
             <span className="text-3xl font-bold text-slate-900">
               {returnedCount}
@@ -264,7 +275,7 @@ export function TeacherDashboard() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by student, subject, or topic..."
+              placeholder="Search by learner, subject, topic, or misconception..."
               className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
             />
           </div>
@@ -274,13 +285,14 @@ export function TeacherDashboard() {
             className="px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-600 bg-white text-sm font-medium"
           >
             <option value="all">All Status</option>
-            <option value="submitted">Pending</option>
+            <option value="completed">Pending</option>
+            <option value="submitted">Submitted</option>
             <option value="reviewed">Reviewed</option>
-            <option value="returned">Returned</option>
+            <option value="returned">Follow-up Needed</option>
           </select>
         </div>
 
-        {/* Submissions Table */}
+        {/* Learner Records Table */}
         {isLoading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
@@ -290,40 +302,43 @@ export function TeacherDashboard() {
             <BookOpen className="w-12 h-12 text-slate-300 mx-auto mb-4" />
             <p className="text-slate-500 font-medium">
               {sessionHistory.length === 0
-                ? "No submissions yet. Students' thinking logs will appear here."
-                : "No matching submissions found."}
+                ? "No learner records yet. Completed MINDGUIDE sessions will appear here."
+                : "No matching learner records found."}
             </p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
             {/* Table Header */}
-            <div className="hidden sm:grid grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <span>Student</span>
-              <span>Task</span>
-              <span className="text-center">Score</span>
+            <div className="hidden sm:grid grid-cols-[1.1fr_1.4fr_1fr_auto_auto_auto] gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+              <span>Learner</span>
+              <span>Subject / Topic</span>
+              <span>Misconception</span>
+              <span className="text-center">Scorecard</span>
               <span className="text-center">Status</span>
-              <span className="text-center">Action</span>
+              <span className="text-center">Date / Time</span>
             </div>
 
             {/* Table Rows */}
             <div className="divide-y divide-slate-100">
               {filteredSessions.map((session) => {
                 const statusColors: Record<string, string> = {
+                  completed: "bg-amber-50 text-amber-700 border-amber-200",
                   submitted: "bg-amber-50 text-amber-700 border-amber-200",
                   reviewed:
                     "bg-emerald-50 text-emerald-700 border-emerald-200",
                   returned: "bg-red-50 text-red-700 border-red-200",
                 };
                 const statusLabels: Record<string, string> = {
-                  submitted: "Pending",
+                  completed: "Pending",
+                  submitted: "Submitted",
                   reviewed: "Reviewed",
-                  returned: "Returned",
+                  returned: "Follow-up",
                 };
 
                 return (
                   <div
                     key={session.id}
-                    className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.4fr_1fr_auto_auto_auto] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors cursor-pointer"
                     onClick={() =>
                       navigate(`/teacher/review/${session.id}`)
                     }
@@ -343,10 +358,15 @@ export function TeacherDashboard() {
                     </div>
                     <div>
                       <span className="text-sm text-slate-700 font-medium block">
-                        {session.topic || session.originalQuestion?.slice(0, 40)}
+                        {session.subject}
                       </span>
                       <span className="text-xs text-slate-400 font-medium">
-                        {session.subject}
+                        {session.topic}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-sm text-slate-700 font-medium">
+                        {getMisconceptionLabel(session.detectedMisconception)}
                       </span>
                     </div>
                     <div className="text-center">
@@ -364,16 +384,8 @@ export function TeacherDashboard() {
                         {statusLabels[session.status] || session.status}
                       </span>
                     </div>
-                    <div className="text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/teacher/review/${session.id}`);
-                        }}
-                        className="bg-indigo-50 hover:bg-indigo-100 text-indigo-600 p-2 rounded-lg transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                    <div className="text-center text-xs font-medium text-slate-500">
+                      {formatSessionDate(session)}
                     </div>
                   </div>
                 );
@@ -446,6 +458,16 @@ export function TeacherReview() {
         animate={{ opacity: 1, y: 0 }}
         className="max-w-4xl mx-auto space-y-8"
       >
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900">
+            Learner Records Review
+          </h2>
+          <p className="text-slate-500 mt-2">
+            Review the learner's MINDGUIDE session, misconception signals, and
+            scorecard result.
+          </p>
+        </div>
+
         {/* Header Card */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-8 text-white flex items-center justify-between">
@@ -464,11 +486,11 @@ export function TeacherReview() {
             </div>
             <div className="text-right hidden sm:block">
               <div className="text-3xl font-bold">
-                {activeSession.ctScore}
+                {activeSession.mindGuideScorecard?.total ?? activeSession.ctScore}
                 <span className="text-lg text-emerald-200">/100</span>
               </div>
               <span className="text-emerald-100 text-sm font-medium">
-                CT Score
+                Scorecard Total
               </span>
             </div>
           </div>
@@ -496,11 +518,46 @@ export function TeacherReview() {
               </div>
             )}
 
-            {/* Student Draft */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Session Status
+                </h3>
+                <p className="text-slate-800 font-medium">
+                  {activeSession.status.replace("_", " ").toUpperCase()}
+                </p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Date / Time
+                </h3>
+                <p className="text-slate-800 font-medium">
+                  {formatSessionDate(activeSession)}
+                </p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Detected Misconception
+                </h3>
+                <p className="text-slate-800 font-medium">
+                  {getMisconceptionLabel(activeSession.detectedMisconception)}
+                </p>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Selected Subject / Topic
+                </h3>
+                <p className="text-slate-800 font-medium">
+                  {activeSession.subject} / {activeSession.topic}
+                </p>
+              </div>
+            </div>
+
+            {/* Learner Draft */}
             {activeSession.draft && (
               <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 space-y-2">
                 <h3 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-1">
-                  Student's Answer & Reflection
+                  Learner's Answer & Reflection
                 </h3>
                 <p className="text-sm text-emerald-900">
                   <span className="font-bold">Answer:</span>{" "}
@@ -518,6 +575,43 @@ export function TeacherReview() {
                     "{activeSession.draft.reflection}"
                   </p>
                 )}
+              </div>
+            )}
+
+            {activeSession.mindGuideScorecard && (
+              <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-indigo-500 uppercase tracking-wider">
+                    Critical Thinking Scorecard
+                  </h3>
+                  <span className="text-lg font-bold text-indigo-700">
+                    {activeSession.mindGuideScorecard.total}/100
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-indigo-950 font-medium">
+                  <span>
+                    Accuracy: {activeSession.mindGuideScorecard.accuracy}/20
+                  </span>
+                  <span>
+                    Logical Validity:{" "}
+                    {activeSession.mindGuideScorecard.logicalValidity}/20
+                  </span>
+                  <span>
+                    Method Selection:{" "}
+                    {activeSession.mindGuideScorecard.methodSelection}/20
+                  </span>
+                  <span>
+                    Formula/Theorem Justification:{" "}
+                    {activeSession.mindGuideScorecard.justificationQuality}/20
+                  </span>
+                  <span>
+                    Interpretation Quality:{" "}
+                    {activeSession.mindGuideScorecard.interpretationQuality}/20
+                  </span>
+                </div>
+                <p className="text-sm text-indigo-950 font-medium">
+                  Feedback: {activeSession.mindGuideScorecard.feedback}
+                </p>
               </div>
             )}
 
@@ -542,7 +636,7 @@ export function TeacherReview() {
                           : "bg-emerald-100 text-emerald-700"
                       }`}
                     >
-                      {msg.role === "student" ? initials : "SA"}
+                      {msg.role === "student" ? initials : "MG"}
                     </div>
                     <div
                       className={`${
@@ -561,11 +655,12 @@ export function TeacherReview() {
         </div>
 
         {/* Feedback Section */}
-        {activeSession.status === "submitted" && (
+        {(activeSession.status === "completed" ||
+          activeSession.status === "submitted") && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-6">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
-              Teacher Feedback
+              Administrator Notes
             </h3>
 
             {error && (
@@ -579,7 +674,7 @@ export function TeacherReview() {
               rows={4}
               value={feedbackComment}
               onChange={(e) => setFeedbackComment(e.target.value)}
-              placeholder="Provide constructive feedback on the student's reasoning process..."
+              placeholder="Add monitoring notes about this learner session..."
               className="w-full px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-600 resize-none text-sm text-slate-800"
             />
 
@@ -593,7 +688,7 @@ export function TeacherReview() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <RotateCcw className="w-4 h-4" /> Return for Revision
+                    <RotateCcw className="w-4 h-4" /> Flag for Follow-up
                   </>
                 )}
               </button>
@@ -606,7 +701,7 @@ export function TeacherReview() {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4" /> Approve
+                    <CheckCircle2 className="w-4 h-4" /> Mark Reviewed
                   </>
                 )}
               </button>
@@ -614,12 +709,12 @@ export function TeacherReview() {
           </div>
         )}
 
-        {/* Show existing feedback if already reviewed */}
+        {/* Show existing administrator notes if already reviewed */}
         {activeSession.teacherFeedback && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-4">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
-              Your Feedback
+              Administrator Notes
             </h3>
             <div
               className={`p-4 rounded-xl border ${
@@ -636,8 +731,8 @@ export function TeacherReview() {
                 }`}
               >
                 {activeSession.teacherFeedback.action === "approved"
-                  ? "✅ Approved"
-                  : "🔄 Returned for Revision"}
+                  ? "Reviewed"
+                  : "Flagged for Follow-up"}
               </span>
               <p className="text-sm text-slate-700 mt-2 font-medium">
                 {activeSession.teacherFeedback.comment}
@@ -651,7 +746,7 @@ export function TeacherReview() {
           onClick={() => navigate("/teacher/dashboard")}
           className="text-sm text-slate-500 hover:text-slate-700 font-semibold transition-colors"
         >
-          ← Back to Dashboard
+          Back to System Administrator Dashboard
         </button>
       </motion.div>
     </TeacherLayout>
@@ -672,9 +767,11 @@ export function TeacherSubmissionsScreen() {
     <TeacherLayout activeTab="submissions">
       <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div>
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Student Submissions</h2>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white">
+            Learner Sessions
+          </h2>
           <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Review submitted work from students.
+            Monitor completed MINDGUIDE learner records.
           </p>
         </div>
 
@@ -686,13 +783,14 @@ export function TeacherSubmissionsScreen() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-12 text-center">
             <FileText className="w-12 h-12 text-slate-300 dark:text-slate-600 mx-auto mb-4" />
             <p className="text-slate-500 dark:text-slate-400 font-medium">
-              No submissions to review yet.
+              No learner records to review yet.
             </p>
           </div>
         ) : (
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
             {sessionHistory.map((session: Session) => {
               const statusColors: Record<string, string> = {
+                completed: "bg-amber-50 text-amber-700",
                 submitted: "bg-amber-50 text-amber-700",
                 reviewed: "bg-emerald-50 text-emerald-700",
                 returned: "bg-red-50 text-red-700",
@@ -714,7 +812,7 @@ export function TeacherSubmissionsScreen() {
                         {session.topic || session.originalQuestion?.slice(0, 40) || "Unknown Topic"}
                       </h4>
                       <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {session.studentName || "Anonymous Student"} • {session.subject}
+                        {session.studentName || "Anonymous Learner"} • {session.subject}
                       </p>
                     </div>
                   </div>
@@ -762,5 +860,32 @@ export function TeacherNotificationsScreen() {
       <NotificationContent />
     </TeacherLayout>
   );
+}
+
+function getMisconceptionLabel(errorType?: string | null): string {
+  if (!errorType || errorType === "none") {
+    return "None detected";
+  }
+
+  return errorType
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatSessionDate(session: Session): string {
+  const timestamp = session.updatedAt ?? session.completedAt ?? session.createdAt;
+  const date =
+    timestamp && typeof timestamp.toMillis === "function"
+      ? new Date(timestamp.toMillis())
+      : new Date();
+
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 

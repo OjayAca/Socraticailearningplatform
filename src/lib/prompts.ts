@@ -11,7 +11,7 @@
  * The base system prompt that defines the Socratic tutor's personality.
  * This is prepended to every AI interaction.
  */
-export const SOCRATIC_SYSTEM_PROMPT = `You are SocratAI, a Socratic tutor that helps students learn by guiding them through problems step-by-step. Your core philosophy is: "Think First, Don't Copy First."
+export const SOCRATIC_SYSTEM_PROMPT = `You are MINDGUIDE, a Socratic tutor that helps students learn by guiding them through problems step-by-step. Your core philosophy is: "Reason Before Reveal."
 
 ## Your Core Rules:
 1. **NEVER give direct answers.** Instead, ask guiding questions that lead the student to discover the answer themselves.
@@ -41,19 +41,63 @@ Always respond in plain text. Do NOT use markdown formatting like ** or ## in yo
  * The AI receives the student's question and begins the Socratic process.
  *
  * @param subject - The subject area (e.g., "Mathematics").
+ * @param topic - The curriculum topic selected by the student.
  * @param question - The student's original question.
  * @returns The formatted prompt string.
  */
-export function buildTriggerPrompt(subject: string, question: string): string {
-  return `The student is studying ${subject}. They have submitted this question/problem:
+export function buildTriggerPrompt(
+  subject: string,
+  topic: string,
+  question: string
+): string {
+  return `The student selected the subject "${subject}" and the topic "${topic}". They submitted this question/problem:
 
 "${question}"
+
+Treat the selected topic as helpful context, not a strict filter. If the question's connection to the topic is unclear, do not reject it; ask one concise clarifying question that helps the student explain the connection.
 
 Begin the Socratic process:
 1. Acknowledge their question briefly
 2. Do NOT provide the answer
 3. Ask ONE focused question to help them identify what type of problem this is or what concept it involves
 4. Keep your response to 2-3 sentences`;
+}
+
+/**
+ * Adds phase and curriculum context to a free-form Socratic exchange.
+ */
+export function buildPhaseGuidancePrompt(options: {
+  subject: string;
+  topic: string;
+  originalQuestion: string;
+  currentPhase: string;
+  nextPhase: string;
+}): string {
+  const phaseGoals: Record<string, string> = {
+    problem_understanding:
+      "help the student identify the givens, unknowns, and what the question is asking",
+    method_selection:
+      "help the student choose an appropriate method, formula, theorem, or reasoning strategy",
+    formula_theorem_justification:
+      "ask the student to justify why their chosen method, formula, or theorem applies",
+    guided_computation_or_reasoning:
+      "guide the student through the next computation or reasoning step without revealing the final answer",
+    error_diagnosis:
+      "help the student check their work, identify a possible error, or verify a key assumption",
+    progressive_unlock:
+      "offer a focused hint or ask what support the student needs before writing a final response",
+    scorecard:
+      "tell the student that the guided reasoning is complete and invite them to draft their own final answer",
+  };
+
+  return `Free-form session context:
+- Subject: ${options.subject}
+- Selected topic: ${options.topic}
+- Original question: "${options.originalQuestion}"
+- Current phase: ${options.currentPhase}
+- Next phase: ${options.nextPhase}
+
+For a genuine response, ${phaseGoals[options.nextPhase] ?? phaseGoals.problem_understanding}. Ask at most one focused question. Treat the selected topic as guidance only. If the question appears unrelated or ambiguous, ask how it connects instead of refusing to continue.`;
 }
 
 /**
@@ -167,36 +211,4 @@ Write a 3-4 sentence summary covering:
 4. Any areas where they needed extra help
 
 Keep it factual and objective — this will be read by their teacher.`;
-}
-
-/**
- * Prompt template for evaluating the student's critical thinking score.
- *
- * @param messages - All conversation messages.
- * @param hintsUsed - Number of hints the student requested.
- * @returns The CT score evaluation prompt.
- */
-export function buildCTScorePrompt(
-  messages: Array<{ role: string; content: string }>,
-  hintsUsed: number
-): string {
-  const conversation = messages
-    .map((m) => `${m.role === "student" ? "Student" : "AI"}: ${m.content}`)
-    .join("\n");
-
-  return `Evaluate the student's critical thinking based on this Socratic session.
-
-Conversation:
-${conversation}
-
-Number of hints used: ${hintsUsed}
-
-Score the student from 0-100 on critical thinking, considering:
-- Did they identify the problem type correctly? (0-20 points)
-- Did they choose an appropriate method? (0-20 points)
-- Did they reason through steps logically? (0-20 points)
-- Did they show original thinking vs. just following prompts? (0-20 points)
-- How independently did they work? (0-20 points, deduct 5 per hint used)
-
-Return ONLY a single integer between 0 and 100. No other text.`;
 }

@@ -50,10 +50,10 @@ export function Splash() {
         </div>
         <div className="text-center space-y-2">
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
-            SocratAI
+            MINDGUIDE
           </h1>
           <p className="text-lg text-indigo-600 font-medium">
-            Think First, Don't Copy First
+            Reason Before Reveal
           </p>
         </div>
 
@@ -317,7 +317,7 @@ export function SignUp() {
             Create an Account
           </h2>
           <p className="text-slate-500 text-sm">
-            Join SocratAI to start your learning journey.
+            Join MINDGUIDE to start your learning journey.
           </p>
         </div>
 
@@ -480,7 +480,7 @@ export function SignUp() {
 
 // ─── Role Selection ─────────────────────────────────────────
 
-/** Screen 4: Post-login role selection (Student vs Teacher). */
+/** Screen 4: Post-login role selection. */
 export function RoleSelection() {
   const navigate = useNavigate();
   const { userProfile, setRole, isLoading } = useAuthStore();
@@ -526,7 +526,7 @@ export function RoleSelection() {
             Welcome, {displayName}!
           </h2>
           <p className="text-slate-500">
-            How are you using SocratAI today?
+            How are you using MINDGUIDE today?
           </p>
         </div>
 
@@ -572,9 +572,11 @@ export function RoleSelection() {
               </div>
             )}
             <div>
-              <h3 className="text-xl font-bold text-slate-900">Teacher</h3>
+              <h3 className="text-xl font-bold text-slate-900">
+                System Administrator
+              </h3>
               <p className="text-slate-500 text-sm mt-2">
-                I want to review logs and support my students.
+                I want to monitor learner sessions and review records.
               </p>
             </div>
           </button>

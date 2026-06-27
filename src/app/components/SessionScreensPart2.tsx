@@ -23,18 +23,30 @@ import {
   Activity,
   Loader2,
 } from "lucide-react";
-import { SessionLayout, StudentBubble, AIBubble } from "./SessionScreensPart1";
+import {
+  SessionLayout,
+  StudentBubble,
+  AIBubble,
+  ProgressiveSupportPanel,
+} from "./SessionScreensPart1";
 import { motion } from "motion/react";
 import { useSessionStore } from "@/stores/session-store";
 import { useAuthStore } from "@/stores/auth-store";
-import { generateSummary, evaluateCTScore } from "@/lib/socratic-engine";
+import {
+  generateSummary,
+  getMindGuidePhaseLabel,
+  getMindGuidePhaseProgress,
+  isFinalAnswerUnlocked,
+} from "@/lib/socratic-engine";
+import { generateMindGuideScorecard } from "@/lib/mindguide-scorecard";
+import type { MindGuideScorecard } from "@/types";
 
 // ─── Draft Answer (Screen 12) ───────────────────────────────
 
 /** Draft stage — student writes their answer and reflections. */
 export function SessionDraft() {
   const navigate = useNavigate();
-  const { activeSession, saveDraft, setStep } = useSessionStore();
+  const { activeSession, saveDraft, setStep, persistSession } = useSessionStore();
 
   const [answer, setAnswer] = useState(activeSession?.draft?.answer || "");
   const [methodology, setMethodology] = useState(
@@ -49,8 +61,13 @@ export function SessionDraft() {
     return null;
   }
 
+  if (!isFinalAnswerUnlocked(activeSession.currentPhase)) {
+    navigate("/session/questioning", { replace: true });
+    return null;
+  }
+
   /** Saves the draft and advances to the review stage. */
-  function handleSubmitDraft() {
+  async function handleSubmitDraft() {
     if (!answer.trim()) return;
 
     saveDraft({
@@ -59,14 +76,15 @@ export function SessionDraft() {
       reflection: reflection.trim(),
     });
     setStep("review");
+    await persistSession();
     navigate("/session/review");
   }
 
   return (
     <SessionLayout
-      progress={80}
+      progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
       showMap={true}
-      currentStepText="Step 4 of 5: Draft & Reflection"
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
       logicMapNodes={activeSession.logicMap}
     >
       {/* Show latest messages for context */}
@@ -77,6 +95,8 @@ export function SessionDraft() {
           <AIBubble key={msg.id} text={msg.content} />
         )
       )}
+
+      <ProgressiveSupportPanel />
 
       {/* Draft Form */}
       <div className="max-w-2xl mr-auto w-full mt-4">
@@ -148,16 +168,19 @@ export function SessionReview() {
   const {
     activeSession,
     setAISummary,
-    setCTScore,
+    setMindGuideScorecard,
     setStep,
     setAIThinking,
+    persistSession,
     isAIThinking,
   } = useSessionStore();
   const [summary, setSummaryText] = useState<string | null>(null);
-  const [score, setScoreValue] = useState<number | null>(null);
+  const [scorecard, setScorecard] = useState<MindGuideScorecard | null>(
+    activeSession?.mindGuideScorecard ?? null
+  );
   const hasGenerated = useRef(false);
 
-  // Auto-generate summary and CT score on mount
+  // Auto-generate summary and MINDGUIDE scorecard on mount
   useEffect(() => {
     if (hasGenerated.current || !activeSession?.draft) return;
     hasGenerated.current = true;
@@ -166,34 +189,41 @@ export function SessionReview() {
       if (!activeSession?.draft) return;
       setAIThinking(true);
       try {
-        const [summaryResult, scoreResult] = await Promise.all([
-          generateSummary(
-            activeSession.originalQuestion,
-            activeSession.messages,
-            activeSession.draft
-          ),
-          evaluateCTScore(activeSession.messages, activeSession.hintsUsed),
-        ]);
+        const summaryResult = await generateSummary(
+          activeSession.originalQuestion,
+          activeSession.messages,
+          activeSession.draft
+        );
+        const scorecardResult = generateMindGuideScorecard(activeSession);
 
         setSummaryText(summaryResult);
-        setScoreValue(scoreResult);
+        setScorecard(scorecardResult);
         setAISummary(summaryResult);
-        setCTScore(scoreResult);
+        setMindGuideScorecard(scorecardResult);
+        await persistSession();
       } catch (err) {
         console.error("Failed to generate review:", err);
         setSummaryText(
           "Session completed. Your thinking log has been recorded."
         );
-        setScoreValue(70);
         setAISummary("Session completed.");
-        setCTScore(70);
+        const fallbackScorecard = generateMindGuideScorecard(activeSession);
+        setScorecard(fallbackScorecard);
+        setMindGuideScorecard(fallbackScorecard);
+        await persistSession();
       } finally {
         setAIThinking(false);
       }
     }
 
     generate();
-  }, [activeSession, setAISummary, setCTScore, setAIThinking]);
+  }, [
+    activeSession,
+    persistSession,
+    setAISummary,
+    setMindGuideScorecard,
+    setAIThinking,
+  ]);
 
   if (!activeSession) {
     navigate("/student/task");
@@ -202,9 +232,9 @@ export function SessionReview() {
 
   return (
     <SessionLayout
-      progress={100}
+      progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
       showMap={true}
-      currentStepText="Step 5 of 5: Final Review"
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
       logicMapNodes={activeSession.logicMap}
     >
       {isAIThinking ? (
@@ -268,24 +298,15 @@ export function SessionReview() {
                 </ul>
               </div>
 
-              {/* CT Score */}
-              {score !== null && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
-                  <span className="text-sm font-bold text-indigo-900">
-                    Critical Thinking Score
-                  </span>
-                  <span className="text-2xl font-bold text-indigo-600">
-                    {score}/100
-                  </span>
-                </div>
-              )}
+              {scorecard && <MindGuideScorecardPanel scorecard={scorecard} />}
             </div>
           </AIBubble>
 
           <div className="max-w-2xl mx-auto w-full mt-6">
             <button
-              onClick={() => {
+              onClick={async () => {
                 setStep("log");
+                await persistSession();
                 navigate("/session/log");
               }}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-indigo-200/50 flex items-center justify-center gap-2 text-lg"
@@ -297,6 +318,47 @@ export function SessionReview() {
         </>
       )}
     </SessionLayout>
+  );
+}
+
+function MindGuideScorecardPanel({
+  scorecard,
+}: {
+  scorecard: MindGuideScorecard;
+}) {
+  const rows = [
+    ["Accuracy", scorecard.accuracy],
+    ["Logical Validity", scorecard.logicalValidity],
+    ["Method Selection", scorecard.methodSelection],
+    ["Formula/Theorem Justification", scorecard.justificationQuality],
+    ["Interpretation Quality", scorecard.interpretationQuality],
+  ] as const;
+
+  return (
+    <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <h4 className="font-bold text-indigo-950 text-sm">
+          Critical Thinking Scorecard
+        </h4>
+        <span className="text-2xl font-bold text-indigo-600">
+          {scorecard.total}/100
+        </span>
+      </div>
+      <div className="grid gap-2">
+        {rows.map(([label, value]) => (
+          <div
+            key={label}
+            className="flex items-center justify-between text-sm font-medium text-indigo-950"
+          >
+            <span>{label}</span>
+            <span className="font-bold">{value}/20</span>
+          </div>
+        ))}
+      </div>
+      <p className="text-sm text-indigo-950 font-medium leading-relaxed border-t border-indigo-200 pt-3">
+        Feedback: {scorecard.feedback}
+      </p>
+    </div>
   );
 }
 
@@ -312,6 +374,8 @@ export function SessionLog() {
     navigate("/student/task");
     return null;
   }
+
+  const scorecard = activeSession.mindGuideScorecard;
 
   const initials = (userProfile?.displayName || "S")
     .split(" ")
@@ -412,7 +476,7 @@ export function SessionLog() {
                         : "bg-indigo-600 text-white"
                     }`}
                   >
-                    {msg.role === "student" ? initials : "SA"}
+                    {msg.role === "student" ? initials : "MG"}
                   </div>
                   <div
                     className={`rounded-xl p-3 border ${
@@ -444,21 +508,9 @@ export function SessionLog() {
             </div>
           </div>
 
-          {/* CT Score */}
-          {activeSession.ctScore > 0 && (
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-slate-800">
-                  Critical Thinking Score
-                </h3>
-                <p className="text-sm text-slate-500">
-                  Based on your reasoning process
-                </p>
-              </div>
-              <span className="text-4xl font-bold text-indigo-600">
-                {activeSession.ctScore}
-                <span className="text-lg text-slate-400">/100</span>
-              </span>
+          {scorecard && (
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+              <MindGuideScorecardPanel scorecard={scorecard} />
             </div>
           )}
 
@@ -540,10 +592,11 @@ export function SessionConfirmation() {
             <div className="space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-slate-600 text-sm font-medium flex items-center gap-2">
-                  <BrainCircuit className="w-4 h-4" /> Critical Thinking
+                  <BrainCircuit className="w-4 h-4" /> Scorecard Total
                 </span>
                 <span className="font-bold text-emerald-600">
-                  {activeSession.ctScore} pts
+                  {activeSession.mindGuideScorecard?.total ??
+                    activeSession.ctScore} pts
                 </span>
               </div>
               <div className="flex justify-between items-center">

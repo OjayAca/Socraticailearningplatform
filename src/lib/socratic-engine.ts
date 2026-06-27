@@ -13,12 +13,57 @@ import {
   SOCRATIC_SYSTEM_PROMPT,
   buildTriggerPrompt,
   buildAnswerCheckPrompt,
+  buildPhaseGuidancePrompt,
   buildHintPrompt,
   buildLogicMapPrompt,
   buildSummaryPrompt,
-  buildCTScorePrompt,
 } from "./prompts";
-import type { ChatMessage, LogicMapNode } from "@/types";
+import { diagnoseResponse } from "./misconception-detector";
+import type {
+  ChatMessage,
+  DiagnosisResult,
+  LogicMapNode,
+  MindGuidePhase,
+  MindGuideProblem,
+} from "@/types";
+
+export const MINDGUIDE_PHASE_ORDER: MindGuidePhase[] = [
+  "problem_understanding",
+  "method_selection",
+  "formula_theorem_justification",
+  "guided_computation_or_reasoning",
+  "error_diagnosis",
+  "progressive_unlock",
+  "scorecard",
+];
+
+export const MINDGUIDE_PHASE_LABELS: Record<MindGuidePhase, string> = {
+  problem_understanding: "Problem Understanding",
+  method_selection: "Method Selection",
+  formula_theorem_justification: "Formula/Theorem Justification",
+  guided_computation_or_reasoning: "Guided Computation or Reasoning",
+  error_diagnosis: "Error Diagnosis",
+  progressive_unlock: "Progressive Solution Unlock",
+  scorecard: "Critical Thinking Scorecard",
+};
+
+const FORMULA_THEOREM_JUSTIFICATION_PROMPT =
+  "Why is this formula, theorem, or method appropriate for this problem?";
+
+const WEAK_JUSTIFICATION_FEEDBACK =
+  "Your justification is still weak. What part of the problem shows that this formula or theorem applies?";
+
+const JUSTIFICATION_REASONING_WORDS = [
+  "because",
+  "since",
+  "applies",
+  "appropriate",
+  "given",
+  "asks",
+  "represents",
+  "shows",
+  "therefore",
+];
 
 // ─── Public API ──────────────────────────────────────────────
 
@@ -27,14 +72,21 @@ import type { ChatMessage, LogicMapNode } from "@/types";
  * through the trigger prompt.
  *
  * @param subject - The learning subject (e.g., "Mathematics").
+ * @param topic - The curriculum topic selected by the student.
  * @param question - The student's original question or problem.
  * @returns The AI's opening Socratic probe.
  */
 export async function startSession(
   subject: string,
-  question: string
+  topic: string,
+  question: string,
+  selectedProblem?: MindGuideProblem | null
 ): Promise<string> {
-  const triggerPrompt = buildTriggerPrompt(subject, question);
+  if (selectedProblem) {
+    return getMindGuidePhasePrompt(selectedProblem, "problem_understanding");
+  }
+
+  const triggerPrompt = buildTriggerPrompt(subject, topic, question);
   const systemPrompt = SOCRATIC_SYSTEM_PROMPT;
 
   const response = await sendMessage(systemPrompt, [], triggerPrompt);
@@ -53,10 +105,74 @@ export async function startSession(
  */
 export async function sendStudentResponse(
   conversationHistory: ChatMessage[],
-  studentResponse: string
-): Promise<{ message: string; isBlocked: boolean }> {
+  studentResponse: string,
+  options: {
+    currentPhase?: MindGuidePhase;
+    selectedProblem?: MindGuideProblem | null;
+    subject?: string;
+    topic?: string;
+    originalQuestion?: string;
+  } = {}
+): Promise<{
+  message: string;
+  isBlocked: boolean;
+  nextPhase?: MindGuidePhase;
+  diagnosis?: DiagnosisResult;
+}> {
+  const currentPhase = options.currentPhase ?? "problem_understanding";
+  const selectedProblem = options.selectedProblem ?? null;
+
+  if (selectedProblem) {
+    const diagnosis = diagnoseResponse(studentResponse, selectedProblem, currentPhase);
+
+    if (diagnosis.errorType !== "none") {
+      return {
+        message: diagnosis.correctivePrompt,
+        isBlocked: true,
+        nextPhase: currentPhase,
+        diagnosis,
+      };
+    }
+  }
+
+  if (
+    selectedProblem &&
+    isPrematureFinalAnswer(studentResponse, selectedProblem, currentPhase)
+  ) {
+    return {
+      message:
+        "Let's hold the final answer for now. MINDGUIDE needs your reasoning first, so answer the current phase question before we unlock the solution.",
+      isBlocked: true,
+      nextPhase: currentPhase,
+    };
+  }
+
+  if (selectedProblem) {
+    const nextPhase = getNextMindGuidePhase(currentPhase);
+
+    return {
+      message: nextPhase
+        ? getMindGuidePhasePrompt(selectedProblem, nextPhase)
+        : "You have completed the required Socratic phases. You may now draft your final answer.",
+      isBlocked: false,
+      nextPhase: nextPhase ?? currentPhase,
+      diagnosis: diagnoseResponse(studentResponse, selectedProblem, currentPhase),
+    };
+  }
+
   const checkPrompt = buildAnswerCheckPrompt(studentResponse);
-  const combinedSystemPrompt = `${SOCRATIC_SYSTEM_PROMPT}\n\n${checkPrompt}`;
+  const nextPhase = getNextMindGuidePhase(currentPhase) ?? currentPhase;
+  const phasePrompt = buildPhaseGuidancePrompt({
+    subject: options.subject ?? "the selected subject",
+    topic: options.topic ?? "the selected topic",
+    originalQuestion:
+      options.originalQuestion ??
+      conversationHistory.find((message) => message.role === "student")?.content ??
+      studentResponse,
+    currentPhase,
+    nextPhase,
+  });
+  const combinedSystemPrompt = `${SOCRATIC_SYSTEM_PROMPT}\n\n${checkPrompt}\n\n${phasePrompt}`;
 
   const rawResponse = await sendMessage(
     combinedSystemPrompt,
@@ -73,7 +189,101 @@ export async function sendStudentResponse(
   return {
     message: cleanResponse(cleanedMessage),
     isBlocked,
+    nextPhase: isBlocked ? currentPhase : nextPhase,
   };
+}
+
+export function getInitialMindGuidePhase(): MindGuidePhase {
+  return "problem_understanding";
+}
+
+export function getNextMindGuidePhase(
+  currentPhase: MindGuidePhase
+): MindGuidePhase | null {
+  const currentIndex = MINDGUIDE_PHASE_ORDER.indexOf(currentPhase);
+  if (currentIndex < 0 || currentIndex === MINDGUIDE_PHASE_ORDER.length - 1) {
+    return null;
+  }
+
+  return MINDGUIDE_PHASE_ORDER[currentIndex + 1];
+}
+
+export function getMindGuidePhaseLabel(phase: MindGuidePhase): string {
+  return MINDGUIDE_PHASE_LABELS[phase];
+}
+
+export function getMindGuidePhasePrompt(
+  problem: MindGuideProblem,
+  phase: MindGuidePhase
+): string {
+  if (phase === "formula_theorem_justification") {
+    const requiredAreas = [
+      problem.requiredFormula
+        ? `Required formula/method area: ${problem.requiredFormula}`
+        : null,
+      problem.requiredTheorem
+        ? `Required theorem/concept area: ${problem.requiredTheorem}`
+        : null,
+    ].filter(Boolean);
+
+    return [FORMULA_THEOREM_JUSTIFICATION_PROMPT, ...requiredAreas].join("\n\n");
+  }
+
+  return problem.socraticPrompts[phase];
+}
+
+export function validateFormulaTheoremJustification(
+  studentResponse: string,
+  problem: MindGuideProblem
+): { isAccepted: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  const trimmed = studentResponse.trim();
+
+  if (!trimmed) {
+    reasons.push("Response is empty.");
+  }
+
+  if (trimmed.length < 20) {
+    reasons.push("Response is shorter than 20 characters.");
+  }
+
+  const normalizedResponse = normalizeForConceptCheck(trimmed);
+  const mentionsExpectedConcept = problem.expectedConcepts.some((concept) =>
+    includesConcept(normalizedResponse, concept)
+  );
+  const mentionsRequiredArea = [
+    problem.requiredFormula,
+    problem.requiredTheorem,
+  ].some((requiredArea) =>
+    requiredArea ? includesRequiredArea(normalizedResponse, requiredArea) : false
+  );
+
+  if (!mentionsExpectedConcept && !mentionsRequiredArea) {
+    reasons.push("Response does not mention an expected concept or required area.");
+  }
+
+  const includesReasoningWord = JUSTIFICATION_REASONING_WORDS.some((word) =>
+    normalizedResponse.includes(word)
+  );
+
+  if (!includesReasoningWord) {
+    reasons.push("Response does not include a reasoning word.");
+  }
+
+  return {
+    isAccepted: reasons.length === 0,
+    reasons,
+  };
+}
+
+export function getMindGuidePhaseProgress(phase: MindGuidePhase): number {
+  const phaseIndex = MINDGUIDE_PHASE_ORDER.indexOf(phase);
+  if (phaseIndex < 0) return 0;
+  return Math.round(((phaseIndex + 1) / MINDGUIDE_PHASE_ORDER.length) * 100);
+}
+
+export function isFinalAnswerUnlocked(phase: MindGuidePhase): boolean {
+  return phase === "scorecard";
 }
 
 /**
@@ -175,38 +385,6 @@ export async function generateSummary(
   return cleanResponse(response);
 }
 
-/**
- * Evaluates the student's critical thinking score for the session.
- *
- * @param conversationHistory - All messages from the session.
- * @param hintsUsed - Number of hints the student requested.
- * @returns A score from 0 to 100.
- */
-export async function evaluateCTScore(
-  conversationHistory: ChatMessage[],
-  hintsUsed: number
-): Promise<number> {
-  const messages = conversationHistory.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  const prompt = buildCTScorePrompt(messages, hintsUsed);
-
-  try {
-    const response = await sendMessage(SOCRATIC_SYSTEM_PROMPT, [], prompt);
-    const score = parseInt(response.trim(), 10);
-    if (isNaN(score) || score < 0 || score > 100) {
-      console.warn("CT Score: AI returned invalid score, using default 70");
-      return 70;
-    }
-    return score;
-  } catch (err) {
-    console.error("CT Score evaluation failed:", err);
-    return 70;
-  }
-}
-
 // ─── Helpers ─────────────────────────────────────────────────
 
 /**
@@ -250,4 +428,73 @@ function getDefaultLogicMap(): LogicMapNode[] {
       completed: false,
     },
   ];
+}
+
+function isPrematureFinalAnswer(
+  studentResponse: string,
+  selectedProblem: MindGuideProblem,
+  currentPhase: MindGuidePhase
+): boolean {
+  if (isFinalAnswerUnlocked(currentPhase)) return false;
+
+  const response = normalizeForAnswerCheck(studentResponse);
+  const finalAnswer = normalizeForAnswerCheck(selectedProblem.finalAnswer);
+  if (!response || !finalAnswer) return false;
+
+  const answerTokens = finalAnswer
+    .split(" ")
+    .filter((token) => token.length > 1 && !["the", "is", "are"].includes(token));
+
+  return answerTokens.length > 0 && answerTokens.every((token) => response.includes(token));
+}
+
+function normalizeForAnswerCheck(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9.\/\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeForConceptCheck(value: string): string {
+  return ` ${value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()} `;
+}
+
+function includesConcept(normalizedResponse: string, concept: string): boolean {
+  const normalizedConcept = normalizeForConceptCheck(concept).trim();
+  return normalizedConcept
+    ? normalizedResponse.includes(` ${normalizedConcept} `)
+    : false;
+}
+
+function includesRequiredArea(
+  normalizedResponse: string,
+  requiredArea: string
+): boolean {
+  const requiredTokens = normalizeForConceptCheck(requiredArea)
+    .trim()
+    .split(" ")
+    .filter((token) => token.length >= 4 && !isStopWord(token));
+
+  return requiredTokens.some((token) => normalizedResponse.includes(` ${token} `));
+}
+
+function isStopWord(token: string): boolean {
+  return [
+    "when",
+    "then",
+    "only",
+    "with",
+    "from",
+    "that",
+    "this",
+    "another",
+    "both",
+    "possible",
+    "outcomes",
+  ].includes(token);
 }

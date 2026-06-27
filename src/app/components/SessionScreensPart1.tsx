@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Loader2,
   AlertCircle,
+  Unlock,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useSessionStore } from "@/stores/session-store";
@@ -28,7 +29,14 @@ import {
   sendStudentResponse,
   generateHint,
   extractLogicMap,
+  getMindGuidePhaseLabel,
+  getMindGuidePhaseProgress,
+  isFinalAnswerUnlocked,
 } from "@/lib/socratic-engine";
+import {
+  canUnlockNextSupport,
+  getUnlockedSupport,
+} from "@/lib/progressive-unlock";
 import type { ChatMessage, LogicMapNode } from "@/types";
 
 // ─── Session Layout ─────────────────────────────────────────
@@ -66,7 +74,7 @@ export function SessionLayout({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg">
-                SA
+                MG
               </div>
               <div>
                 <h1 className="font-bold text-slate-800">
@@ -88,7 +96,11 @@ export function SessionLayout({
 
           <div className="w-full space-y-2">
             <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-wider">
-              <span>{currentStepText}</span>
+              <span>
+                {activeSession?.currentPhase
+                  ? getMindGuidePhaseLabel(activeSession.currentPhase)
+                  : currentStepText}
+              </span>
               <span>{progress}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -209,7 +221,7 @@ export function AIBubble({
       className="flex gap-3 w-full max-w-2xl mr-auto"
     >
       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm shadow-slate-100">
-        SA
+        MG
       </div>
       <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-slate-200 shadow-sm shadow-slate-100 flex-1 space-y-4">
         {text && (
@@ -232,7 +244,7 @@ function AIThinking() {
       className="flex gap-3 w-full max-w-2xl mr-auto"
     >
       <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex-shrink-0 flex items-center justify-center text-indigo-600 font-bold text-xs shadow-sm shadow-slate-100">
-        SA
+        MG
       </div>
       <div className="bg-white p-4 rounded-2xl rounded-tl-sm border border-slate-200 shadow-sm flex items-center gap-1.5">
         <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
@@ -295,6 +307,81 @@ function ChatInput({
   );
 }
 
+/** Shows progressively unlocked support from the selected prepared problem. */
+export function ProgressiveSupportPanel() {
+  const { activeSession, isAIThinking, setUnlockLevel, persistSession } =
+    useSessionStore();
+
+  if (!activeSession?.selectedProblem) return null;
+
+  const support = getUnlockedSupport(
+    activeSession.selectedProblem,
+    activeSession.unlockLevel
+  );
+  const unlockGate = canUnlockNextSupport(activeSession);
+
+  return (
+    <div className="max-w-2xl mx-auto w-full bg-white border border-slate-200 rounded-2xl shadow-sm p-4 space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+            <Unlock className="w-4 h-4 text-indigo-600" />
+            Progressive Support
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Level {activeSession.unlockLevel}/5 unlocked
+          </p>
+        </div>
+        <button
+          onClick={async () => {
+            setUnlockLevel(unlockGate.nextLevel);
+            await persistSession();
+          }}
+          disabled={!unlockGate.canUnlock || isAIThinking}
+          className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg font-semibold text-xs transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Unlock Next Support
+        </button>
+      </div>
+
+      {unlockGate.reason && (
+        <p className="text-xs font-medium text-slate-500 bg-slate-50 border border-slate-100 rounded-lg p-2">
+          {unlockGate.reason}
+        </p>
+      )}
+
+      {support.items.length === 0 ? (
+        <p className="text-sm text-slate-500">
+          No support unlocked yet. Try the current reasoning prompt first.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {support.items.map((item) => (
+            <div
+              key={item.level}
+              className="bg-indigo-50 border border-indigo-100 rounded-xl p-3"
+            >
+              <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-700 mb-2">
+                Level {item.level}: {item.title}
+              </h3>
+              <div className="space-y-2">
+                {item.content.map((line, index) => (
+                  <p
+                    key={`${item.level}-${index}`}
+                    className="text-sm text-indigo-950 font-medium leading-relaxed"
+                  >
+                    {line}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Session Trigger (Screen 7) ─────────────────────────────
 
 /**
@@ -303,8 +390,15 @@ function ChatInput({
  */
 export function SessionTrigger() {
   const navigate = useNavigate();
-  const { activeSession, addMessage, setStep, setAIThinking, isAIThinking } =
-    useSessionStore();
+  const {
+    activeSession,
+    addMessage,
+    setStep,
+    setPhase,
+    setAIThinking,
+    persistSession,
+    isAIThinking,
+  } = useSessionStore();
   const [aiResponse, setAiResponse] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const hasStarted = useRef(false);
@@ -320,9 +414,12 @@ export function SessionTrigger() {
       try {
         const response = await startSession(
           activeSession.subject,
-          activeSession.originalQuestion
+          activeSession.topic,
+          activeSession.originalQuestion,
+          activeSession.selectedProblem
         );
         setAiResponse(response);
+        setPhase("problem_understanding");
 
         // Add the student's original question as first message
         addMessage({
@@ -338,6 +435,7 @@ export function SessionTrigger() {
           content: response,
           timestamp: Date.now(),
         });
+        await persistSession();
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Failed to start AI session"
@@ -348,7 +446,7 @@ export function SessionTrigger() {
     }
 
     initSession();
-  }, [activeSession, addMessage, setAIThinking]);
+  }, [activeSession, addMessage, persistSession, setAIThinking, setPhase]);
 
   if (!activeSession) {
     navigate("/student/task");
@@ -356,7 +454,10 @@ export function SessionTrigger() {
   }
 
   return (
-    <SessionLayout progress={10} currentStepText="Step 1: Initial Filter">
+    <SessionLayout
+      progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
+    >
       <StudentBubble text={activeSession.originalQuestion} />
 
       {isAIThinking && <AIThinking />}
@@ -376,8 +477,9 @@ export function SessionTrigger() {
             </p>
             <div className="flex items-center gap-3 pt-2">
               <button
-                onClick={() => {
+                onClick={async () => {
                   setStep("questioning");
+                  await persistSession();
                   navigate("/session/questioning");
                 }}
                 className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
@@ -407,7 +509,10 @@ export function SessionQuestioning() {
     activeSession,
     addMessage,
     setStep,
+    setPhase,
+    setDiagnosisResult,
     setAIThinking,
+    persistSession,
     isAIThinking,
   } = useSessionStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -428,19 +533,33 @@ export function SessionQuestioning() {
 
   /** Sends student message to AI and stores the response. */
   async function handleSendMessage(message: string) {
+    const responsePhase = activeSession!.currentPhase;
     const studentMsg: ChatMessage = {
       id: `msg-${Date.now()}-student`,
       role: "student",
       content: message,
       timestamp: Date.now(),
+      metadata: {
+        messageType: "phase_response",
+        phase: responsePhase,
+      },
     };
     addMessage(studentMsg);
+    await persistSession();
     setAIThinking(true);
 
     try {
-      const { message: aiText } = await sendStudentResponse(
-        activeSession!.messages,
-        message
+      const conversationWithStudent = [...activeSession!.messages, studentMsg];
+      const { message: aiText, nextPhase, diagnosis } = await sendStudentResponse(
+        conversationWithStudent,
+        message,
+        {
+          currentPhase: responsePhase,
+          selectedProblem: activeSession!.selectedProblem,
+          subject: activeSession!.subject,
+          topic: activeSession!.topic,
+          originalQuestion: activeSession!.originalQuestion,
+        }
       );
 
       const aiMsg: ChatMessage = {
@@ -448,8 +567,14 @@ export function SessionQuestioning() {
         role: "ai",
         content: aiText,
         timestamp: Date.now(),
+        metadata: diagnosis ? { diagnosis } : undefined,
       };
       addMessage(aiMsg);
+      setDiagnosisResult(diagnosis ?? null);
+      if (nextPhase) {
+        setPhase(nextPhase);
+      }
+      await persistSession();
       setExchangeCount((c) => c + 1);
     } catch {
       addMessage({
@@ -459,18 +584,19 @@ export function SessionQuestioning() {
           "I'm having trouble connecting right now. Please try sending your message again.",
         timestamp: Date.now(),
       });
+      await persistSession();
     } finally {
       setAIThinking(false);
     }
   }
 
-  /** Determines progress based on exchange count. */
-  const progress = Math.min(20 + exchangeCount * 10, 60);
+  const progress = getMindGuidePhaseProgress(activeSession.currentPhase);
+  const finalAnswerUnlocked = isFinalAnswerUnlocked(activeSession.currentPhase);
 
   return (
     <SessionLayout
       progress={progress}
-      currentStepText={`Step ${Math.min(Math.floor(exchangeCount / 2) + 1, 5)} of 5: Questioning`}
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
     >
       {/* Render all messages */}
       {activeSession.messages.map((msg) =>
@@ -488,8 +614,9 @@ export function SessionQuestioning() {
       <div className="mt-auto">
         <div className="max-w-2xl mx-auto flex justify-between mb-2">
           <button
-            onClick={() => {
+            onClick={async () => {
               setStep("hints");
+              await persistSession();
               navigate("/session/hints");
             }}
             disabled={isAIThinking}
@@ -498,19 +625,35 @@ export function SessionQuestioning() {
             <HelpCircle className="w-3.5 h-3.5" /> I need a hint
           </button>
 
-          {exchangeCount >= 2 && (
+          {finalAnswerUnlocked ? (
             <button
-              onClick={() => {
-                setStep("logic_map");
-                navigate("/session/logic-map");
+              onClick={async () => {
+                setStep("draft");
+                await persistSession();
+                navigate("/session/draft");
               }}
               disabled={isAIThinking}
               className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
             >
-              <CheckCircle2 className="w-3.5 h-3.5" /> Ready to continue →
+              <CheckCircle2 className="w-3.5 h-3.5" /> Ready to draft
             </button>
+          ) : (
+            exchangeCount >= 2 && (
+              <button
+                onClick={async () => {
+                  setStep("logic_map");
+                  await persistSession();
+                  navigate("/session/logic-map");
+                }}
+                disabled={isAIThinking}
+                className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" /> View logic map
+              </button>
+            )
           )}
         </div>
+        <ProgressiveSupportPanel />
         <ChatInput onSend={handleSendMessage} disabled={isAIThinking} />
       </div>
     </SessionLayout>
@@ -576,8 +719,8 @@ export function SessionHints() {
 
   return (
     <SessionLayout
-      progress={20}
-      currentStepText="Step 1 of 5: Questioning (Hint Provided)"
+      progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
     >
       {/* Show recent messages for context */}
       {activeSession.messages.slice(-2).map((msg) =>
@@ -633,6 +776,7 @@ export function SessionHints() {
           </div>
         </div>
       </div>
+      <ProgressiveSupportPanel />
     </SessionLayout>
   );
 }
@@ -646,9 +790,12 @@ export function SessionLogicMap() {
     activeSession,
     addMessage,
     setStep,
+    setPhase,
+    setDiagnosisResult,
     setAIThinking,
     isAIThinking,
     updateLogicMap,
+    persistSession,
   } = useSessionStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [mapNodes, setMapNodes] = useState<LogicMapNode[]>(
@@ -670,13 +817,14 @@ export function SessionLogicMap() {
         );
         setMapNodes(nodes);
         updateLogicMap(nodes);
+        await persistSession();
       } catch {
         console.error("Failed to extract logic map");
       }
     }
 
     doExtract();
-  }, [activeSession, updateLogicMap]);
+  }, [activeSession, persistSession, updateLogicMap]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -689,34 +837,54 @@ export function SessionLogicMap() {
 
   /** Sends student message in logic map view. */
   async function handleSendMessage(message: string) {
+    const responsePhase = activeSession!.currentPhase;
     const studentMsg: ChatMessage = {
       id: `msg-${Date.now()}-student`,
       role: "student",
       content: message,
       timestamp: Date.now(),
+      metadata: {
+        messageType: "phase_response",
+        phase: responsePhase,
+      },
     };
     addMessage(studentMsg);
+    await persistSession();
     setAIThinking(true);
 
     try {
-      const { message: aiText } = await sendStudentResponse(
-        activeSession!.messages,
-        message
+      const conversationWithStudent = [...activeSession!.messages, studentMsg];
+      const { message: aiText, nextPhase, diagnosis } = await sendStudentResponse(
+        conversationWithStudent,
+        message,
+        {
+          currentPhase: responsePhase,
+          selectedProblem: activeSession!.selectedProblem,
+          subject: activeSession!.subject,
+          topic: activeSession!.topic,
+          originalQuestion: activeSession!.originalQuestion,
+        }
       );
       addMessage({
         id: `msg-${Date.now()}-ai`,
         role: "ai",
         content: aiText,
         timestamp: Date.now(),
+        metadata: diagnosis ? { diagnosis } : undefined,
       });
+      setDiagnosisResult(diagnosis ?? null);
+      if (nextPhase) {
+        setPhase(nextPhase);
+      }
 
       // Re-extract logic map after each exchange
       const nodes = await extractLogicMap(
         activeSession!.originalQuestion,
-        [...activeSession!.messages, studentMsg]
+        conversationWithStudent
       );
       setMapNodes(nodes);
       updateLogicMap(nodes);
+      await persistSession();
     } catch {
       addMessage({
         id: `msg-${Date.now()}-error`,
@@ -724,6 +892,7 @@ export function SessionLogicMap() {
         content: "Connection issue. Please try again.",
         timestamp: Date.now(),
       });
+      await persistSession();
     } finally {
       setAIThinking(false);
     }
@@ -731,9 +900,9 @@ export function SessionLogicMap() {
 
   return (
     <SessionLayout
-      progress={60}
+      progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
       showMap={true}
-      currentStepText="Step 3 of 5: Execution"
+      currentStepText={getMindGuidePhaseLabel(activeSession.currentPhase)}
       logicMapNodes={mapNodes}
     >
       {/* Render all messages */}
@@ -752,17 +921,25 @@ export function SessionLogicMap() {
       <div className="mt-auto space-y-2">
         <div className="max-w-2xl mx-auto flex justify-end">
           <button
-            onClick={() => {
-              setStep("draft");
-              navigate("/session/draft");
+            onClick={async () => {
+              if (isFinalAnswerUnlocked(activeSession.currentPhase)) {
+                setStep("draft");
+                await persistSession();
+                navigate("/session/draft");
+              } else {
+                navigate("/session/questioning");
+              }
             }}
             disabled={isAIThinking}
             className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-4 py-2 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
           >
-            <CheckCircle2 className="w-3.5 h-3.5" /> I'm ready to write my
-            answer →
+            <CheckCircle2 className="w-3.5 h-3.5" />{" "}
+            {isFinalAnswerUnlocked(activeSession.currentPhase)
+              ? "I'm ready to write my answer"
+              : "Return to guided phases"}
           </button>
         </div>
+        <ProgressiveSupportPanel />
         <ChatInput onSend={handleSendMessage} disabled={isAIThinking} />
       </div>
     </SessionLayout>

@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the SocratAI Learning Platform.
+ * Core type definitions for the MINDGUIDE learning platform.
  *
  * These interfaces define the shape of all data flowing through the application,
  * from Firebase documents to Zustand store state.
@@ -35,9 +35,139 @@ export interface UserStats {
 /** The lifecycle status of a Socratic learning session. */
 export type SessionStatus =
   | "in_progress"
+  | "completed"
   | "submitted"
   | "reviewed"
   | "returned";
+
+/** Supported MINDGUIDE capstone subjects and their allowed topics. */
+export const SUBJECT_TOPICS = {
+  "Quantitative Methods": [
+    "Measures of Central Tendency",
+    "Variance and Standard Deviation",
+    "Data Interpretation",
+    "Probability",
+    "Correlation and Basic Regression",
+  ],
+  "Discrete Mathematics": [
+    "Logic and Propositions",
+    "Truth Tables",
+    "Counting Principles",
+    "Permutations and Combinations",
+    "Pigeonhole Principle",
+    "Basic Proof Reasoning",
+  ],
+} as const;
+
+export const SUBJECTS = Object.keys(SUBJECT_TOPICS) as Subject[];
+
+export type Subject = keyof typeof SUBJECT_TOPICS;
+export type Topic = (typeof SUBJECT_TOPICS)[Subject][number];
+
+/** Difficulty level for prepared MINDGUIDE prototype problems. */
+export type MindGuideDifficulty = "Basic" | "Intermediate" | "Advanced";
+
+/** Required phase order for the MINDGUIDE Socratic flow. */
+export type MindGuidePhase =
+  | "problem_understanding"
+  | "method_selection"
+  | "formula_theorem_justification"
+  | "guided_computation_or_reasoning"
+  | "error_diagnosis"
+  | "progressive_unlock"
+  | "scorecard";
+
+/** Socratic prompt set used to guide students through a prepared problem. */
+export interface MindGuideSocraticPrompts {
+  problem_understanding: string;
+  method_selection: string;
+  formula_theorem_justification: string;
+  guided_computation_or_reasoning: string;
+  error_diagnosis: string;
+  progressive_unlock: string;
+  scorecard: string;
+}
+
+/** Prepared problem bank item for the first MINDGUIDE working prototype. */
+export interface MindGuideProblem {
+  id: string;
+  subject: Subject;
+  topic: Topic;
+  difficulty: MindGuideDifficulty;
+  problemText: string;
+  expectedConcepts: string[];
+  requiredFormula?: string;
+  requiredTheorem?: string;
+  socraticPrompts: MindGuideSocraticPrompts;
+  solutionSteps: string[];
+  finalAnswer: string;
+  interpretation: string;
+}
+
+/** Rule-based misconception/error categories for prototype diagnosis. */
+export type MisconceptionErrorType =
+  | "wrong_formula"
+  | "invalid_logic"
+  | "misinterpreted_variable"
+  | "computational_error"
+  | "weak_justification"
+  | "skipped_reasoning"
+  | "none";
+
+/** Result returned by the misconception detector for a student response. */
+export interface DiagnosisResult {
+  errorType: MisconceptionErrorType;
+  correctivePrompt: string;
+  phase: MindGuidePhase;
+  reasons: string[];
+  detectedAt: number;
+}
+
+/** A student's response captured against the active MINDGUIDE phase. */
+export interface PhaseResponseRecord {
+  id: string;
+  phase: MindGuidePhase;
+  response: string;
+  submittedAt: number;
+  diagnosisResult: DiagnosisResult | null;
+}
+
+/** A corrective prompt shown to the student after a detected misconception. */
+export interface CorrectivePromptRecord {
+  id: string;
+  phase: MindGuidePhase;
+  prompt: string;
+  errorType: MisconceptionErrorType;
+  reasons: string[];
+  shownAt: number;
+}
+
+/** Progressive solution support levels. */
+export type UnlockLevel = 0 | 1 | 2 | 3 | 4 | 5;
+
+/** A single visible support item unlocked for the student. */
+export interface UnlockedSupportItem {
+  level: Exclude<UnlockLevel, 0>;
+  title: string;
+  content: string[];
+}
+
+/** Structured support returned by the progressive unlock helper. */
+export interface UnlockedSupport {
+  unlockLevel: UnlockLevel;
+  items: UnlockedSupportItem[];
+}
+
+/** Five-category MINDGUIDE critical thinking scorecard. */
+export interface MindGuideScorecard {
+  accuracy: number;
+  logicalValidity: number;
+  methodSelection: number;
+  justificationQuality: number;
+  interpretationQuality: number;
+  total: number;
+  feedback: string;
+}
 
 /** The discrete steps a session progresses through. */
 export type SessionStep =
@@ -93,21 +223,35 @@ export interface Session {
   id: string;
   studentId: string;
   studentName: string;
+  studentEmail: string | null;
   teacherId: string | null;
-  subject: string;
-  topic: string;
+  subject: Subject;
+  topic: Topic;
+  difficulty: MindGuideDifficulty | null;
+  selectedProblemId: string | null;
+  selectedProblem: MindGuideProblem | null;
   originalQuestion: string;
   status: SessionStatus;
   currentStep: SessionStep;
+  currentPhase: MindGuidePhase;
+  completedPhases: MindGuidePhase[];
   ctScore: number;
   createdAt: Timestamp;
+  updatedAt: Timestamp;
   completedAt: Timestamp | null;
   messages: ChatMessage[];
+  phaseResponses: PhaseResponseRecord[];
+  correctivePrompts: CorrectivePromptRecord[];
   logicMap: LogicMapNode[];
   draft: SessionDraft | null;
   aiSummary: string | null;
   teacherFeedback: TeacherFeedback | null;
   hintsUsed: number;
+  diagnosisResult: DiagnosisResult | null;
+  detectedMisconception: MisconceptionErrorType | null;
+  unlockLevel: UnlockLevel;
+  mindGuideScorecard: MindGuideScorecard | null;
+  scorecard: MindGuideScorecard | null;
 }
 
 // ─── AI Types ────────────────────────────────────────────────

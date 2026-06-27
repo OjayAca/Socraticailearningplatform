@@ -27,6 +27,8 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useSessionStore } from "@/stores/session-store";
 import { ProfileContent, SettingsContent, NotificationContent } from "./SharedScreens";
 import { useNotificationStore } from "@/stores/notification-store";
+import { SUBJECTS, SUBJECT_TOPICS } from "@/types";
+import type { Subject, Topic } from "@/types";
 
 // ─── Sidebar Layout ─────────────────────────────────────────
 
@@ -71,7 +73,7 @@ function StudentLayout({
             <BrainCircuit className="w-5 h-5" />
           </div>
           <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
-            SocratAI
+            MINDGUIDE
           </span>
         </div>
 
@@ -208,7 +210,7 @@ export function StudentDashboard() {
               <BrainCircuit className="w-5 h-5" />
             </div>
             <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-              Critical Thinking Score
+              Scorecard Total
             </span>
             <span className="text-3xl font-bold text-slate-900 dark:text-white">
               {stats.averageCTScore}
@@ -255,7 +257,7 @@ export function StudentDashboard() {
             className="flex-shrink-0 bg-white text-indigo-600 px-6 py-4 rounded-xl font-bold hover:bg-slate-50 transition-colors flex items-center gap-2"
           >
             <Plus className="w-5 h-5" />
-            Start New Session
+            Start MINDGUIDE Session
           </button>
         </div>
 
@@ -279,12 +281,14 @@ export function StudentDashboard() {
               {sessionHistory.slice(0, 3).map((session) => {
                 const statusColors: Record<string, string> = {
                   in_progress: "bg-blue-50 text-blue-700",
+                  completed: "bg-emerald-50 text-emerald-700",
                   submitted: "bg-amber-50 text-amber-700",
                   reviewed: "bg-emerald-50 text-emerald-700",
                   returned: "bg-red-50 text-red-700",
                 };
                 const statusLabels: Record<string, string> = {
                   in_progress: "In Progress",
+                  completed: "Completed",
                   submitted: "Submitted",
                   reviewed: "Reviewed",
                   returned: "Returned",
@@ -346,21 +350,44 @@ export function TaskStart() {
   const { firebaseUser, userProfile } = useAuthStore();
   const { createSession, isLoading } = useSessionStore();
 
-  const [subject, setSubject] = useState("");
+  const [subject, setSubject] = useState<Subject | "">("");
+  const [topic, setTopic] = useState<Topic | "">("");
   const [question, setQuestion] = useState("");
+
+  const availableTopics = subject ? SUBJECT_TOPICS[subject] : [];
+  const syntaxGuide = [
+    "Use x^2 for exponents",
+    "Use a/b for fractions",
+    "Use sqrt(x) for square roots",
+    "Use >= or <= for inequalities",
+    "Use p -> q, AND, OR, NOT for logic expressions",
+  ];
+
+  function handleSubjectChange(value: string) {
+    setSubject(value as Subject);
+    setTopic("");
+  }
+
+  function handleTopicChange(value: string) {
+    setTopic(value as Topic);
+  }
 
   /**
    * Creates a new Firestore session and navigates to the trigger screen.
    */
   async function handleStartSession() {
-    if (!subject || !question.trim() || !firebaseUser) return;
+    const trimmedQuestion = question.trim();
+    if (!subject || !topic || !trimmedQuestion || !firebaseUser) return;
 
     try {
       await createSession(
         firebaseUser.uid,
-        userProfile?.displayName || "Student",
+        userProfile?.displayName || userProfile?.email || firebaseUser.email || "Student",
         subject,
-        question.trim()
+        topic,
+        trimmedQuestion,
+        undefined,
+        userProfile?.email || firebaseUser.email || null
       );
       navigate("/session/trigger");
     } catch {
@@ -378,10 +405,10 @@ export function TaskStart() {
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200 p-8 space-y-8">
           <div className="space-y-2">
             <h2 className="text-2xl font-bold text-slate-900">
-              Start a New Task
+              Start MINDGUIDE Session
             </h2>
             <p className="text-slate-500">
-              What do you need help with today?
+              Choose a subject and topic, then ask the question you want to explore.
             </p>
           </div>
 
@@ -392,21 +419,39 @@ export function TaskStart() {
               </label>
               <select
                 value={subject}
-                onChange={(e) => setSubject(e.target.value)}
+                onChange={(e) => handleSubjectChange(e.target.value)}
                 disabled={isLoading}
                 className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none appearance-none bg-white text-slate-800 font-medium disabled:opacity-50"
               >
                 <option value="" disabled>
                   Choose a subject...
                 </option>
-                <option value="Mathematics">Mathematics</option>
-                <option value="Science">Science</option>
-                <option value="History">History</option>
-                <option value="English / Literature">
-                  English / Literature
+                {SUBJECTS.map((subjectOption) => (
+                  <option key={subjectOption} value={subjectOption}>
+                    {subjectOption}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-slate-700">
+                Select Topic
+              </label>
+              <select
+                value={topic}
+                onChange={(e) => handleTopicChange(e.target.value)}
+                disabled={isLoading || !subject}
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none appearance-none bg-white text-slate-800 font-medium disabled:opacity-50"
+              >
+                <option value="" disabled>
+                  {subject ? "Choose a topic..." : "Choose a subject first..."}
                 </option>
-                <option value="Computer Science">Computer Science</option>
-                <option value="Other">Other</option>
+                {availableTopics.map((topicOption) => (
+                  <option key={topicOption} value={topicOption}>
+                    {topicOption}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -418,10 +463,32 @@ export function TaskStart() {
                 rows={5}
                 value={question}
                 onChange={(e) => setQuestion(e.target.value)}
-                placeholder="Type or paste the problem you're trying to solve..."
-                disabled={isLoading}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none resize-none text-slate-800 disabled:opacity-50"
+                disabled={isLoading || !topic}
+                placeholder={
+                  topic
+                    ? "Type or paste the question you want help reasoning through..."
+                    : "Choose a topic first..."
+                }
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 outline-none resize-none bg-white text-slate-800 disabled:opacity-50"
               />
+              <p className="text-sm text-slate-500">
+                Your question does not need to match a prepared example. MINDGUIDE
+                will use the selected topic as context and ask for clarification when needed.
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+              <h3 className="text-sm font-bold text-slate-900 mb-3">
+                Plain-text Syntax Guide
+              </h3>
+              <ul className="space-y-2 text-sm text-slate-600">
+                {syntaxGuide.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <span className="text-indigo-600 font-bold">-</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
@@ -435,14 +502,14 @@ export function TaskStart() {
             </button>
             <button
               onClick={handleStartSession}
-              disabled={isLoading || !subject || !question.trim()}
+              disabled={isLoading || !subject || !topic || !question.trim()}
               className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-8 py-3 rounded-xl transition-all shadow-md shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  Start Guidance
+                  Begin Socratic Solver
                   <BrainCircuit className="w-4 h-4" />
                 </>
               )}
@@ -515,12 +582,14 @@ export function StudentHistoryScreen() {
             {sessionHistory.map((session) => {
               const statusColors: Record<string, string> = {
                 in_progress: "bg-blue-50 text-blue-700",
+                completed: "bg-emerald-50 text-emerald-700",
                 submitted: "bg-amber-50 text-amber-700",
                 reviewed: "bg-emerald-50 text-emerald-700",
                 returned: "bg-red-50 text-red-700",
               };
               const statusLabels: Record<string, string> = {
                 in_progress: "In Progress",
+                completed: "Completed",
                 submitted: "Submitted",
                 reviewed: "Reviewed",
                 returned: "Returned",

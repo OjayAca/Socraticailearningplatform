@@ -18,7 +18,7 @@ const SCREENS = [
   { path: "/session/review", title: "13. Final Guided Review" },
   { path: "/session/log", title: "14. Thinking Log Generation" },
   { path: "/session/confirmation", title: "15. Submission Confirmation" },
-  { path: "/teacher/dashboard", title: "16. Teacher Dashboard" },
+  { path: "/teacher/dashboard", title: "16. Teacher Workspace" },
   { path: "/teacher/review", title: "17. Teacher Review Screen" },
 ];
 
