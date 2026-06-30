@@ -1,16 +1,15 @@
 /**
  * Application route definitions.
  *
- * Routes are organized into three groups:
+ * Routes are organized into two groups:
  * 1. Public routes (splash, login, signup)
- * 2. Auth-required routes (role selection)
- * 3. Role-protected routes (student/*, teacher/*, session/*)
+ * 2. Role-protected routes (student/*, teacher/*, session/*)
  *
  * @module app/routes
  */
 
 import { createBrowserRouter, Outlet } from "react-router";
-import { Splash, Login, SignUp, RoleSelection } from "./components/AuthScreens";
+import { Splash, Login, SignUp } from "./components/AuthScreens";
 import { StudentDashboard, TaskStart, StudentProfileScreen, StudentSettingsScreen, StudentHistoryScreen, StudentNotificationsScreen } from "./components/StudentScreens";
 import {
   SessionTrigger,
@@ -47,12 +46,6 @@ export const router = createBrowserRouter([
       { index: true, Component: Splash },
       { path: "login", Component: Login },
       { path: "signup", Component: SignUp },
-
-      // ── Auth Required (any role) ───────────────────────
-      {
-        element: <ProtectedRoute />,
-        children: [{ path: "role", Component: RoleSelection }],
-      },
 
       // ── Student Routes ─────────────────────────────────
       {

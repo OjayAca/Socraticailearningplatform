@@ -7,7 +7,7 @@
  * @module components/ProtectedRoute
  */
 
-import { Navigate, Outlet, useLocation } from "react-router";
+import { Navigate, Outlet } from "react-router";
 import { useAuthStore } from "@/stores/auth-store";
 import { Loader2 } from "lucide-react";
 import type { UserRole } from "@/types";
@@ -22,7 +22,7 @@ interface ProtectedRouteProps {
  *
  * - If auth is still loading → shows a spinner.
  * - If not authenticated → redirects to `/login`.
- * - If authenticated but no role selected → redirects to `/role`.
+ * - If authenticated but missing a legacy role, treats the user as a student.
  * - If role is required and doesn't match → redirects to the correct dashboard.
  * - Otherwise → renders the child route (`<Outlet />`).
  *
@@ -31,7 +31,6 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
   const { firebaseUser, userProfile, isLoading } = useAuthStore();
-  const location = useLocation();
 
   if (isLoading) {
     return (
@@ -48,13 +47,11 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!userProfile?.role && location.pathname !== "/role") {
-    return <Navigate to="/role" replace />;
-  }
+  const profileRole = userProfile?.role ?? "student";
 
-  if (requiredRole && userProfile?.role !== requiredRole) {
+  if (requiredRole && profileRole !== requiredRole) {
     const redirectPath =
-      userProfile?.role === "teacher"
+      profileRole === "teacher"
         ? "/teacher/dashboard"
         : "/student/dashboard";
     return <Navigate to={redirectPath} replace />;

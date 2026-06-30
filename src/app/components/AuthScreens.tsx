@@ -1,5 +1,5 @@
 /**
- * Authentication screens — Splash, Login, SignUp, and RoleSelection.
+ * Authentication screens — Splash, Login, and SignUp.
  *
  * These components are wired to Firebase Auth via the Zustand auth store.
  * All forms include validation, loading states, and error display.
@@ -14,10 +14,10 @@ import {
   Mail,
   Lock,
   User,
-  GraduationCap,
   ArrowRight,
   Loader2,
   AlertCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -81,11 +81,16 @@ export function Splash() {
 /** Screen 2: Email/password login form with Google OAuth option. */
 export function Login() {
   const navigate = useNavigate();
-  const { signIn, signInWithGoogle, error, isLoading, clearError } =
+  const { signIn, signInWithGoogle, resetPassword, error, isLoading, clearError } =
     useAuthStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  const resetSuccessMessage =
+    "If an account exists for this email, a password reset link has been sent.";
 
   /**
    * Handles email/password login submission.
@@ -94,12 +99,13 @@ export function Login() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     clearError();
+    setResetSuccess(false);
 
     if (!email.trim() || !password.trim()) return;
 
     try {
       await signIn(email.trim(), password);
-      navigate("/role");
+      navigate("/student/dashboard");
     } catch {
       // Error is already set in the store
     }
@@ -108,12 +114,41 @@ export function Login() {
   /** Handles Google OAuth sign-in. */
   async function handleGoogleSignIn() {
     clearError();
+    setResetSuccess(false);
     try {
       await signInWithGoogle();
-      navigate("/role");
+      navigate("/student/dashboard");
     } catch {
       // Error is already set in the store
     }
+  }
+
+  /** Sends a password reset email for the entered address. */
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault();
+    clearError();
+    setResetSuccess(false);
+
+    if (!email.trim()) return;
+
+    try {
+      await resetPassword(email.trim());
+      setResetSuccess(true);
+    } catch {
+      // Error is already set in the store
+    }
+  }
+
+  function showResetMode() {
+    clearError();
+    setResetSuccess(false);
+    setIsResetMode(true);
+  }
+
+  function showLoginMode() {
+    clearError();
+    setResetSuccess(false);
+    setIsResetMode(false);
   }
 
   return (
@@ -129,7 +164,9 @@ export function Login() {
           </div>
           <h2 className="text-2xl font-bold text-slate-900">Welcome Back</h2>
           <p className="text-slate-500 text-sm">
-            Log in to continue your learning journey.
+            {isResetMode
+              ? "Enter your email and we'll send a secure reset link."
+              : "Log in to continue your learning journey."}
           </p>
         </div>
 
@@ -141,6 +178,63 @@ export function Login() {
           </div>
         )}
 
+        {resetSuccess && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{resetSuccessMessage}</span>
+          </div>
+        )}
+
+        {isResetMode ? (
+          <>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700 block">
+                  Email
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                    disabled={isLoading}
+                    className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    Send Reset Link
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            <button
+              type="button"
+              onClick={showLoginMode}
+              disabled={isLoading}
+              className="w-full text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50"
+            >
+              Back to log in
+            </button>
+          </>
+        ) : (
+          <>
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-slate-700 block">
@@ -180,6 +274,16 @@ export function Login() {
                 disabled={isLoading}
                 className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
               />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={showResetMode}
+                disabled={isLoading}
+                className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50"
+              >
+                Forgot password?
+              </button>
             </div>
           </div>
 
@@ -247,6 +351,8 @@ export function Login() {
             Sign up
           </button>
         </div>
+          </>
+        )}
       </motion.div>
     </div>
   );
@@ -268,7 +374,7 @@ export function SignUp() {
 
   /**
    * Handles new account creation.
-   * On success, the user is auto-signed-in and redirected to role selection.
+   * On success, the user is auto-signed-in and redirected to the student dashboard.
    */
   async function handleSignUp(e: React.FormEvent) {
     e.preventDefault();
@@ -284,7 +390,7 @@ export function SignUp() {
 
     try {
       await signUp(name.trim(), email.trim(), password);
-      navigate("/role");
+      navigate("/student/dashboard");
     } catch {
       // Error is already set in the store
     }
@@ -296,7 +402,7 @@ export function SignUp() {
     setLocalError(null);
     try {
       await signInWithGoogle();
-      navigate("/role");
+      navigate("/student/dashboard");
     } catch {
       // Error is already set in the store
     }
@@ -478,110 +584,3 @@ export function SignUp() {
   );
 }
 
-// ─── Role Selection ─────────────────────────────────────────
-
-/** Screen 4: Post-login role selection. */
-export function RoleSelection() {
-  const navigate = useNavigate();
-  const { userProfile, setRole, isLoading } = useAuthStore();
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-
-  // If user already has a role, redirect
-  if (userProfile?.role) {
-    const destination =
-      userProfile.role === "teacher"
-        ? "/teacher/dashboard"
-        : "/student/dashboard";
-    return <Navigate to={destination} replace />;
-  }
-
-  const displayName = userProfile?.displayName || "there";
-
-  /**
-   * Handles role selection — saves to Firestore and navigates to dashboard.
-   *
-   * @param role - The selected role.
-   */
-  async function handleRoleSelect(role: "student" | "teacher") {
-    setSelectedRole(role);
-    try {
-      await setRole(role);
-      navigate(
-        role === "teacher" ? "/teacher/dashboard" : "/student/dashboard"
-      );
-    } catch {
-      setSelectedRole(null);
-    }
-  }
-
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 h-full p-6">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-lg space-y-8"
-      >
-        <div className="text-center space-y-2">
-          <h2 className="text-3xl font-bold text-slate-900">
-            Welcome, {displayName}!
-          </h2>
-          <p className="text-slate-500">
-            How are you using MINDGUIDE today?
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button
-            onClick={() => handleRoleSelect("student")}
-            disabled={isLoading}
-            className={`group p-8 bg-white border-2 rounded-3xl transition-all shadow-sm hover:shadow-xl hover:shadow-indigo-100 flex flex-col items-center gap-4 text-center disabled:opacity-50 ${
-              selectedRole === "student"
-                ? "border-indigo-600"
-                : "border-slate-100 hover:border-indigo-600"
-            }`}
-          >
-            {selectedRole === "student" && isLoading ? (
-              <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-            ) : (
-              <div className="w-20 h-20 bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center transition-colors">
-                <User className="w-10 h-10" />
-              </div>
-            )}
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Student</h3>
-              <p className="text-slate-500 text-sm mt-2">
-                I want to learn and solve problems step-by-step.
-              </p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => handleRoleSelect("teacher")}
-            disabled={isLoading}
-            className={`group p-8 bg-white border-2 rounded-3xl transition-all shadow-sm hover:shadow-xl hover:shadow-emerald-100 flex flex-col items-center gap-4 text-center disabled:opacity-50 ${
-              selectedRole === "teacher"
-                ? "border-emerald-600"
-                : "border-slate-100 hover:border-emerald-600"
-            }`}
-          >
-            {selectedRole === "teacher" && isLoading ? (
-              <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
-            ) : (
-              <div className="w-20 h-20 bg-emerald-50 group-hover:bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center transition-colors">
-                <GraduationCap className="w-10 h-10" />
-              </div>
-            )}
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">
-                System Administrator
-              </h3>
-              <p className="text-slate-500 text-sm mt-2">
-                I want to monitor learner sessions and review records.
-              </p>
-            </div>
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}

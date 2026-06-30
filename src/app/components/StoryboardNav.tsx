@@ -6,7 +6,6 @@ const SCREENS = [
   { path: "/", title: "1. Splash / Welcome" },
   { path: "/login", title: "2. Log-In Screen" },
   { path: "/signup", title: "3. Sign-Up Screen" },
-  { path: "/role", title: "4. Role Selection" },
   { path: "/student/dashboard", title: "5. Student Dashboard" },
   { path: "/student/task", title: "6. Choose Subject / Start Task" },
   { path: "/session/trigger", title: "7. Answer-Block Filter Trigger" },

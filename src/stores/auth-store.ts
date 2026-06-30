@@ -2,7 +2,7 @@
  * Authentication state management via Zustand.
  *
  * Manages the current user profile, authentication loading state,
- * and provides actions for sign-in, sign-up, sign-out, and role selection.
+ * and provides actions for sign-in, sign-up, sign-out, and profile updates.
  *
  * @module stores/auth-store
  */
@@ -16,6 +16,7 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  sendPasswordResetEmail,
   type User,
 } from "firebase/auth";
 import {
@@ -25,7 +26,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db, firebaseSetupMessage, isFirebaseConfigured } from "@/lib/firebase";
-import type { UserProfile, UserRole } from "@/types";
+import type { UserProfile } from "@/types";
 
 // ─── Store Shape ─────────────────────────────────────────────
 
@@ -48,10 +49,10 @@ interface AuthState {
   signUp: (name: string, email: string, password: string) => Promise<void>;
   /** Signs in with Google OAuth popup. */
   signInWithGoogle: () => Promise<void>;
+  /** Sends a password reset email without revealing whether the account exists. */
+  resetPassword: (email: string) => Promise<void>;
   /** Signs out the current user. */
   signOut: () => Promise<void>;
-  /** Sets the user's role and writes it to Firestore. */
-  setRole: (role: UserRole) => Promise<void>;
   /** Updates the user's display name. */
   updateDisplayName: (displayName: string) => Promise<void>;
   /** Clears the current error message. */
@@ -131,30 +132,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signOut: async () => {
-    set({ error: null });
+  resetPassword: async (email: string) => {
+    set({ error: null, isLoading: true });
     try {
-      await firebaseSignOut(requireAuth());
+      await sendPasswordResetEmail(requireAuth(), email);
+      set({ isLoading: false });
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err) });
+      set({ error: getFirebaseErrorMessage(err), isLoading: false });
       throw err;
     }
   },
 
-  setRole: async (role: UserRole) => {
-    const { firebaseUser } = get();
-    if (!firebaseUser) {
-      set({ error: "No user signed in." });
-      return;
-    }
+  signOut: async () => {
+    set({ error: null });
     try {
-      const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      await setDoc(userRef, { role }, { merge: true });
-      set((state) => ({
-        userProfile: state.userProfile
-          ? { ...state.userProfile, role }
-          : null,
-      }));
+      await firebaseSignOut(requireAuth());
     } catch (err) {
       set({ error: getFirebaseErrorMessage(err) });
       throw err;
@@ -207,7 +199,14 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
-    return { uid: user.uid, ...snapshot.data() } as UserProfile;
+    const profile = { uid: user.uid, ...snapshot.data() } as UserProfile;
+
+    if (!profile.role) {
+      await setDoc(userRef, { role: "student" }, { merge: true });
+      return { ...profile, role: "student" };
+    }
+
+    return profile;
   }
 
   return createUserProfile(user, user.displayName || "User");
@@ -227,7 +226,7 @@ async function createUserProfile(
   const profile: Omit<UserProfile, "uid"> = {
     displayName,
     email: user.email || "",
-    role: null,
+    role: "student",
     createdAt: serverTimestamp() as any,
     stats: {
       sessionsCompleted: 0,
