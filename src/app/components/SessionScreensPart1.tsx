@@ -1,5 +1,5 @@
 /**
- * Session screens — Part 1: Trigger, Questioning, Productive, Hints, Logic Map.
+ * Session screens — Part 1: Trigger, Questioning, Hints, Logic Map.
  *
  * These components manage the interactive Socratic conversation between
  * the student and the AI. All messages are stored in the Zustand session store
@@ -9,7 +9,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import {
   X,
   Send,
@@ -37,7 +37,8 @@ import {
   canUnlockNextSupport,
   getUnlockedSupport,
 } from "@/lib/progressive-unlock";
-import type { ChatMessage, LogicMapNode } from "@/types";
+import { getSessionPath } from "@/lib/session-routes";
+import type { ChatMessage, LogicMapNode, MindGuidePhase } from "@/types";
 
 // ─── Session Layout ─────────────────────────────────────────
 
@@ -59,7 +60,7 @@ export function SessionLayout({
   logicMapNodes?: LogicMapNode[];
 }) {
   const navigate = useNavigate();
-  const { activeSession } = useSessionStore();
+  const { activeSession, error, clearError } = useSessionStore();
 
   return (
     <div className="flex h-full w-full bg-slate-50 overflow-hidden font-sans text-slate-900">
@@ -114,6 +115,49 @@ export function SessionLayout({
 
         {/* Chat / Interaction Area */}
         <div className="flex-1 bg-slate-50 overflow-y-auto p-6 pb-20 flex flex-col gap-6 scroll-smooth">
+          {error && (
+            <div
+              role="alert"
+              className="mx-auto flex w-full max-w-2xl items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+            >
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={clearError}
+                className="shrink-0 rounded-md px-2 py-1 font-semibold hover:bg-red-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+          {showMap && (
+            <details className="lg:hidden rounded-2xl border border-indigo-100 bg-white p-4 shadow-sm">
+              <summary className="cursor-pointer font-bold text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                View logic map ({logicMapNodes.length} steps)
+              </summary>
+              <ol className="mt-4 space-y-3">
+                {logicMapNodes.length ? (
+                  logicMapNodes.map((node) => (
+                    <li
+                      key={node.step}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm"
+                    >
+                      <span className="font-bold text-slate-800">
+                        {node.step}. {node.title}
+                      </span>
+                      {node.description && (
+                        <p className="mt-1 text-slate-600">{node.description}</p>
+                      )}
+                    </li>
+                  ))
+                ) : (
+                  <li className="text-sm text-slate-500">
+                    The map will appear after your reasoning is analyzed.
+                  </li>
+                )}
+              </ol>
+            </details>
+          )}
           {children}
         </div>
       </div>
@@ -263,22 +307,26 @@ function ChatInput({
   disabled = false,
   placeholder = "Type your response here...",
 }: {
-  onSend: (message: string) => void;
+  onSend: (message: string) => void | Promise<void>;
   disabled?: boolean;
   placeholder?: string;
 }) {
   const [input, setInput] = useState("");
 
-  function handleSend() {
+  async function handleSend() {
     if (!input.trim() || disabled) return;
-    onSend(input.trim());
-    setInput("");
+    try {
+      await onSend(input.trim());
+      setInput("");
+    } catch {
+      // Parent surfaces the actionable error and the response stays editable.
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   }
 
@@ -286,6 +334,7 @@ function ChatInput({
     <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm flex items-end gap-2 max-w-2xl w-full mx-auto mt-auto">
       <textarea
         rows={2}
+        maxLength={2_000}
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -295,7 +344,7 @@ function ChatInput({
       />
       <div className="flex flex-col gap-2 p-1">
         <button
-          onClick={handleSend}
+          onClick={() => void handleSend()}
           disabled={disabled || !input.trim()}
           className="bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl transition-colors shadow-md shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed"
           title="Send"
@@ -303,13 +352,16 @@ function ChatInput({
           <Send className="w-4 h-4" />
         </button>
       </div>
+      <span className="pb-2 pr-2 text-[10px] font-medium text-slate-400">
+        {input.length}/2000
+      </span>
     </div>
   );
 }
 
 /** Shows progressively unlocked support from the selected prepared problem. */
 export function ProgressiveSupportPanel() {
-  const { activeSession, isAIThinking, setUnlockLevel, persistSession } =
+  const { activeSession, isAIThinking, setUnlockLevel, addHint, persistSession } =
     useSessionStore();
 
   if (!activeSession?.selectedProblem) return null;
@@ -334,7 +386,18 @@ export function ProgressiveSupportPanel() {
         </div>
         <button
           onClick={async () => {
+            const nextSupport = getUnlockedSupport(
+              activeSession.selectedProblem!,
+              unlockGate.nextLevel
+            ).items.find((item) => item.level === unlockGate.nextLevel);
             setUnlockLevel(unlockGate.nextLevel);
+            if (nextSupport) {
+              addHint(
+                `${nextSupport.title}: ${nextSupport.content.join(" ")}`,
+                nextSupport.level,
+                "progressive_unlock"
+              );
+            }
             await persistSession();
           }}
           disabled={!unlockGate.canUnlock || isAIThinking}
@@ -399,17 +462,35 @@ export function SessionTrigger() {
     persistSession,
     isAIThinking,
   } = useSessionStore();
-  const [aiResponse, setAiResponse] = useState<string | null>(null);
+  const persistedOpening = activeSession?.messages.find(
+    (message) =>
+      message.role === "ai" &&
+      message.metadata?.messageType === "opening_prompt"
+  );
+  const [aiResponse, setAiResponse] = useState<string | null>(
+    persistedOpening?.content ?? null
+  );
   const [error, setError] = useState<string | null>(null);
   const hasStarted = useRef(false);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // Auto-start the session on mount
   useEffect(() => {
     if (hasStarted.current || !activeSession) return;
+    const existingOpening = activeSession.messages.find(
+      (message) =>
+        message.role === "ai" &&
+        message.metadata?.messageType === "opening_prompt"
+    );
+    if (existingOpening) {
+      hasStarted.current = true;
+      return;
+    }
     hasStarted.current = true;
 
     async function initSession() {
       if (!activeSession) return;
+      setError(null);
       setAIThinking(true);
       try {
         const response = await startSession(
@@ -422,18 +503,26 @@ export function SessionTrigger() {
         setPhase("problem_understanding");
 
         // Add the student's original question as first message
-        addMessage({
-          id: `msg-${Date.now()}-student`,
-          role: "student",
-          content: activeSession.originalQuestion,
-          timestamp: Date.now(),
-        });
+        if (
+          !activeSession.messages.some(
+            (message) => message.metadata?.messageType === "original_question"
+          )
+        ) {
+          addMessage({
+            id: `msg-${Date.now()}-student`,
+            role: "student",
+            content: activeSession.originalQuestion,
+            timestamp: Date.now(),
+            metadata: { messageType: "original_question" },
+          });
+        }
         // Add AI's response
         addMessage({
           id: `msg-${Date.now()}-ai`,
           role: "ai",
           content: response,
           timestamp: Date.now(),
+          metadata: { messageType: "opening_prompt" },
         });
         await persistSession();
       } catch (err) {
@@ -446,13 +535,18 @@ export function SessionTrigger() {
     }
 
     initSession();
-  }, [activeSession, addMessage, persistSession, setAIThinking, setPhase]);
+  }, [
+    activeSession,
+    addMessage,
+    persistSession,
+    retryNonce,
+    setAIThinking,
+    setPhase,
+  ]);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
-
   return (
     <SessionLayout
       progress={getMindGuidePhaseProgress(activeSession.currentPhase)}
@@ -463,9 +557,21 @@ export function SessionTrigger() {
       {isAIThinking && <AIThinking />}
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm max-w-2xl mr-auto ml-11">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{error}</span>
+        <div className="max-w-2xl mr-auto ml-11 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              hasStarted.current = false;
+              setRetryNonce((value) => value + 1);
+            }}
+            className="mt-3 rounded-lg bg-red-100 px-3 py-2 font-semibold hover:bg-red-200"
+          >
+            Retry AI connection
+          </button>
         </div>
       )}
 
@@ -480,7 +586,7 @@ export function SessionTrigger() {
                 onClick={async () => {
                   setStep("questioning");
                   await persistSession();
-                  navigate("/session/questioning");
+                  navigate(getSessionPath(activeSession.id, "questioning"));
                 }}
                 className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold text-sm hover:bg-indigo-700 transition-colors shadow-sm"
               >
@@ -511,12 +617,20 @@ export function SessionQuestioning() {
     setStep,
     setPhase,
     setDiagnosisResult,
+    addAIFallbackEvent,
     setAIThinking,
     persistSession,
     isAIThinking,
   } = useSessionStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const [exchangeCount, setExchangeCount] = useState(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const exchangeCount =
+    activeSession?.messages.filter(
+      (message) =>
+        message.role === "student" &&
+        message.metadata?.messageType === "phase_response"
+    ).length ?? 0;
 
   const scrollToBottom = useCallback(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -527,38 +641,51 @@ export function SessionQuestioning() {
   }, [activeSession?.messages.length, isAIThinking, scrollToBottom]);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
+  const session = activeSession;
 
-  /** Sends student message to AI and stores the response. */
-  async function handleSendMessage(message: string) {
-    const responsePhase = activeSession!.currentPhase;
-    const studentMsg: ChatMessage = {
-      id: `msg-${Date.now()}-student`,
-      role: "student",
-      content: message,
-      timestamp: Date.now(),
-      metadata: {
-        messageType: "phase_response",
-        phase: responsePhase,
-      },
-    };
-    addMessage(studentMsg);
-    await persistSession();
+  async function requestAIResponse(
+    studentMsg: ChatMessage,
+    responsePhase: MindGuidePhase
+  ) {
+    const controller = new AbortController();
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = controller;
+    setRequestError(null);
     setAIThinking(true);
 
     try {
-      const conversationWithStudent = [...activeSession!.messages, studentMsg];
-      const { message: aiText, nextPhase, diagnosis } = await sendStudentResponse(
+      const currentSession =
+        useSessionStore.getState().activeSession ?? session;
+      const conversationWithStudent = currentSession.messages.some(
+        (entry) => entry.id === studentMsg.id
+      )
+        ? currentSession.messages
+        : [...currentSession.messages, studentMsg];
+      const {
+        message: aiText,
+        nextPhase,
+        diagnosis,
+        aiFallbackEvent,
+      } = await sendStudentResponse(
         conversationWithStudent,
-        message,
+        studentMsg.content,
         {
-          currentPhase: responsePhase,
-          selectedProblem: activeSession!.selectedProblem,
-          subject: activeSession!.subject,
-          topic: activeSession!.topic,
-          originalQuestion: activeSession!.originalQuestion,
+        currentPhase: responsePhase,
+        selectedProblem: currentSession.selectedProblem,
+        subject: currentSession.subject,
+        topic: currentSession.topic,
+        originalQuestion: currentSession.originalQuestion,
+        phaseResponses: currentSession.phaseResponses,
+        hintsUsed: currentSession.hintsUsed,
+        unlockLevel: currentSession.unlockLevel,
+        problemMode: currentSession.problemMode,
+        freeFormAnalysis:
+          currentSession.problemContext.mode === "free_form"
+            ? currentSession.problemContext.analysis
+            : undefined,
+        signal: controller.signal,
         }
       );
 
@@ -571,24 +698,61 @@ export function SessionQuestioning() {
       };
       addMessage(aiMsg);
       setDiagnosisResult(diagnosis ?? null);
+      if (aiFallbackEvent) {
+        addAIFallbackEvent(aiFallbackEvent);
+      }
       if (nextPhase) {
         setPhase(nextPhase);
       }
       await persistSession();
-      setExchangeCount((c) => c + 1);
-    } catch {
-      addMessage({
-        id: `msg-${Date.now()}-error`,
-        role: "ai",
-        content:
-          "I'm having trouble connecting right now. Please try sending your message again.",
-        timestamp: Date.now(),
-      });
-      await persistSession();
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "The response could not be saved. Please try again."
+      );
+      throw error;
     } finally {
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+      }
       setAIThinking(false);
     }
   }
+
+  /** Persists a student response before requesting its matching AI reply. */
+  async function handleSendMessage(message: string) {
+    const responsePhase = session.currentPhase;
+    const studentMsg: ChatMessage = {
+      id: `msg-${Date.now()}-student`,
+      role: "student",
+      content: message,
+      timestamp: Date.now(),
+      metadata: {
+        messageType: "phase_response",
+        phase: responsePhase,
+      },
+    };
+
+    setRequestError(null);
+    try {
+      addMessage(studentMsg);
+      await persistSession();
+      await requestAIResponse(studentMsg, responsePhase);
+    } catch (error) {
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "The response could not be saved. Please try again."
+      );
+      throw error;
+    }
+  }
+
+  const pendingStudentMessage =
+    activeSession.messages.at(-1)?.role === "student"
+      ? activeSession.messages.at(-1) ?? null
+      : null;
 
   const progress = getMindGuidePhaseProgress(activeSession.currentPhase);
   const finalAnswerUnlocked = isFinalAnswerUnlocked(activeSession.currentPhase);
@@ -607,17 +771,55 @@ export function SessionQuestioning() {
         )
       )}
 
-      {isAIThinking && <AIThinking />}
+      {isAIThinking && (
+        <>
+          <AIThinking />
+          <button
+            type="button"
+            onClick={() => requestControllerRef.current?.abort()}
+            className="mx-auto rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100"
+          >
+            Cancel AI request
+          </button>
+        </>
+      )}
 
       <div ref={chatEndRef} />
 
       <div className="mt-auto">
+        {requestError && (
+          <div className="mx-auto mb-3 max-w-2xl rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+            <p>{requestError}</p>
+            {pendingStudentMessage && (
+              <button
+                type="button"
+                onClick={() => {
+                  const phase =
+                    (pendingStudentMessage.metadata?.phase as MindGuidePhase) ??
+                    activeSession.currentPhase;
+                  void persistSession()
+                    .then(() => requestAIResponse(pendingStudentMessage, phase))
+                    .catch((error) =>
+                      setRequestError(
+                        error instanceof Error
+                          ? error.message
+                          : "The response could not be retried."
+                      )
+                    );
+                }}
+                className="mt-2 rounded-lg bg-red-100 px-3 py-2 font-semibold hover:bg-red-200"
+              >
+                Retry AI response
+              </button>
+            )}
+          </div>
+        )}
         <div className="max-w-2xl mx-auto flex justify-between mb-2">
           <button
             onClick={async () => {
               setStep("hints");
               await persistSession();
-              navigate("/session/hints");
+              navigate(getSessionPath(activeSession.id, "hints"));
             }}
             disabled={isAIThinking}
             className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
@@ -630,7 +832,7 @@ export function SessionQuestioning() {
               onClick={async () => {
                 setStep("draft");
                 await persistSession();
-                navigate("/session/draft");
+                navigate(getSessionPath(activeSession.id, "draft"));
               }}
               disabled={isAIThinking}
               className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
@@ -643,7 +845,7 @@ export function SessionQuestioning() {
                 onClick={async () => {
                   setStep("logic_map");
                   await persistSession();
-                  navigate("/session/logic-map");
+                  navigate(getSessionPath(activeSession.id, "logic_map"));
                 }}
                 disabled={isAIThinking}
                 className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors disabled:opacity-50"
@@ -660,62 +862,80 @@ export function SessionQuestioning() {
   );
 }
 
-// ─── Productive Response (Screen 9) ─────────────────────────
-
-/** Alias that redirects to the questioning flow with context. */
-export function SessionProductive() {
-  const navigate = useNavigate();
-  useEffect(() => {
-    navigate("/session/questioning", { replace: true });
-  }, [navigate]);
-  return null;
-}
-
 // ─── Session Hints (Screen 10) ──────────────────────────────
 
 /** Progressive hint screen — generates hints via AI. */
 export function SessionHints() {
   const navigate = useNavigate();
-  const { activeSession, setAIThinking, isAIThinking } = useSessionStore();
-  const [hints, setHints] = useState<string[]>([]);
-  const [currentLevel, setCurrentLevel] = useState(0);
-
-  if (!activeSession) {
-    navigate("/student/task");
-    return null;
-  }
+  const {
+    activeSession,
+    addHint,
+    setStep,
+    persistSession,
+    setAIThinking,
+    isAIThinking,
+  } = useSessionStore();
+  const [hintError, setHintError] = useState<string | null>(null);
+  const hintControllerRef = useRef<AbortController | null>(null);
+  const hasRequestedFirstHint = useRef(false);
+  const hints = (activeSession?.hints ?? []).filter(
+    (hint) => hint.source === "ai"
+  );
+  const currentLevel = hints.reduce(
+    (highest, hint) => Math.max(highest, hint.level),
+    0
+  );
 
   /** Generates the next hint level. */
   async function handleGetHint() {
+    if (!activeSession) return;
     const nextLevel = currentLevel + 1;
     if (nextLevel > 3) return;
 
+    const controller = new AbortController();
+    hintControllerRef.current?.abort();
+    hintControllerRef.current = controller;
+    setHintError(null);
     setAIThinking(true);
     try {
       const hint = await generateHint(
         nextLevel,
-        activeSession!.originalQuestion,
-        activeSession!.messages
+        activeSession.originalQuestion,
+        activeSession.messages,
+        controller.signal
       );
-      setHints((prev) => [...prev, hint]);
-      setCurrentLevel(nextLevel);
-    } catch {
-      setHints((prev) => [
-        ...prev,
-        "Could not generate a hint right now. Try rethinking the problem from scratch.",
-      ]);
+      addHint(hint, nextLevel);
+      await persistSession();
+    } catch (error) {
+      setHintError(
+        error instanceof Error
+          ? error.message
+          : "Could not generate a hint right now. Please try again."
+      );
     } finally {
+      if (hintControllerRef.current === controller) {
+        hintControllerRef.current = null;
+      }
       setAIThinking(false);
     }
   }
 
   // Auto-generate first hint on mount
   useEffect(() => {
-    if (hints.length === 0) {
-      handleGetHint();
+    if (
+      activeSession &&
+      hints.length === 0 &&
+      !hasRequestedFirstHint.current
+    ) {
+      hasRequestedFirstHint.current = true;
+      void handleGetHint();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeSession?.id]);
+
+  if (!activeSession) {
+    return <Navigate to="/student/history" replace />;
+  }
 
   return (
     <SessionLayout
@@ -740,19 +960,35 @@ export function SessionHints() {
 
           <div className="space-y-3">
             {hints.map((hint, idx) => (
-              <div key={idx} className="flex gap-3 items-start">
+              <div key={hint.id} className="flex gap-3 items-start">
                 <span className="w-5 h-5 bg-amber-200 text-amber-800 rounded-full flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
                   {idx + 1}
                 </span>
-                <p className="text-sm text-amber-900 font-medium">{hint}</p>
+                <p className="text-sm text-amber-900 font-medium">
+                  {hint.content}
+                </p>
               </div>
             ))}
+            {hintError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                {hintError}
+              </div>
+            )}
             {isAIThinking && (
-              <div className="flex gap-3 items-center">
-                <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
-                <span className="text-sm text-amber-700">
-                  Generating hint...
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex gap-3 items-center">
+                  <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                  <span className="text-sm text-amber-700">
+                    Generating hint...
+                  </span>
                 </span>
+                <button
+                  type="button"
+                  onClick={() => hintControllerRef.current?.abort()}
+                  className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800"
+                >
+                  Cancel
+                </button>
               </div>
             )}
           </div>
@@ -768,7 +1004,11 @@ export function SessionHints() {
               </button>
             )}
             <button
-              onClick={() => navigate("/session/questioning")}
+              onClick={async () => {
+                setStep("questioning");
+                await persistSession();
+                navigate(getSessionPath(activeSession.id, "questioning"));
+              }}
               className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-lg text-sm transition-colors"
             >
               Got it, Try Again
@@ -792,6 +1032,7 @@ export function SessionLogicMap() {
     setStep,
     setPhase,
     setDiagnosisResult,
+    addAIFallbackEvent,
     setAIThinking,
     isAIThinking,
     updateLogicMap,
@@ -801,38 +1042,67 @@ export function SessionLogicMap() {
   const [mapNodes, setMapNodes] = useState<LogicMapNode[]>(
     activeSession?.logicMap || []
   );
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [requestError, setLogicRequestError] = useState<string | null>(null);
+  const [mapRetryNonce, setMapRetryNonce] = useState(0);
+  const mapControllerRef = useRef<AbortController | null>(null);
   const hasExtracted = useRef(false);
 
   // Auto-extract logic map on mount
   useEffect(() => {
     if (hasExtracted.current || !activeSession) return;
+    if (activeSession.logicMap.length > 0) {
+      hasExtracted.current = true;
+      return;
+    }
     hasExtracted.current = true;
+    const controller = new AbortController();
+    mapControllerRef.current?.abort();
+    mapControllerRef.current = controller;
 
     async function doExtract() {
       if (!activeSession) return;
+      setMapError(null);
+      setAIThinking(true);
       try {
         const nodes = await extractLogicMap(
           activeSession.originalQuestion,
-          activeSession.messages
+          activeSession.messages,
+          controller.signal
         );
-        setMapNodes(nodes);
         updateLogicMap(nodes);
         await persistSession();
-      } catch {
-        console.error("Failed to extract logic map");
+        setMapNodes(nodes);
+      } catch (error) {
+        setMapError(
+          error instanceof Error
+            ? error.message
+            : "The logic map could not be generated."
+        );
+      } finally {
+        if (mapControllerRef.current === controller) {
+          mapControllerRef.current = null;
+        }
+        setAIThinking(false);
       }
     }
 
-    doExtract();
-  }, [activeSession, persistSession, updateLogicMap]);
+    void doExtract();
+    return () => controller.abort();
+  }, [
+    activeSession,
+    mapRetryNonce,
+    persistSession,
+    setAIThinking,
+    updateLogicMap,
+  ]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeSession?.messages.length, isAIThinking]);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
 
   /** Sends student message in logic map view. */
@@ -848,31 +1118,49 @@ export function SessionLogicMap() {
         phase: responsePhase,
       },
     };
-    addMessage(studentMsg);
-    await persistSession();
+    const controller = new AbortController();
+    mapControllerRef.current?.abort();
+    mapControllerRef.current = controller;
+    setLogicRequestError(null);
     setAIThinking(true);
 
     try {
+      addMessage(studentMsg);
+      await persistSession();
       const conversationWithStudent = [...activeSession!.messages, studentMsg];
-      const { message: aiText, nextPhase, diagnosis } = await sendStudentResponse(
-        conversationWithStudent,
-        message,
-        {
-          currentPhase: responsePhase,
-          selectedProblem: activeSession!.selectedProblem,
-          subject: activeSession!.subject,
-          topic: activeSession!.topic,
-          originalQuestion: activeSession!.originalQuestion,
-        }
-      );
-      addMessage({
+      const {
+        message: aiText,
+        nextPhase,
+        diagnosis,
+        aiFallbackEvent,
+      } = await sendStudentResponse(conversationWithStudent, message, {
+        currentPhase: responsePhase,
+        selectedProblem: activeSession!.selectedProblem,
+        subject: activeSession!.subject,
+        topic: activeSession!.topic,
+        originalQuestion: activeSession!.originalQuestion,
+        phaseResponses: activeSession!.phaseResponses,
+        hintsUsed: activeSession!.hintsUsed,
+        unlockLevel: activeSession!.unlockLevel,
+        problemMode: activeSession!.problemMode,
+        freeFormAnalysis:
+          activeSession!.problemContext.mode === "free_form"
+            ? activeSession!.problemContext.analysis
+            : undefined,
+        signal: controller.signal,
+      });
+      const aiMessage: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
         role: "ai",
         content: aiText,
         timestamp: Date.now(),
         metadata: diagnosis ? { diagnosis } : undefined,
-      });
+      };
+      addMessage(aiMessage);
       setDiagnosisResult(diagnosis ?? null);
+      if (aiFallbackEvent) {
+        addAIFallbackEvent(aiFallbackEvent);
+      }
       if (nextPhase) {
         setPhase(nextPhase);
       }
@@ -880,20 +1168,23 @@ export function SessionLogicMap() {
       // Re-extract logic map after each exchange
       const nodes = await extractLogicMap(
         activeSession!.originalQuestion,
-        conversationWithStudent
+        [...conversationWithStudent, aiMessage],
+        controller.signal
       );
-      setMapNodes(nodes);
       updateLogicMap(nodes);
       await persistSession();
-    } catch {
-      addMessage({
-        id: `msg-${Date.now()}-error`,
-        role: "ai",
-        content: "Connection issue. Please try again.",
-        timestamp: Date.now(),
-      });
-      await persistSession();
+      setMapNodes(nodes);
+    } catch (error) {
+      setLogicRequestError(
+        error instanceof Error
+          ? error.message
+          : "The response could not be generated. Please retry."
+      );
+      throw error;
     } finally {
+      if (mapControllerRef.current === controller) {
+        mapControllerRef.current = null;
+      }
       setAIThinking(false);
     }
   }
@@ -919,15 +1210,34 @@ export function SessionLogicMap() {
       <div ref={chatEndRef} />
 
       <div className="mt-auto space-y-2">
+        {(mapError || requestError) && (
+          <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+            <p>{requestError ?? mapError}</p>
+            {mapError && (
+              <button
+                type="button"
+                onClick={() => {
+                  hasExtracted.current = false;
+                  setMapRetryNonce((value) => value + 1);
+                }}
+                className="mt-2 rounded-lg bg-red-100 px-3 py-2 font-semibold hover:bg-red-200"
+              >
+                Retry logic map
+              </button>
+            )}
+          </div>
+        )}
         <div className="max-w-2xl mx-auto flex justify-end">
           <button
             onClick={async () => {
               if (isFinalAnswerUnlocked(activeSession.currentPhase)) {
                 setStep("draft");
                 await persistSession();
-                navigate("/session/draft");
+                navigate(getSessionPath(activeSession.id, "draft"));
               } else {
-                navigate("/session/questioning");
+                setStep("questioning");
+                await persistSession();
+                navigate(getSessionPath(activeSession.id, "questioning"));
               }
             }}
             disabled={isAIThinking}

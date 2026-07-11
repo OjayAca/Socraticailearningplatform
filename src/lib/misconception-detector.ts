@@ -94,6 +94,18 @@ export function diagnoseResponse(
     ]);
   }
 
+  if (misinterpretsKnownValue(response, normalizedResponse, problem, phase)) {
+    return buildDiagnosis("misinterpreted_variable", phase, [
+      "Response assigns a known value or symbol to a different role than the problem states.",
+    ]);
+  }
+
+  if (hasComputationalMismatch(response, problem)) {
+    return buildDiagnosis("computational_error", phase, [
+      "Response gives a numeric result that conflicts with the expected final answer.",
+    ]);
+  }
+
   return buildDiagnosis("none", phase, []);
 }
 
@@ -156,6 +168,243 @@ function containsConclusion(normalizedResponse: string): boolean {
   ].some((pattern) => pattern.test(normalizedResponse));
 }
 
+function misinterpretsKnownValue(
+  response: string,
+  normalizedResponse: string,
+  problem: MindGuideProblem,
+  phase: MindGuidePhase
+): boolean {
+  if (
+    ![
+      "problem_understanding",
+      "method_selection",
+      "formula_theorem_justification",
+    ].includes(phase)
+  ) {
+    return false;
+  }
+
+  if (contradictsTruthAssignment(normalizedResponse, problem.problemText)) {
+    return true;
+  }
+
+  return contradictsLabeledQuantity(response, problem.problemText);
+}
+
+function contradictsTruthAssignment(
+  normalizedResponse: string,
+  problemText: string
+): boolean {
+  const assignments = extractTruthAssignments(problemText);
+
+  return assignments.some(({ symbol, truthValue }) => {
+    const opposite = truthValue === "true" ? "false" : "true";
+    const symbolPattern = escapeRegExp(symbol);
+    return new RegExp(`\\b${symbolPattern}\\s*(is|=|be)\\s*${opposite}\\b`).test(
+      normalizedResponse
+    );
+  });
+}
+
+function extractTruthAssignments(
+  value: string
+): Array<{ symbol: string; truthValue: "true" | "false" }> {
+  const assignments: Array<{ symbol: string; truthValue: "true" | "false" }> = [];
+  const normalizedValue = normalize(value);
+  const pattern = /\b([a-z])\s*(is|=|be)\s*(true|false)\b/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(normalizedValue)) !== null) {
+    assignments.push({
+      symbol: match[1],
+      truthValue: match[3] as "true" | "false",
+    });
+  }
+
+  return assignments;
+}
+
+function contradictsLabeledQuantity(response: string, problemText: string): boolean {
+  const quantities = extractLabeledQuantities(problemText);
+  if (quantities.length < 2) return false;
+
+  const normalizedResponse = normalize(response);
+
+  return quantities.some((quantity) =>
+    quantities.some((otherQuantity) => {
+      if (quantity.number === otherQuantity.number) return false;
+
+      const numberPattern = escapeRegExp(quantity.number);
+      const labelPattern = escapeRegExp(otherQuantity.label);
+
+      return new RegExp(`\\b${numberPattern}\\s+${labelPattern}\\b`).test(
+        normalizedResponse
+      );
+    })
+  );
+}
+
+function extractLabeledQuantities(
+  value: string
+): Array<{ number: string; label: string }> {
+  const normalizedValue = normalize(value);
+  const quantities: Array<{ number: string; label: string }> = [];
+  const pattern = /\b(\d+(?:\.\d+)?)\s+([a-z][a-z0-9]*)\b/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(normalizedValue)) !== null) {
+    const label = match[2];
+    if (!isQuantityLabel(label)) continue;
+    quantities.push({ number: match[1], label });
+  }
+
+  return quantities;
+}
+
+function hasComputationalMismatch(
+  response: string,
+  problem: MindGuideProblem
+): boolean {
+  if (problem.subject !== "Quantitative Methods") return false;
+  if (!looksLikeFinalNumericClaim(response)) return false;
+
+  const responseClaims = extractLabeledNumericClaims(response);
+  const expectedClaims = extractLabeledNumericClaims(problem.finalAnswer);
+
+  for (const responseClaim of responseClaims) {
+    const expectedClaim = expectedClaims.find(
+      (claim) => claim.label === responseClaim.label
+    );
+
+    if (
+      expectedClaim &&
+      !numbersApproximatelyEqual(responseClaim.value, expectedClaim.value)
+    ) {
+      return true;
+    }
+  }
+
+  const responseValues = extractNumericValues(response);
+  const expectedValues = extractNumericValues(problem.finalAnswer);
+
+  if (responseValues.length === 0 || expectedValues.length === 0) {
+    return false;
+  }
+
+  return !responseValues.some((responseValue) =>
+    expectedValues.some((expectedValue) =>
+      numbersApproximatelyEqual(responseValue, expectedValue)
+    )
+  );
+}
+
+function looksLikeFinalNumericClaim(response: string): boolean {
+  const normalizedResponse = normalize(response);
+
+  return [
+    "answer",
+    "result",
+    "final",
+    "mean",
+    "median",
+    "mode",
+    "variance",
+    "standard deviation",
+    "probability",
+    "total",
+  ].some((word) => includesPhraseOrKeyword(normalizedResponse, word));
+}
+
+function extractNumericValues(value: string): number[] {
+  const values: number[] = [];
+  const seen = new Set<string>();
+  let remainingValue = value.toLowerCase();
+
+  for (const match of remainingValue.matchAll(/\b(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)\b/g)) {
+    const numerator = Number(match[1]);
+    const denominator = Number(match[2]);
+    if (denominator !== 0) {
+      addNumericValue(values, seen, numerator / denominator);
+    }
+  }
+  remainingValue = remainingValue.replace(
+    /\b\d+(?:\.\d+)?\s*\/\s*\d+(?:\.\d+)?\b/g,
+    " "
+  );
+
+  for (const match of remainingValue.matchAll(/\b(\d+(?:\.\d+)?)\s*%/g)) {
+    addNumericValue(values, seen, Number(match[1]) / 100);
+  }
+  remainingValue = remainingValue.replace(/\b\d+(?:\.\d+)?\s*%/g, " ");
+
+  for (const match of remainingValue.matchAll(/\b\d+(?:\.\d+)?\b/g)) {
+    addNumericValue(values, seen, Number(match[0]));
+  }
+
+  return values;
+}
+
+function extractLabeledNumericClaims(
+  value: string
+): Array<{ label: string; value: number }> {
+  const claims: Array<{ label: string; value: number }> = [];
+  const normalizedValue = value.toLowerCase();
+  const labelPattern =
+    "(mean|median|mode|variance|standard\\s+deviation|probability|answer|result|final|total)";
+  const numberPattern =
+    "(\\d+(?:\\.\\d+)?\\s*\\/\\s*\\d+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?\\s*%|\\d+(?:\\.\\d+)?)";
+  const pattern = new RegExp(
+    `\\b${labelPattern}\\b(?:\\s+\\w+){0,3}?\\s*(?:is|=|:)?\\s*${numberPattern}`,
+    "g"
+  );
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(normalizedValue)) !== null) {
+    const parsedValue = parseNumericValue(match[2]);
+    if (parsedValue === null) continue;
+
+    claims.push({
+      label: match[1].replace(/\s+/g, " "),
+      value: parsedValue,
+    });
+  }
+
+  return claims;
+}
+
+function parseNumericValue(value: string): number | null {
+  const normalizedValue = value.replace(/\s+/g, "");
+
+  const fractionMatch = normalizedValue.match(/^(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)$/);
+  if (fractionMatch) {
+    const numerator = Number(fractionMatch[1]);
+    const denominator = Number(fractionMatch[2]);
+    return denominator === 0 ? null : numerator / denominator;
+  }
+
+  const percentMatch = normalizedValue.match(/^(\d+(?:\.\d+)?)%$/);
+  if (percentMatch) {
+    return Number(percentMatch[1]) / 100;
+  }
+
+  const decimalValue = Number(normalizedValue);
+  return Number.isFinite(decimalValue) ? decimalValue : null;
+}
+
+function addNumericValue(values: number[], seen: Set<string>, value: number): void {
+  if (!Number.isFinite(value)) return;
+
+  const key = value.toFixed(6);
+  if (seen.has(key)) return;
+
+  seen.add(key);
+  values.push(value);
+}
+
+function numbersApproximatelyEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.000001;
+}
+
 function includesPhraseOrKeyword(normalizedResponse: string, value: string): boolean {
   const normalizedValue = normalize(value).trim();
   if (!normalizedValue) return false;
@@ -174,6 +423,29 @@ function normalize(value: string): string {
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim()} `;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isQuantityLabel(label: string): boolean {
+  return ![
+    "and",
+    "or",
+    "from",
+    "with",
+    "find",
+    "what",
+    "which",
+    "how",
+    "students",
+    "student",
+    "members",
+    "people",
+    "values",
+    "items",
+  ].includes(label);
 }
 
 function isStopWord(token: string): boolean {

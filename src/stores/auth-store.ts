@@ -26,7 +26,19 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db, firebaseSetupMessage, isFirebaseConfigured } from "@/lib/firebase";
-import type { UserProfile } from "@/types";
+import type { UserProfile, UserStats } from "@/types";
+
+type CanonicalUserRole = "student" | "admin";
+
+class ProfileLoadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ProfileLoadError";
+  }
+}
+
+const profileLoads = new Map<string, Promise<UserProfile>>();
+let authStateSequence = 0;
 
 // ─── Store Shape ─────────────────────────────────────────────
 
@@ -43,12 +55,14 @@ interface AuthState {
   // ── Actions ──────────────────────────────────────────────
   /** Initializes the auth listener. Call once in App.tsx. */
   initialize: () => () => void;
+  /** Reloads the signed-in user's Firestore profile after a recoverable failure. */
+  reloadProfile: () => Promise<UserProfile>;
   /** Signs in with email and password. */
-  signIn: (email: string, password: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<UserProfile>;
   /** Creates a new account with email and password. */
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<UserProfile>;
   /** Signs in with Google OAuth popup. */
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<UserProfile>;
   /** Sends a password reset email without revealing whether the account exists. */
   resetPassword: (email: string) => Promise<void>;
   /** Signs out the current user. */
@@ -79,33 +93,96 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const profile = await fetchOrCreateProfile(user);
-          set({ firebaseUser: user, userProfile: profile, isLoading: false });
-        } catch (err) {
-          console.error("Error fetching/creating profile:", err);
-          set({
-            firebaseUser: user,
-            userProfile: null,
-            isLoading: false,
-            error: "Failed to connect to database. Please check Firestore Database rules.",
-          });
+      const sequence = ++authStateSequence;
+
+      if (!user) {
+        set({
+          firebaseUser: null,
+          userProfile: null,
+          isLoading: false,
+          error: null,
+        });
+        return;
+      }
+
+      // Clear the prior account's profile immediately so an account switch can
+      // never briefly inherit its role or preferences.
+      set({
+        firebaseUser: user,
+        userProfile: null,
+        isLoading: true,
+        error: null,
+      });
+
+      try {
+        const profile = await loadUserProfile(user);
+        if (sequence !== authStateSequence || auth?.currentUser?.uid !== user.uid) {
+          return;
         }
-      } else {
-        set({ firebaseUser: null, userProfile: null, isLoading: false });
+        set({ firebaseUser: user, userProfile: profile, isLoading: false, error: null });
+      } catch (err) {
+        if (sequence !== authStateSequence || auth?.currentUser?.uid !== user.uid) {
+          return;
+        }
+        set({
+          firebaseUser: user,
+          userProfile: null,
+          isLoading: false,
+          error: getFirebaseErrorMessage(err),
+        });
       }
     });
     return unsubscribe;
   },
 
+  reloadProfile: async () => {
+    const user = get().firebaseUser;
+    if (!user) {
+      const message = "Your session has ended. Sign in again to load your profile.";
+      set({ userProfile: null, isLoading: false, error: message });
+      throw new Error(message);
+    }
+
+    set({ userProfile: null, isLoading: true, error: null });
+    try {
+      // A rejected load is never cached, so this is a genuine retry.
+      const profile = await loadUserProfile(user);
+      if (auth?.currentUser?.uid !== user.uid) {
+        throw new Error("The signed-in account changed while the profile was loading.");
+      }
+      set({ firebaseUser: user, userProfile: profile, isLoading: false, error: null });
+      return profile;
+    } catch (err) {
+      const message = getFirebaseErrorMessage(err);
+      set({ userProfile: null, isLoading: false, error: message });
+      throw new Error(message);
+    }
+  },
+
   signIn: async (email: string, password: string) => {
     set({ error: null, isLoading: true });
     try {
-      await signInWithEmailAndPassword(requireAuth(), email, password);
+      const credential = await signInWithEmailAndPassword(
+        requireAuth(),
+        email,
+        password
+      );
+      const profile = await loadUserProfile(credential.user);
+      set({
+        firebaseUser: credential.user,
+        userProfile: profile,
+        isLoading: false,
+        error: null,
+      });
+      return profile;
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err), isLoading: false });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({
+        userProfile: null,
+        error: message,
+        isLoading: false,
+      });
+      throw new Error(message);
     }
   },
 
@@ -114,10 +191,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const credential = await createUserWithEmailAndPassword(requireAuth(), email, password);
       await updateProfile(credential.user, { displayName: name });
-      await createUserProfile(credential.user, name);
+      // Public account creation always writes a student profile. Administrator
+      // promotion is intentionally a Firebase Console operation.
+      const profile = await createUserProfile(credential.user, name);
+      // Invalidate any auth-listener profile read that began before the signup
+      // document was fully written (it may have observed the temporary Auth name).
+      ++authStateSequence;
+      set({
+        firebaseUser: credential.user,
+        userProfile: profile,
+        isLoading: false,
+        error: null,
+      });
+      return profile;
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err), isLoading: false });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({
+        userProfile: null,
+        error: message,
+        isLoading: false,
+      });
+      throw new Error(message);
     }
   },
 
@@ -125,21 +219,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null, isLoading: true });
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(requireAuth(), provider);
+      const credential = await signInWithPopup(requireAuth(), provider);
+      const profile = await loadUserProfile(credential.user);
+      set({
+        firebaseUser: credential.user,
+        userProfile: profile,
+        isLoading: false,
+        error: null,
+      });
+      return profile;
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err), isLoading: false });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({
+        userProfile: null,
+        error: message,
+        isLoading: false,
+      });
+      throw new Error(message);
     }
   },
 
   resetPassword: async (email: string) => {
-    set({ error: null, isLoading: true });
+    set({ error: null });
     try {
       await sendPasswordResetEmail(requireAuth(), email);
-      set({ isLoading: false });
+      set({ error: null });
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err), isLoading: false });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({ error: message });
+      throw new Error(message);
     }
   },
 
@@ -147,39 +255,56 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       await firebaseSignOut(requireAuth());
+      ++authStateSequence;
+      set({
+        firebaseUser: null,
+        userProfile: null,
+        isLoading: false,
+        error: null,
+      });
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err) });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({ error: message });
+      throw new Error(message);
     }
   },
 
   updateDisplayName: async (displayName: string) => {
     const { firebaseUser } = get();
     if (!firebaseUser) {
-      set({ error: "No user signed in." });
-      return;
+      const error = new Error("Your session has ended. Sign in again to update your profile.");
+      set({ error: error.message, isLoading: false });
+      throw error;
     }
-    
-    set({ isLoading: true, error: null });
+
+    const normalizedName = displayName.trim();
+    if (!normalizedName || normalizedName.length > 100) {
+      const error = new Error("Display name must be between 1 and 100 characters.");
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+
+    set({ error: null });
     try {
       // 1. Update Firebase Auth Profile
-      await updateProfile(firebaseUser, { displayName });
+      await updateProfile(firebaseUser, { displayName: normalizedName });
       
       // 2. Update Firestore Document
       const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      await setDoc(userRef, { displayName }, { merge: true });
+      await setDoc(userRef, { displayName: normalizedName }, { merge: true });
       
       // 3. Update Local Store State
       set((state) => ({
-        firebaseUser: { ...firebaseUser, displayName } as User,
+        firebaseUser: auth?.currentUser ?? firebaseUser,
         userProfile: state.userProfile
-          ? { ...state.userProfile, displayName }
+          ? { ...state.userProfile, displayName: normalizedName }
           : null,
-        isLoading: false,
+        error: null,
       }));
     } catch (err) {
-      set({ error: getFirebaseErrorMessage(err), isLoading: false });
-      throw err;
+      const message = getFirebaseErrorMessage(err);
+      set({ error: message });
+      throw new Error(message);
     }
   },
 
@@ -199,14 +324,10 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
-    const profile = { uid: user.uid, ...snapshot.data() } as UserProfile;
-
-    if (!profile.role) {
-      await setDoc(userRef, { role: "student" }, { merge: true });
-      return { ...profile, role: "student" };
-    }
-
-    return profile;
+    return normalizeUserProfile({
+      uid: user.uid,
+      ...snapshot.data(),
+    });
   }
 
   return createUserProfile(user, user.displayName || "User");
@@ -226,19 +347,89 @@ async function createUserProfile(
   const profile: Omit<UserProfile, "uid"> = {
     displayName,
     email: user.email || "",
-    role: "student",
+    role: "student" as UserProfile["role"],
     createdAt: serverTimestamp() as any,
     stats: {
       sessionsCompleted: 0,
       averageCTScore: 0,
       currentStreak: 0,
       lastSessionDate: null,
+      topicPerformance: [],
+    },
+    preferences: {
+      liveAlertPopups: true,
     },
   };
 
   const userRef = doc(requireDb(), "users", user.uid);
   await setDoc(userRef, profile);
   return { uid: user.uid, ...profile };
+}
+
+function loadUserProfile(user: User): Promise<UserProfile> {
+  const existingLoad = profileLoads.get(user.uid);
+  if (existingLoad) return existingLoad;
+
+  const load = fetchOrCreateProfile(user).finally(() => {
+    if (profileLoads.get(user.uid) === load) {
+      profileLoads.delete(user.uid);
+    }
+  });
+  profileLoads.set(user.uid, load);
+  return load;
+}
+
+function normalizeUserProfile(
+  profile: Record<string, unknown> & { uid: string }
+): UserProfile {
+  const role = normalizeRole(profile.role);
+  return {
+    ...profile,
+    role: role as UserProfile["role"],
+    stats: normalizeUserStats(profile.stats as UserStats | undefined),
+    preferences: normalizeUserPreferences(profile.preferences),
+  } as unknown as UserProfile;
+}
+
+function normalizeRole(role: unknown): CanonicalUserRole {
+  if (role === "student") return "student";
+  if (role === "admin" || role === "teacher") return "admin";
+
+  throw new ProfileLoadError(
+    "Your account profile does not have a valid role. Ask the system administrator to set it to student or admin in Firestore."
+  );
+}
+
+/** Returns true for the canonical administrator role and the legacy teacher value. */
+export function isAdminRole(role: unknown): boolean {
+  return role === "admin" || role === "teacher";
+}
+
+/** Resolves the authenticated landing page without assuming a missing role. */
+export function getDashboardPath(role: unknown): string {
+  if (isAdminRole(role)) return "/admin/dashboard";
+  if (role === "student") return "/student/dashboard";
+  return "/login";
+}
+
+function normalizeUserStats(stats: UserStats | undefined): UserStats {
+  return {
+    sessionsCompleted: stats?.sessionsCompleted ?? 0,
+    averageCTScore: stats?.averageCTScore ?? 0,
+    currentStreak: stats?.currentStreak ?? 0,
+    lastSessionDate: stats?.lastSessionDate ?? null,
+    topicPerformance: stats?.topicPerformance ?? [],
+  };
+}
+
+function normalizeUserPreferences(preferences: unknown): UserProfile["preferences"] {
+  const stored = preferences as
+    | { liveAlertPopups?: unknown; liveAlertsEnabled?: unknown }
+    | undefined;
+  const value = stored?.liveAlertPopups ?? stored?.liveAlertsEnabled;
+  return {
+    liveAlertPopups: typeof value === "boolean" ? value : true,
+  };
 }
 
 function requireAuth() {
@@ -262,6 +453,10 @@ function requireDb() {
  * @returns A human-readable error string.
  */
 function getFirebaseErrorMessage(error: unknown): string {
+  if (error instanceof ProfileLoadError) {
+    return error.message;
+  }
+
   if (error instanceof Error && error.message === firebaseSetupMessage) {
     return firebaseSetupMessage;
   }
@@ -283,9 +478,35 @@ function getFirebaseErrorMessage(error: unknown): string {
         return "Too many attempts. Please wait a moment and try again.";
       case "auth/popup-closed-by-user":
         return "Sign-in popup was closed. Please try again.";
+      case "auth/unauthorized-domain":
+        return getUnauthorizedDomainMessage();
+      case "permission-denied":
+      case "firestore/permission-denied":
+        return "Your account was authenticated, but its profile could not be read. Verify the Firestore rules or ask the system administrator to check your user record.";
+      case "unavailable":
+      case "firestore/unavailable":
+        return "MINDGUIDE could not reach Firestore. Check your internet connection and try loading your profile again.";
+      case "auth/network-request-failed":
+        return "MINDGUIDE could not reach Firebase Authentication. Check your internet connection and try again.";
       default:
-        return `Authentication error: ${code}`;
+        return `Firebase could not complete this request (${code}). Try again, then check the Firebase project configuration if it continues.`;
     }
   }
-  return "An unexpected error occurred. Please try again.";
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "An unexpected authentication error occurred. Please try again.";
+}
+
+function getUnauthorizedDomainMessage(): string {
+  const hostname =
+    typeof window !== "undefined" ? window.location.hostname : "this domain";
+
+  if (hostname === "127.0.0.1") {
+    return "Google sign-in is blocked on 127.0.0.1. Open http://localhost:5173 instead.";
+  }
+
+  return `Google sign-in is not authorized for ${hostname}. Add this domain in Firebase Console > Authentication > Settings > Authorized domains.`;
 }

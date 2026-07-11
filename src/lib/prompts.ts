@@ -8,6 +8,82 @@
  */
 
 /**
+ * Prompt template for AI-assisted fallback diagnosis.
+ */
+export function buildAIDiagnosisFallbackPrompt(options: {
+  problemText: string;
+  expectedConcepts: string[];
+  requiredFormula?: string;
+  requiredTheorem?: string;
+  phase: string;
+  studentResponse: string;
+  ruleResult: string;
+}): string {
+  return `Classify this student's response for a prepared MINDGUIDE problem.
+
+Return ONLY valid JSON with this exact shape:
+{"errorType":"none","reasons":["short reason"]}
+
+Allowed errorType values:
+- wrong_formula
+- invalid_logic
+- misinterpreted_variable
+- computational_error
+- weak_justification
+- skipped_reasoning
+- none
+
+Problem: "${options.problemText}"
+Expected concepts: ${options.expectedConcepts.join(", ")}
+Required formula: ${options.requiredFormula ?? "none"}
+Required theorem: ${options.requiredTheorem ?? "none"}
+Current phase: ${options.phase}
+Rule result: ${options.ruleResult}
+Student response: "${options.studentResponse}"
+
+Choose "none" when the response is acceptable or the evidence is too weak. Do not invent a new category.`;
+}
+
+/**
+ * Prompt template for AI-assisted scorecard fallback.
+ */
+export function buildAIScorecardFallbackPrompt(options: {
+  problemText: string;
+  finalAnswer: string;
+  interpretation: string;
+  expectedConcepts: string[];
+  draft: { answer: string; methodology: string; reflection: string };
+  ruleScorecardJson: string;
+  diagnosesJson: string;
+}): string {
+  return `Review this prepared MINDGUIDE final draft and refine the scorecard only if the rule-based score misses an obvious issue.
+
+Return ONLY valid JSON with this exact shape:
+{
+  "accuracy": 20,
+  "logicalValidity": 20,
+  "methodSelection": 20,
+  "justificationQuality": 20,
+  "interpretationQuality": 20,
+  "feedback": "one concise sentence"
+}
+
+Each category must be an integer from 0 to 20.
+
+Problem: "${options.problemText}"
+Expected final answer: "${options.finalAnswer}"
+Expected interpretation: "${options.interpretation}"
+Expected concepts: ${options.expectedConcepts.join(", ")}
+Student final answer: "${options.draft.answer}"
+Student methodology: "${options.draft.methodology}"
+Student reflection: "${options.draft.reflection}"
+Rule scorecard: ${options.ruleScorecardJson}
+Session diagnoses: ${options.diagnosesJson}
+
+Use the same five-category rubric. Do not add categories. If the rule score is reasonable, return equivalent scores.`;
+}
+
+/**
  * The base system prompt that defines the Socratic tutor's personality.
  * This is prepended to every AI interaction.
  */

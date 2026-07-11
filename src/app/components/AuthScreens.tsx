@@ -20,22 +20,69 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useAuthStore } from "@/stores/auth-store";
+import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
 
 // ─── Splash Screen ──────────────────────────────────────────
 
 /** Screen 1: Welcome / landing page with Log In and Sign Up CTAs. */
 export function Splash() {
   const navigate = useNavigate();
-  const { firebaseUser, userProfile } = useAuthStore();
+  const {
+    firebaseUser,
+    userProfile,
+    isLoading,
+    error,
+    reloadProfile,
+    signOut,
+  } = useAuthStore();
 
   // If already authenticated, redirect to the appropriate dashboard
   if (firebaseUser && userProfile?.role) {
-    const destination =
-      userProfile.role === "teacher"
-        ? "/teacher/dashboard"
-        : "/student/dashboard";
-    return <Navigate to={destination} replace />;
+    return <Navigate to={getDashboardPath(userProfile.role)} replace />;
+  }
+
+  if (firebaseUser && isLoading) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 h-full p-6 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+        <p className="text-sm font-medium text-slate-600">
+          Loading your MINDGUIDE profile…
+        </p>
+      </div>
+    );
+  }
+
+  if (firebaseUser && !userProfile) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50 h-full p-6">
+        <div className="w-full max-w-md rounded-3xl border border-red-200 bg-white p-8 text-center shadow-xl shadow-slate-200/50">
+          <AlertCircle className="w-10 h-10 text-red-600 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-slate-900">
+            Your profile is unavailable
+          </h1>
+          <p className="mt-3 text-sm text-slate-600">
+            {error ||
+              "Your sign-in succeeded, but MINDGUIDE could not read your Firestore profile."}
+          </p>
+          <div className="mt-6 grid gap-3">
+            <button
+              type="button"
+              onClick={() => void reloadProfile().catch(() => undefined)}
+              className="w-full rounded-xl bg-indigo-600 py-3 font-semibold text-white hover:bg-indigo-700"
+            >
+              Retry profile
+            </button>
+            <button
+              type="button"
+              onClick={() => void signOut().catch(() => undefined)}
+              className="w-full rounded-xl border border-slate-200 py-3 font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -88,6 +135,7 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [isResetSending, setIsResetSending] = useState(false);
 
   const resetSuccessMessage =
     "If an account exists for this email, a password reset link has been sent.";
@@ -104,8 +152,8 @@ export function Login() {
     if (!email.trim() || !password.trim()) return;
 
     try {
-      await signIn(email.trim(), password);
-      navigate("/student/dashboard");
+      const profile = await signIn(email.trim(), password);
+      navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }
@@ -116,8 +164,8 @@ export function Login() {
     clearError();
     setResetSuccess(false);
     try {
-      await signInWithGoogle();
-      navigate("/student/dashboard");
+      const profile = await signInWithGoogle();
+      navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }
@@ -131,11 +179,14 @@ export function Login() {
 
     if (!email.trim()) return;
 
+    setIsResetSending(true);
     try {
       await resetPassword(email.trim());
       setResetSuccess(true);
     } catch {
       // Error is already set in the store
+    } finally {
+      setIsResetSending(false);
     }
   }
 
@@ -202,7 +253,7 @@ export function Login() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     required
-                    disabled={isLoading}
+                    disabled={isLoading || isResetSending}
                     className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
                   />
                 </div>
@@ -210,10 +261,10 @@ export function Login() {
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isResetSending}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLoading ? (
+                {isLoading || isResetSending ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
@@ -227,7 +278,7 @@ export function Login() {
             <button
               type="button"
               onClick={showLoginMode}
-              disabled={isLoading}
+              disabled={isLoading || isResetSending}
               className="w-full text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50"
             >
               Back to log in
@@ -389,8 +440,8 @@ export function SignUp() {
     }
 
     try {
-      await signUp(name.trim(), email.trim(), password);
-      navigate("/student/dashboard");
+      const profile = await signUp(name.trim(), email.trim(), password);
+      navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }
@@ -401,8 +452,8 @@ export function SignUp() {
     clearError();
     setLocalError(null);
     try {
-      await signInWithGoogle();
-      navigate("/student/dashboard");
+      const profile = await signInWithGoogle();
+      navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }

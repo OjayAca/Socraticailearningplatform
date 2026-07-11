@@ -17,8 +17,8 @@ const SCREENS = [
   { path: "/session/review", title: "13. Final Guided Review" },
   { path: "/session/log", title: "14. Thinking Log Generation" },
   { path: "/session/confirmation", title: "15. Submission Confirmation" },
-  { path: "/teacher/dashboard", title: "16. Teacher Workspace" },
-  { path: "/teacher/review", title: "17. Teacher Review Screen" },
+  { path: "/admin/dashboard", title: "16. System Admin Workspace" },
+  { path: "/admin/review", title: "17. System Admin Review Screen" },
 ];
 
 export function StoryboardNav() {
@@ -53,7 +53,7 @@ export function StoryboardNav() {
 
         {isOpen && (
           <div className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 w-72 bg-white border border-slate-200 shadow-2xl rounded-xl py-2 max-h-96 overflow-y-auto">
-            {SCREENS.map((screen, idx) => (
+            {SCREENS.map((screen) => (
               <button
                 key={screen.path}
                 onClick={() => {

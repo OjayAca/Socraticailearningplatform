@@ -8,11 +8,10 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import {
   Check,
   Edit3,
-  Download,
   Share,
   Save,
   FileText,
@@ -22,6 +21,7 @@ import {
   BrainCircuit,
   Activity,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import {
   SessionLayout,
@@ -38,8 +38,13 @@ import {
   getMindGuidePhaseProgress,
   isFinalAnswerUnlocked,
 } from "@/lib/socratic-engine";
-import { generateMindGuideScorecard } from "@/lib/mindguide-scorecard";
+import {
+  generateMindGuideScorecard,
+  generateMindGuideScorecardWithFallback,
+} from "@/lib/mindguide-scorecard";
 import type { MindGuideScorecard } from "@/types";
+import { getSessionPath } from "@/lib/session-routes";
+import { AIRequestError } from "@/lib/gemini";
 
 // ─── Draft Answer (Screen 12) ───────────────────────────────
 
@@ -55,29 +60,42 @@ export function SessionDraft() {
   const [reflection, setReflection] = useState(
     activeSession?.draft?.reflection || ""
   );
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
 
+  const sessionId = activeSession.id;
+
   if (!isFinalAnswerUnlocked(activeSession.currentPhase)) {
-    navigate("/session/questioning", { replace: true });
-    return null;
+    return (
+      <Navigate
+        to={getSessionPath(activeSession.id, "questioning")}
+        replace
+      />
+    );
   }
 
   /** Saves the draft and advances to the review stage. */
   async function handleSubmitDraft() {
     if (!answer.trim()) return;
 
-    saveDraft({
-      answer: answer.trim(),
-      methodology: methodology.trim(),
-      reflection: reflection.trim(),
-    });
-    setStep("review");
-    await persistSession();
-    navigate("/session/review");
+    setSaveError(null);
+    try {
+      saveDraft({
+        answer: answer.trim().slice(0, 4_000),
+        methodology: methodology.trim().slice(0, 4_000),
+        reflection: reflection.trim().slice(0, 2_000),
+      });
+      setStep("review");
+      await persistSession();
+      navigate(getSessionPath(sessionId, "review"));
+    } catch (error) {
+      setSaveError(
+        error instanceof Error ? error.message : "Could not save your draft."
+      );
+    }
   }
 
   return (
@@ -105,6 +123,13 @@ export function SessionDraft() {
             <Edit3 className="w-5 h-5" /> Draft Answer Stage
           </div>
 
+          {saveError && (
+            <div className="flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              {saveError}
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-bold text-indigo-900 block">
@@ -112,6 +137,7 @@ export function SessionDraft() {
               </label>
               <textarea
                 rows={3}
+                maxLength={4_000}
                 value={answer}
                 onChange={(e) => setAnswer(e.target.value)}
                 placeholder="Write your answer here..."
@@ -125,6 +151,7 @@ export function SessionDraft() {
               </label>
               <textarea
                 rows={2}
+                maxLength={4_000}
                 value={methodology}
                 onChange={(e) => setMethodology(e.target.value)}
                 placeholder="Explain your reasoning..."
@@ -138,6 +165,7 @@ export function SessionDraft() {
               </label>
               <textarea
                 rows={2}
+                maxLength={2_000}
                 value={reflection}
                 onChange={(e) => setReflection(e.target.value)}
                 placeholder="Reflect on the challenge..."
@@ -169,49 +197,103 @@ export function SessionReview() {
     activeSession,
     setAISummary,
     setMindGuideScorecard,
+    addAIFallbackEvent,
     setStep,
     setAIThinking,
     persistSession,
     isAIThinking,
   } = useSessionStore();
-  const [summary, setSummaryText] = useState<string | null>(null);
+  const [summary, setSummaryText] = useState<string | null>(
+    activeSession?.aiSummary ?? null
+  );
   const [scorecard, setScorecard] = useState<MindGuideScorecard | null>(
     activeSession?.mindGuideScorecard ?? null
   );
   const hasGenerated = useRef(false);
+  const reviewControllerRef = useRef<AbortController | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
   // Auto-generate summary and MINDGUIDE scorecard on mount
   useEffect(() => {
     if (hasGenerated.current || !activeSession?.draft) return;
+    if (activeSession.aiSummary && activeSession.mindGuideScorecard) {
+      hasGenerated.current = true;
+      return;
+    }
     hasGenerated.current = true;
 
     async function generate() {
       if (!activeSession?.draft) return;
+      const controller = new AbortController();
+      reviewControllerRef.current?.abort();
+      reviewControllerRef.current = controller;
+      setReviewError(null);
       setAIThinking(true);
+      let summaryResult: string;
+      let scorecardResult: MindGuideScorecard;
+      let fallbackEvent: Awaited<
+        ReturnType<typeof generateMindGuideScorecardWithFallback>
+      >["fallbackEvent"];
+
       try {
-        const summaryResult = await generateSummary(
+        summaryResult = await generateSummary(
           activeSession.originalQuestion,
           activeSession.messages,
-          activeSession.draft
+          activeSession.draft,
+          controller.signal
         );
-        const scorecardResult = generateMindGuideScorecard(activeSession);
+        const scorecardResponse =
+          await generateMindGuideScorecardWithFallback(activeSession, {
+            signal: controller.signal,
+          });
+        scorecardResult = scorecardResponse.scorecard;
+        fallbackEvent = scorecardResponse.fallbackEvent;
+      } catch (error) {
+        if (
+          activeSession.problemMode === "free_form" ||
+          error instanceof AIRequestError
+        ) {
+          setReviewError(
+            error instanceof Error
+              ? error.message
+              : "The free-form formative review could not be generated."
+          );
+          if (reviewControllerRef.current === controller) {
+            reviewControllerRef.current = null;
+          }
+          setAIThinking(false);
+          return;
+        }
 
+        summaryResult =
+          "AI summary was unavailable. Your complete reasoning log is still recorded below.";
+        scorecardResult = generateMindGuideScorecard(activeSession);
+        fallbackEvent = undefined;
+      }
+
+      setAISummary(summaryResult);
+      setMindGuideScorecard(scorecardResult);
+      if (fallbackEvent) {
+        addAIFallbackEvent(fallbackEvent);
+      }
+      try {
+        await persistSession();
         setSummaryText(summaryResult);
         setScorecard(scorecardResult);
-        setAISummary(summaryResult);
-        setMindGuideScorecard(scorecardResult);
-        await persistSession();
-      } catch (err) {
-        console.error("Failed to generate review:", err);
-        setSummaryText(
-          "Session completed. Your thinking log has been recorded."
+      } catch (persistError) {
+        const restored = useSessionStore.getState().activeSession;
+        setSummaryText(restored?.aiSummary ?? null);
+        setScorecard(restored?.mindGuideScorecard ?? null);
+        setReviewError(
+          persistError instanceof Error
+            ? persistError.message
+            : "The formative review could not be saved."
         );
-        setAISummary("Session completed.");
-        const fallbackScorecard = generateMindGuideScorecard(activeSession);
-        setScorecard(fallbackScorecard);
-        setMindGuideScorecard(fallbackScorecard);
-        await persistSession();
       } finally {
+        if (reviewControllerRef.current === controller) {
+          reviewControllerRef.current = null;
+        }
         setAIThinking(false);
       }
     }
@@ -221,13 +303,14 @@ export function SessionReview() {
     activeSession,
     persistSession,
     setAISummary,
+    addAIFallbackEvent,
     setMindGuideScorecard,
     setAIThinking,
+    retryNonce,
   ]);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
 
   return (
@@ -243,9 +326,36 @@ export function SessionReview() {
           <p className="text-slate-500 font-medium">
             Generating your session review...
           </p>
+          <button
+            type="button"
+            onClick={() => reviewControllerRef.current?.abort()}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+          >
+            Cancel review generation
+          </button>
         </div>
       ) : (
         <>
+          {reviewError && (
+            <div className="mx-auto mb-4 max-w-2xl rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{reviewError}</span>
+              </div>
+              {!scorecard && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    hasGenerated.current = false;
+                    setRetryNonce((value) => value + 1);
+                  }}
+                  className="mt-3 rounded-lg bg-red-100 px-3 py-2 font-bold hover:bg-red-200"
+                >
+                  Retry formative review
+                </button>
+              )}
+            </div>
+          )}
           <AIBubble>
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg w-max font-bold text-sm border border-emerald-100">
@@ -305,10 +415,20 @@ export function SessionReview() {
           <div className="max-w-2xl mx-auto w-full mt-6">
             <button
               onClick={async () => {
+                setReviewError(null);
                 setStep("log");
-                await persistSession();
-                navigate("/session/log");
+                try {
+                  await persistSession();
+                  navigate(getSessionPath(activeSession.id, "log"));
+                } catch (error) {
+                  setReviewError(
+                    error instanceof Error
+                      ? error.message
+                      : "The review could not be saved."
+                  );
+                }
               }}
+              disabled={!scorecard}
               className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl transition-colors shadow-lg shadow-indigo-200/50 flex items-center justify-center gap-2 text-lg"
             >
               View Thinking Log
@@ -358,6 +478,9 @@ function MindGuideScorecardPanel({
       <p className="text-sm text-indigo-950 font-medium leading-relaxed border-t border-indigo-200 pt-3">
         Feedback: {scorecard.feedback}
       </p>
+      <p className="text-xs font-semibold text-indigo-700">
+        Formative AI feedback only — this score is not an official grade.
+      </p>
     </div>
   );
 }
@@ -369,10 +492,10 @@ export function SessionLog() {
   const navigate = useNavigate();
   const { activeSession, submitSession, isLoading } = useSessionStore();
   const { userProfile } = useAuthStore();
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
 
   if (!activeSession) {
-    navigate("/student/task");
-    return null;
+    return <Navigate to="/student/history" replace />;
   }
 
   const scorecard = activeSession.mindGuideScorecard;
@@ -384,15 +507,26 @@ export function SessionLog() {
     .toUpperCase()
     .slice(0, 2);
 
-  /** Submits the session to the teacher and navigates to confirmation. */
+  /** Submits the session for system admin review and navigates to confirmation. */
   async function handleSubmit() {
-    await submitSession();
-    navigate("/session/confirmation");
+    if (!activeSession || activeSession.status !== "in_progress") return;
+
+    setSubmissionError(null);
+    try {
+      await submitSession();
+      navigate(getSessionPath(activeSession.id, "confirmation"));
+    } catch (error) {
+      setSubmissionError(
+        error instanceof Error
+          ? error.message
+          : "The thinking log could not be submitted. Please retry."
+      );
+    }
   }
 
   return (
-    <div className="flex-1 w-full bg-slate-50 h-full overflow-y-auto p-4 md:p-8 pb-20">
-      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+    <div className="thinking-log-print flex-1 w-full bg-slate-50 h-full overflow-y-auto p-4 md:p-8 pb-20">
+      <div className="print-document max-w-4xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
         {/* Header */}
         <div className="bg-indigo-600 p-8 text-white flex items-center justify-between">
           <div>
@@ -456,13 +590,53 @@ export function SessionLog() {
             </div>
           )}
 
+          {activeSession.hints.length > 0 && (
+            <div className="bg-violet-50 p-6 rounded-2xl border border-violet-100 space-y-3">
+              <h3 className="font-bold text-violet-700 text-xs uppercase tracking-wider">
+                Hints and Progressive Support Used
+              </h3>
+              <ol className="space-y-2">
+                {activeSession.hints.map((hint) => (
+                  <li key={hint.id} className="text-sm text-violet-950">
+                    <span className="font-bold">
+                      Level {hint.level} ·{" "}
+                      {hint.source === "progressive_unlock"
+                        ? "Progressive support"
+                        : "AI hint"}
+                      :
+                    </span>{" "}
+                    {hint.content}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {activeSession.logicMap.length > 0 && (
+            <div className="bg-amber-50 p-6 rounded-2xl border border-amber-100 space-y-3">
+              <h3 className="font-bold text-amber-700 text-xs uppercase tracking-wider">
+                Logic Map
+              </h3>
+              <ol className="space-y-3">
+                {activeSession.logicMap.map((node) => (
+                  <li key={node.step} className="text-sm text-amber-950">
+                    <span className="font-bold">
+                      {node.step}. {node.title}:
+                    </span>{" "}
+                    {node.description}
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           {/* Chat History */}
           <div>
             <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider mb-4 mt-8">
               Full Chat History
             </h3>
             <div className="space-y-4">
-              {activeSession.messages.slice(0, 8).map((msg) => (
+              {activeSession.messages.map((msg) => (
                 <div
                   key={msg.id}
                   className={`flex gap-4 items-start ${
@@ -498,13 +672,6 @@ export function SessionLog() {
                 </div>
               ))}
 
-              {activeSession.messages.length > 8 && (
-                <div className="py-4 text-center">
-                  <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-wider">
-                    {activeSession.messages.length - 8} Messages Hidden
-                  </span>
-                </div>
-              )}
             </div>
           </div>
 
@@ -514,21 +681,68 @@ export function SessionLog() {
             </div>
           )}
 
+          {activeSession.adminReview && (
+            <div className="bg-sky-50 p-6 rounded-2xl border border-sky-100 space-y-2">
+              <h3 className="font-bold text-sky-700 text-xs uppercase tracking-wider">
+                System Administrator Review
+              </h3>
+              <p className="text-sm font-semibold capitalize text-sky-950">
+                Outcome: {activeSession.adminReview.outcome}
+              </p>
+              <p className="text-sm text-sky-950">
+                {activeSession.adminReview.comment}
+              </p>
+            </div>
+          )}
+
+          <div className="grid sm:grid-cols-2 gap-3 text-xs text-slate-500 border-t border-slate-200 pt-5">
+            <p>Created: {activeSession.createdAt.toDate().toLocaleString()}</p>
+            <p>
+              Submitted:{" "}
+              {activeSession.submittedAt
+                ? activeSession.submittedAt.toDate().toLocaleString()
+                : "Not yet submitted"}
+            </p>
+            {activeSession.reviewedAt && (
+              <p>Reviewed: {activeSession.reviewedAt.toDate().toLocaleString()}</p>
+            )}
+            <p>Session ID: {activeSession.id}</p>
+          </div>
+
+          {submissionError && (
+            <div
+              role="alert"
+              className="print:hidden flex items-start gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm font-medium text-rose-800"
+            >
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <span>{submissionError}</span>
+            </div>
+          )}
+
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-200">
-            <button className="flex-1 bg-white border-2 border-slate-200 text-slate-700 hover:border-slate-300 font-bold py-3 px-4 rounded-xl transition-colors flex justify-center items-center gap-2">
-              <Save className="w-5 h-5" /> Save Log
+          <div className="print:hidden flex flex-col sm:flex-row gap-4 pt-6 border-t border-slate-200">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="flex-1 bg-white border-2 border-slate-200 text-slate-700 hover:border-slate-300 font-bold py-3 px-4 rounded-xl transition-colors flex justify-center items-center gap-2"
+            >
+              <Save className="w-5 h-5" /> Print / Save PDF
             </button>
             <button
+              type="button"
               onClick={handleSubmit}
-              disabled={isLoading}
+              disabled={isLoading || activeSession.status !== "in_progress"}
               className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
+              ) : activeSession.status !== "in_progress" ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5" /> Already Submitted
+                </>
               ) : (
                 <>
-                  <Share className="w-5 h-5" /> Submit to Teacher
+                  <Share className="w-5 h-5" /> Submit to System Admin
                 </>
               )}
             </button>
@@ -556,6 +770,14 @@ export function SessionConfirmation() {
   function handleNewSession() {
     clearActiveSession();
     navigate("/student/task");
+  }
+
+  if (!activeSession) {
+    return <Navigate to="/student/history" replace />;
+  }
+
+  if (activeSession.status === "in_progress") {
+    return <Navigate to={getSessionPath(activeSession.id, "log")} replace />;
   }
 
   return (

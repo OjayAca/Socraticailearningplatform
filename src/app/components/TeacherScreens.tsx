@@ -79,7 +79,7 @@ function TeacherLayout({
 
         <nav className="flex-1 px-4 space-y-2 mt-4">
           <button
-            onClick={() => navigate("/teacher/dashboard")}
+            onClick={() => navigate("/admin/dashboard")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "dashboard"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
@@ -89,7 +89,7 @@ function TeacherLayout({
             <Activity className="w-5 h-5" /> Dashboard
           </button>
           <button
-            onClick={() => navigate("/teacher/submissions")}
+            onClick={() => navigate("/admin/submissions")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "submissions"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
@@ -99,7 +99,7 @@ function TeacherLayout({
             <FileText className="w-5 h-5" /> Learner Records
           </button>
           <button
-            onClick={() => navigate("/teacher/notifications")}
+            onClick={() => navigate("/admin/notifications")}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${
               activeTab === "notifications"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
@@ -121,7 +121,7 @@ function TeacherLayout({
 
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 space-y-2">
           <button
-            onClick={() => navigate("/teacher/profile")}
+            onClick={() => navigate("/admin/profile")}
             className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
               activeTab === "profile"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
@@ -131,7 +131,7 @@ function TeacherLayout({
             <User className="w-5 h-5" /> Profile
           </button>
           <button
-            onClick={() => navigate("/teacher/settings")}
+            onClick={() => navigate("/admin/settings")}
             className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors font-medium text-sm rounded-xl ${
               activeTab === "settings"
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
@@ -178,8 +178,13 @@ function TeacherLayout({
 /** Teacher workspace with student submissions from Firestore. */
 export function TeacherDashboard() {
   const navigate = useNavigate();
-  const { sessionHistory, fetchTeacherSessions, isLoading } =
-    useSessionStore();
+  const {
+    sessionHistory,
+    fetchTeacherSessions,
+    isLoading,
+    error,
+    teacherSessionsHasMore,
+  } = useSessionStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -204,7 +209,7 @@ export function TeacherDashboard() {
   });
 
   const pendingCount = sessionHistory.filter(
-    (s) => s.status === "completed" || s.status === "submitted"
+    (s) => s.status === "submitted"
   ).length;
   const reviewedCount = sessionHistory.filter(
     (s) => s.status === "reviewed"
@@ -285,7 +290,6 @@ export function TeacherDashboard() {
             className="px-4 py-3 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-600 bg-white text-sm font-medium"
           >
             <option value="all">All Status</option>
-            <option value="completed">Pending</option>
             <option value="submitted">Submitted</option>
             <option value="reviewed">Reviewed</option>
             <option value="returned">Follow-up Needed</option>
@@ -293,7 +297,20 @@ export function TeacherDashboard() {
         </div>
 
         {/* Learner Records Table */}
-        {isLoading ? (
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void fetchTeacherSessions()}
+              className="rounded-lg bg-red-100 px-3 py-2 font-semibold hover:bg-red-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {isLoading && sessionHistory.length === 0 ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
           </div>
@@ -322,25 +339,24 @@ export function TeacherDashboard() {
             <div className="divide-y divide-slate-100">
               {filteredSessions.map((session) => {
                 const statusColors: Record<string, string> = {
-                  completed: "bg-amber-50 text-amber-700 border-amber-200",
                   submitted: "bg-amber-50 text-amber-700 border-amber-200",
                   reviewed:
                     "bg-emerald-50 text-emerald-700 border-emerald-200",
                   returned: "bg-red-50 text-red-700 border-red-200",
                 };
                 const statusLabels: Record<string, string> = {
-                  completed: "Pending",
                   submitted: "Submitted",
                   reviewed: "Reviewed",
                   returned: "Follow-up",
                 };
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={session.id}
-                    className="grid grid-cols-1 sm:grid-cols-[1.1fr_1.4fr_1fr_auto_auto_auto] gap-4 px-6 py-4 items-center hover:bg-slate-50 transition-colors cursor-pointer"
+                    className="w-full grid grid-cols-1 sm:grid-cols-[1.1fr_1.4fr_1fr_auto_auto_auto] gap-4 px-6 py-4 items-center text-left hover:bg-slate-50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
                     onClick={() =>
-                      navigate(`/teacher/review/${session.id}`)
+                      navigate(`/admin/review/${session.id}`)
                     }
                   >
                     <div className="flex items-center gap-3">
@@ -387,10 +403,20 @@ export function TeacherDashboard() {
                     <div className="text-center text-xs font-medium text-slate-500">
                       {formatSessionDate(session)}
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
+            {teacherSessionsHasMore && (
+              <button
+                type="button"
+                onClick={() => void fetchTeacherSessions({ append: true })}
+                disabled={isLoading}
+                className="w-full border-t border-slate-100 p-4 text-center text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                {isLoading ? "Loading more…" : "Load more learner records"}
+              </button>
+            )}
           </div>
         )}
       </motion.div>
@@ -404,22 +430,54 @@ export function TeacherDashboard() {
 export function TeacherReview() {
   const navigate = useNavigate();
   const { sessionId } = useParams();
-  const { activeSession, loadSession, submitFeedback, isLoading } =
-    useSessionStore();
+  const {
+    activeSession,
+    loadSession,
+    submitFeedback,
+    isLoading,
+    error: storeError,
+  } = useSessionStore();
   const [feedbackComment, setFeedbackComment] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loadedSessionId, setLoadedSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (sessionId) {
-      loadSession(sessionId);
-    }
+    if (!sessionId) return;
+    void loadSession(sessionId)
+      .catch(() => {
+        // Store error is rendered below.
+      })
+      .finally(() => setLoadedSessionId(sessionId));
   }, [sessionId, loadSession]);
 
-  if (isLoading || !activeSession) {
+  if (isLoading || (sessionId !== undefined && loadedSessionId !== sessionId)) {
     return (
       <TeacherLayout activeTab="dashboard">
         <div className="flex justify-center items-center py-24">
           <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+        </div>
+      </TeacherLayout>
+    );
+  }
+
+  if (!sessionId || !activeSession || activeSession.id !== sessionId) {
+    return (
+      <TeacherLayout activeTab="submissions">
+        <div className="mx-auto max-w-xl rounded-3xl border border-amber-200 bg-white p-10 text-center shadow-sm">
+          <AlertCircle className="mx-auto h-10 w-10 text-amber-500" />
+          <h2 className="mt-4 text-2xl font-bold text-slate-900">
+            Submission unavailable
+          </h2>
+          <p className="mt-2 text-sm text-slate-600">
+            {storeError || "This submission could not be found."}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate("/admin/submissions")}
+            className="mt-6 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white hover:bg-emerald-700"
+          >
+            Back to learner sessions
+          </button>
         </div>
       </TeacherLayout>
     );
@@ -438,9 +496,13 @@ export function TeacherReview() {
     setError(null);
     try {
       await submitFeedback(activeSession!.id, feedbackComment.trim(), action);
-      navigate("/teacher/dashboard");
-    } catch {
-      setError("Failed to submit feedback. Please try again.");
+      navigate("/admin/dashboard");
+    } catch (reviewError) {
+      setError(
+        reviewError instanceof Error
+          ? reviewError.message
+          : "Failed to submit feedback. Please try again."
+      );
     }
   }
 
@@ -655,8 +717,7 @@ export function TeacherReview() {
         </div>
 
         {/* Feedback Section */}
-        {(activeSession.status === "completed" ||
-          activeSession.status === "submitted") && (
+        {activeSession.status === "submitted" && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-6">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
@@ -672,6 +733,7 @@ export function TeacherReview() {
 
             <textarea
               rows={4}
+              maxLength={2_000}
               value={feedbackComment}
               onChange={(e) => setFeedbackComment(e.target.value)}
               placeholder="Add monitoring notes about this learner session..."
@@ -710,7 +772,7 @@ export function TeacherReview() {
         )}
 
         {/* Show existing administrator notes if already reviewed */}
-        {activeSession.teacherFeedback && (
+        {activeSession.adminReview && (
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 space-y-4">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-emerald-600" />
@@ -718,24 +780,24 @@ export function TeacherReview() {
             </h3>
             <div
               className={`p-4 rounded-xl border ${
-                activeSession.teacherFeedback.action === "approved"
+                activeSession.adminReview.outcome === "reviewed"
                   ? "bg-emerald-50 border-emerald-100"
                   : "bg-amber-50 border-amber-100"
               }`}
             >
               <span
                 className={`text-xs font-bold uppercase tracking-wider ${
-                  activeSession.teacherFeedback.action === "approved"
+                  activeSession.adminReview.outcome === "reviewed"
                     ? "text-emerald-600"
                     : "text-amber-600"
                 }`}
               >
-                {activeSession.teacherFeedback.action === "approved"
+                {activeSession.adminReview.outcome === "reviewed"
                   ? "Reviewed"
                   : "Flagged for Follow-up"}
               </span>
               <p className="text-sm text-slate-700 mt-2 font-medium">
-                {activeSession.teacherFeedback.comment}
+                {activeSession.adminReview.comment}
               </p>
             </div>
           </div>
@@ -743,7 +805,7 @@ export function TeacherReview() {
 
         {/* Back Button */}
         <button
-          onClick={() => navigate("/teacher/dashboard")}
+          onClick={() => navigate("/admin/dashboard")}
           className="text-sm text-slate-500 hover:text-slate-700 font-semibold transition-colors"
         >
           Back to System Administrator Dashboard
@@ -756,7 +818,13 @@ export function TeacherReview() {
 // ─── Submissions Wrapper Screen ──────────────────────────────────
 export function TeacherSubmissionsScreen() {
   const navigate = useNavigate();
-  const { sessionHistory, fetchTeacherSessions, isLoading } = useSessionStore();
+  const {
+    sessionHistory,
+    fetchTeacherSessions,
+    isLoading,
+    error,
+    teacherSessionsHasMore,
+  } = useSessionStore();
   const { firebaseUser } = useAuthStore();
 
   useEffect(() => {
@@ -771,11 +839,24 @@ export function TeacherSubmissionsScreen() {
             Learner Sessions
           </h2>
           <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Monitor completed MINDGUIDE learner records.
+            Monitor submitted and reviewed MINDGUIDE learner records.
           </p>
         </div>
 
-        {isLoading ? (
+        {error && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => void fetchTeacherSessions()}
+              className="rounded-lg bg-red-100 px-3 py-2 font-semibold hover:bg-red-200"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {isLoading && sessionHistory.length === 0 ? (
           <div className="flex justify-center py-12">
             <Loader2 className="w-6 h-6 text-emerald-600 animate-spin" />
           </div>
@@ -790,7 +871,6 @@ export function TeacherSubmissionsScreen() {
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm divide-y divide-slate-100 dark:divide-slate-800">
             {sessionHistory.map((session: Session) => {
               const statusColors: Record<string, string> = {
-                completed: "bg-amber-50 text-amber-700",
                 submitted: "bg-amber-50 text-amber-700",
                 reviewed: "bg-emerald-50 text-emerald-700",
                 returned: "bg-red-50 text-red-700",
@@ -798,10 +878,11 @@ export function TeacherSubmissionsScreen() {
               };
 
               return (
-                <div
+                <button
+                  type="button"
                   key={session.id}
-                  onClick={() => navigate(`/teacher/review/${session.id}`)}
-                  className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
+                  onClick={() => navigate(`/admin/review/${session.id}`)}
+                  className="w-full p-6 flex items-center justify-between text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500"
                 >
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400">
@@ -826,9 +907,19 @@ export function TeacherSubmissionsScreen() {
                     </span>
                     <ChevronRight className="w-5 h-5 text-slate-400 dark:text-slate-500" />
                   </div>
-                </div>
+                </button>
               );
             })}
+            {teacherSessionsHasMore && (
+              <button
+                type="button"
+                onClick={() => void fetchTeacherSessions({ append: true })}
+                disabled={isLoading}
+                className="w-full p-4 text-center text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+              >
+                {isLoading ? "Loading more…" : "Load more learner records"}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -874,7 +965,7 @@ function getMisconceptionLabel(errorType?: string | null): string {
 }
 
 function formatSessionDate(session: Session): string {
-  const timestamp = session.updatedAt ?? session.completedAt ?? session.createdAt;
+  const timestamp = session.updatedAt ?? session.submittedAt ?? session.createdAt;
   const date =
     timestamp && typeof timestamp.toMillis === "function"
       ? new Date(timestamp.toMillis())

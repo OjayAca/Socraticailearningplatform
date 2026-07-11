@@ -1,3 +1,52 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #0f172a;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .thinking-log-print,
+  .thinking-log-print * {
+    visibility: visible;
+  }
+
+  .thinking-log-print {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .thinking-log-print .print-document {
+    max-width: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .thinking-log-print [class*="print:hidden"] {
+    display: none !important;
+  }
+
+  .thinking-log-print article,
+  .thinking-log-print section,
+  .thinking-log-print li,
+  .thinking-log-print .rounded-2xl {
+    break-inside: avoid;
+  }
+}

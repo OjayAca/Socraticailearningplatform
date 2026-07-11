@@ -19,12 +19,23 @@ import {
   buildSummaryPrompt,
 } from "./prompts";
 import { diagnoseResponse } from "./misconception-detector";
+import { getSessionDifficultyAdjustment } from "./adaptive-difficulty";
+import {
+  aiAssistedDiagnosis,
+  shouldUseAIDiagnosisFallback,
+} from "./ai-diagnosis-fallback";
 import type {
+  AIFallbackEvent,
   ChatMessage,
   DiagnosisResult,
+  FreeFormProblemAnalysis,
   LogicMapNode,
   MindGuidePhase,
   MindGuideProblem,
+  PhaseResponseRecord,
+  ProblemMode,
+  SessionDifficultyAdjustment,
+  UnlockLevel,
 } from "@/types";
 
 export const MINDGUIDE_PHASE_ORDER: MindGuidePhase[] = [
@@ -49,9 +60,6 @@ export const MINDGUIDE_PHASE_LABELS: Record<MindGuidePhase, string> = {
 
 const FORMULA_THEOREM_JUSTIFICATION_PROMPT =
   "Why is this formula, theorem, or method appropriate for this problem?";
-
-const WEAK_JUSTIFICATION_FEEDBACK =
-  "Your justification is still weak. What part of the problem shows that this formula or theorem applies?";
 
 const JUSTIFICATION_REASONING_WORDS = [
   "because",
@@ -112,18 +120,89 @@ export async function sendStudentResponse(
     subject?: string;
     topic?: string;
     originalQuestion?: string;
+    phaseResponses?: PhaseResponseRecord[];
+    hintsUsed?: number;
+    unlockLevel?: UnlockLevel;
+    problemMode?: ProblemMode;
+    freeFormAnalysis?: FreeFormProblemAnalysis;
+    signal?: AbortSignal;
   } = {}
 ): Promise<{
   message: string;
   isBlocked: boolean;
   nextPhase?: MindGuidePhase;
   diagnosis?: DiagnosisResult;
+  aiFallbackEvent?: AIFallbackEvent;
 }> {
   const currentPhase = options.currentPhase ?? "problem_understanding";
   const selectedProblem = options.selectedProblem ?? null;
 
+  if (
+    selectedProblem &&
+    options.problemMode === "free_form" &&
+    options.freeFormAnalysis
+  ) {
+    if (isPrematureFinalAnswer(studentResponse, selectedProblem, currentPhase)) {
+      return {
+        message:
+          "Let's hold the final answer for now. Explain the reasoning requested in this phase before moving to the solution.",
+        isBlocked: true,
+        nextPhase: currentPhase,
+        diagnosis: {
+          errorType: "skipped_reasoning",
+          correctivePrompt:
+            "Explain the reasoning requested in this phase before moving to the solution.",
+          phase: currentPhase,
+          reasons: ["A final result was supplied before the reasoning phases were complete."],
+          detectedAt: Date.now(),
+        },
+      };
+    }
+
+    return evaluateFreeFormPhaseResponse({
+      conversationHistory,
+      studentResponse,
+      currentPhase,
+      selectedProblem,
+      analysis: options.freeFormAnalysis,
+      phaseResponses: options.phaseResponses ?? [],
+      signal: options.signal,
+    });
+  }
+
   if (selectedProblem) {
-    const diagnosis = diagnoseResponse(studentResponse, selectedProblem, currentPhase);
+    let diagnosis = diagnoseResponse(studentResponse, selectedProblem, currentPhase);
+    let aiFallbackEvent: AIFallbackEvent | undefined;
+
+    if (
+      shouldUseAIDiagnosisFallback(
+        studentResponse,
+        selectedProblem,
+        currentPhase,
+        diagnosis
+      )
+    ) {
+      const fallbackResult = await aiAssistedDiagnosis(
+        studentResponse,
+        selectedProblem,
+        currentPhase,
+        diagnosis,
+        options.signal
+      );
+      diagnosis = fallbackResult.diagnosis;
+      aiFallbackEvent = fallbackResult.fallbackEvent;
+    }
+
+    const phaseResponses = [
+      ...(options.phaseResponses ?? []),
+      buildCurrentPhaseResponse(currentPhase, studentResponse, diagnosis),
+    ];
+    const adjustment = getSessionDifficultyAdjustment({
+      phaseResponses,
+      currentDiagnosis: diagnosis,
+      hintsUsed: options.hintsUsed ?? 0,
+      unlockLevel: options.unlockLevel ?? 0,
+    });
 
     if (diagnosis.errorType !== "none") {
       return {
@@ -131,32 +210,31 @@ export async function sendStudentResponse(
         isBlocked: true,
         nextPhase: currentPhase,
         diagnosis,
+        aiFallbackEvent,
       };
     }
-  }
 
-  if (
-    selectedProblem &&
-    isPrematureFinalAnswer(studentResponse, selectedProblem, currentPhase)
-  ) {
-    return {
-      message:
-        "Let's hold the final answer for now. MINDGUIDE needs your reasoning first, so answer the current phase question before we unlock the solution.",
-      isBlocked: true,
-      nextPhase: currentPhase,
-    };
-  }
+    if (isPrematureFinalAnswer(studentResponse, selectedProblem, currentPhase)) {
+      return {
+        message:
+          "Let's hold the final answer for now. MINDGUIDE needs your reasoning first, so answer the current phase question before we unlock the solution.",
+        isBlocked: true,
+        nextPhase: currentPhase,
+        diagnosis,
+        aiFallbackEvent,
+      };
+    }
 
-  if (selectedProblem) {
     const nextPhase = getNextMindGuidePhase(currentPhase);
 
     return {
       message: nextPhase
-        ? getMindGuidePhasePrompt(selectedProblem, nextPhase)
+        ? getMindGuidePhasePrompt(selectedProblem, nextPhase, adjustment)
         : "You have completed the required Socratic phases. You may now draft your final answer.",
       isBlocked: false,
       nextPhase: nextPhase ?? currentPhase,
-      diagnosis: diagnoseResponse(studentResponse, selectedProblem, currentPhase),
+      diagnosis,
+      aiFallbackEvent,
     };
   }
 
@@ -177,7 +255,8 @@ export async function sendStudentResponse(
   const rawResponse = await sendMessage(
     combinedSystemPrompt,
     conversationHistory,
-    studentResponse
+    studentResponse,
+    { signal: options.signal }
   );
 
   const isBlocked = rawResponse.includes("[BLOCKED]");
@@ -190,6 +269,127 @@ export async function sendStudentResponse(
     message: cleanResponse(cleanedMessage),
     isBlocked,
     nextPhase: isBlocked ? currentPhase : nextPhase,
+  };
+}
+
+async function evaluateFreeFormPhaseResponse(options: {
+  conversationHistory: ChatMessage[];
+  studentResponse: string;
+  currentPhase: MindGuidePhase;
+  selectedProblem: MindGuideProblem;
+  analysis: FreeFormProblemAnalysis;
+  phaseResponses: PhaseResponseRecord[];
+  signal?: AbortSignal;
+}): Promise<{
+  message: string;
+  isBlocked: boolean;
+  nextPhase: MindGuidePhase;
+  diagnosis: DiagnosisResult;
+}> {
+  const nextPhase = getNextMindGuidePhase(options.currentPhase);
+  const context = JSON.stringify({
+    question: options.selectedProblem.problemText,
+    currentPhase: options.currentPhase,
+    nextPhase,
+    expectedConcepts: options.analysis.expectedConcepts,
+    requiredFormula: options.analysis.requiredFormula,
+    requiredTheorem: options.analysis.requiredTheorem,
+    solutionOutline: options.analysis.solutionOutline,
+    referenceAnswer: options.analysis.referenceAnswer,
+    phaseResponses: options.phaseResponses.slice(-8),
+    recentConversation: options.conversationHistory.slice(-10).map((message) => ({
+      role: message.role,
+      content: message.content,
+    })),
+    studentResponse: options.studentResponse,
+  }).slice(0, 22_000);
+
+  const raw = await sendMessage(
+    "You are MINDGUIDE's strict Socratic phase evaluator. Use the private reference only to assess reasoning; never reveal the final answer. Return exactly one JSON object with no Markdown.",
+    [],
+    `Evaluate whether the student's response demonstrates the current phase well enough to advance. Diagnose one misconception when present. The message must be one concise Socratic question: either corrective guidance for the same phase or the next-phase prompt.\n\n${context}\n\nReturn exactly:\n{"advance":boolean,"blocked":boolean,"errorType":"wrong_formula|invalid_logic|misinterpreted_variable|computational_error|weak_justification|skipped_reasoning|none","reasons":["specific reason"],"message":"Socratic question"}`,
+    { retryTransient: true, signal: options.signal }
+  );
+
+  const parsed = parseFreeFormPhaseEvaluation(raw);
+  const detectedAt = Date.now();
+  const diagnosis: DiagnosisResult = {
+    errorType: parsed.errorType,
+    correctivePrompt: parsed.errorType === "none" ? "" : parsed.message,
+    phase: options.currentPhase,
+    reasons: parsed.reasons,
+    detectedAt,
+  };
+  const mayAdvance = parsed.advance && !parsed.blocked && parsed.errorType === "none";
+
+  return {
+    message: parsed.message,
+    isBlocked: !mayAdvance,
+    nextPhase: mayAdvance && nextPhase ? nextPhase : options.currentPhase,
+    diagnosis,
+  };
+}
+
+const FREE_FORM_ERROR_TYPES = [
+  "wrong_formula",
+  "invalid_logic",
+  "misinterpreted_variable",
+  "computational_error",
+  "weak_justification",
+  "skipped_reasoning",
+  "none",
+] as const;
+
+function parseFreeFormPhaseEvaluation(raw: string): {
+  advance: boolean;
+  blocked: boolean;
+  errorType: DiagnosisResult["errorType"];
+  reasons: string[];
+  message: string;
+} {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error("Gemini returned malformed phase feedback. Please retry.");
+  }
+
+  let value: unknown;
+  try {
+    value = JSON.parse(match[0]);
+  } catch {
+    throw new Error("Gemini returned malformed phase feedback. Please retry.");
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Gemini returned invalid phase feedback. Please retry.");
+  }
+
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.advance !== "boolean" ||
+    typeof record.blocked !== "boolean" ||
+    typeof record.errorType !== "string" ||
+    !FREE_FORM_ERROR_TYPES.includes(
+      record.errorType as (typeof FREE_FORM_ERROR_TYPES)[number]
+    ) ||
+    typeof record.message !== "string" ||
+    record.message.trim().length < 5
+  ) {
+    throw new Error("Gemini returned incomplete phase feedback. Please retry.");
+  }
+
+  const reasons = Array.isArray(record.reasons)
+    ? record.reasons
+        .filter((reason): reason is string => typeof reason === "string")
+        .map((reason) => reason.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  return {
+    advance: record.advance,
+    blocked: record.blocked,
+    errorType: record.errorType as DiagnosisResult["errorType"],
+    reasons: reasons.length ? reasons : ["Gemini supplied no detailed reason."],
+    message: cleanResponse(record.message).slice(0, 4_000),
   };
 }
 
@@ -214,8 +414,11 @@ export function getMindGuidePhaseLabel(phase: MindGuidePhase): string {
 
 export function getMindGuidePhasePrompt(
   problem: MindGuideProblem,
-  phase: MindGuidePhase
+  phase: MindGuidePhase,
+  adjustment: SessionDifficultyAdjustment = "maintain"
 ): string {
+  let prompt: string;
+
   if (phase === "formula_theorem_justification") {
     const requiredAreas = [
       problem.requiredFormula
@@ -226,10 +429,12 @@ export function getMindGuidePhasePrompt(
         : null,
     ].filter(Boolean);
 
-    return [FORMULA_THEOREM_JUSTIFICATION_PROMPT, ...requiredAreas].join("\n\n");
+    prompt = [FORMULA_THEOREM_JUSTIFICATION_PROMPT, ...requiredAreas].join("\n\n");
+  } else {
+    prompt = problem.socraticPrompts[phase];
   }
 
-  return problem.socraticPrompts[phase];
+  return applyDifficultyAdjustment(prompt, phase, adjustment);
 }
 
 export function validateFormulaTheoremJustification(
@@ -297,7 +502,8 @@ export function isFinalAnswerUnlocked(phase: MindGuidePhase): boolean {
 export async function generateHint(
   hintLevel: number,
   originalQuestion: string,
-  conversationHistory: ChatMessage[]
+  conversationHistory: ChatMessage[],
+  signal?: AbortSignal
 ): Promise<string> {
   const clampedLevel = Math.min(Math.max(hintLevel, 1), 3);
   const conversationSummary = conversationHistory
@@ -314,7 +520,8 @@ export async function generateHint(
   const response = await sendMessage(
     SOCRATIC_SYSTEM_PROMPT,
     [],
-    hintPrompt
+    hintPrompt,
+    { signal }
   );
 
   return cleanResponse(response);
@@ -332,34 +539,50 @@ export async function generateHint(
  */
 export async function extractLogicMap(
   originalQuestion: string,
-  conversationHistory: ChatMessage[]
+  conversationHistory: ChatMessage[],
+  signal?: AbortSignal
 ): Promise<LogicMapNode[]> {
-  const messages = conversationHistory.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const messages = getRecentMessageViews(conversationHistory);
 
   const prompt = buildLogicMapPrompt(originalQuestion, messages);
 
-  try {
-    const response = await sendMessage(SOCRATIC_SYSTEM_PROMPT, [], prompt);
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.warn("Logic map: AI did not return valid JSON, using fallback");
-      return getDefaultLogicMap();
-    }
-
-    const parsed = JSON.parse(jsonMatch[0]) as LogicMapNode[];
-    return parsed.map((node, index) => ({
-      step: index + 1,
-      title: String(node.title || `Step ${index + 1}`),
-      description: String(node.description || ""),
-      completed: Boolean(node.completed),
-    }));
-  } catch (err) {
-    console.error("Logic map extraction failed:", err);
-    return getDefaultLogicMap();
+  const response = await sendMessage(SOCRATIC_SYSTEM_PROMPT, [], prompt, {
+    signal,
+  });
+  const jsonMatch = response.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) {
+    throw new Error("Gemini returned a malformed logic map. Please retry.");
   }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error("Gemini returned a malformed logic map. Please retry.");
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0 || parsed.length > 12) {
+    throw new Error("Gemini returned an invalid logic map. Please retry.");
+  }
+
+  return parsed.map((value, index) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      throw new Error("Gemini returned an invalid logic-map step. Please retry.");
+    }
+    const node = value as Record<string, unknown>;
+    if (
+      typeof node.title !== "string" ||
+      typeof node.description !== "string" ||
+      typeof node.completed !== "boolean"
+    ) {
+      throw new Error("Gemini returned an incomplete logic-map step. Please retry.");
+    }
+    return {
+      step: index + 1,
+      title: node.title.trim().slice(0, 160) || `Step ${index + 1}`,
+      description: node.description.trim().slice(0, 1_000),
+      completed: node.completed,
+    };
+  });
 }
 
 /**
@@ -373,15 +596,15 @@ export async function extractLogicMap(
 export async function generateSummary(
   originalQuestion: string,
   conversationHistory: ChatMessage[],
-  draft: { answer: string; methodology: string; reflection: string }
+  draft: { answer: string; methodology: string; reflection: string },
+  signal?: AbortSignal
 ): Promise<string> {
-  const messages = conversationHistory.map((m) => ({
-    role: m.role,
-    content: m.content,
-  }));
+  const messages = getRecentMessageViews(conversationHistory);
 
   const prompt = buildSummaryPrompt(originalQuestion, messages, draft);
-  const response = await sendMessage(SOCRATIC_SYSTEM_PROMPT, [], prompt);
+  const response = await sendMessage(SOCRATIC_SYSTEM_PROMPT, [], prompt, {
+    signal,
+  });
   return cleanResponse(response);
 }
 
@@ -402,32 +625,96 @@ function cleanResponse(response: string): string {
     .trim();
 }
 
-/**
- * Returns a default logic map when AI extraction fails.
- *
- * @returns A generic 3-step logic map.
- */
-function getDefaultLogicMap(): LogicMapNode[] {
+function buildCurrentPhaseResponse(
+  phase: MindGuidePhase,
+  response: string,
+  diagnosisResult: DiagnosisResult
+): PhaseResponseRecord {
+  return {
+    id: `current-${diagnosisResult.detectedAt}`,
+    phase,
+    response,
+    submittedAt: diagnosisResult.detectedAt,
+    diagnosisResult,
+  };
+}
+
+function getRecentMessageViews(
+  conversationHistory: ChatMessage[],
+  characterLimit = 24_000
+): Array<{ role: ChatMessage["role"]; content: string }> {
+  const selected: Array<{ role: ChatMessage["role"]; content: string }> = [];
+  let remaining = characterLimit;
+  for (let index = conversationHistory.length - 1; index >= 0; index -= 1) {
+    if (remaining <= 0) break;
+    const message = conversationHistory[index];
+    const content = message.content.slice(-remaining);
+    selected.push({ role: message.role, content });
+    remaining -= content.length;
+  }
+  return selected.reverse();
+}
+
+function applyDifficultyAdjustment(
+  prompt: string,
+  phase: MindGuidePhase,
+  adjustment: SessionDifficultyAdjustment
+): string {
+  if (adjustment === "maintain") return prompt;
+
+  if (adjustment === "simplify") {
+    return [
+      prompt,
+      getSimplifiedPromptSupport(phase),
+    ].join("\n\n");
+  }
+
   return [
-    {
-      step: 1,
-      title: "Identify the Problem",
-      description: "Understand what is being asked",
-      completed: true,
-    },
-    {
-      step: 2,
-      title: "Choose a Method",
-      description: "Select the appropriate approach",
-      completed: false,
-    },
-    {
-      step: 3,
-      title: "Execute & Verify",
-      description: "Apply the method and check the answer",
-      completed: false,
-    },
-  ];
+    prompt,
+    getDeepenedPromptSupport(phase),
+  ].join("\n\n");
+}
+
+function getSimplifiedPromptSupport(phase: MindGuidePhase): string {
+  const supports: Partial<Record<MindGuidePhase, string>> = {
+    problem_understanding:
+      "Break it down first: list only the given values or statements, then name what the problem is asking.",
+    method_selection:
+      "Use one small clue from the wording of the problem to choose the method. You do not need to compute yet.",
+    formula_theorem_justification:
+      "Start with this sentence frame: This method applies because the problem gives ___ and asks for ___.",
+    guided_computation_or_reasoning:
+      "Take just the next step. Write the calculation or logical move before trying to finish the whole solution.",
+    error_diagnosis:
+      "Check one possible error at a time: first the setup, then the calculation or truth-value step.",
+    progressive_unlock:
+      "Use the support one level at a time and explain the next missing step in your own words.",
+    scorecard:
+      "Name one part of your reasoning that is strongest and one part you should verify before the final answer.",
+  };
+
+  return supports[phase] ?? "Break the prompt into one small reasoning step.";
+}
+
+function getDeepenedPromptSupport(phase: MindGuidePhase): string {
+  const supports: Partial<Record<MindGuidePhase, string>> = {
+    problem_understanding:
+      "Also identify one detail that might be easy to overlook and explain why it matters.",
+    method_selection:
+      "Compare your method with one tempting alternative and explain why your method fits better.",
+    formula_theorem_justification:
+      "Go further by connecting the formula or theorem to a specific phrase, value, or condition in the problem.",
+    guided_computation_or_reasoning:
+      "After the next step, add a quick verification showing why the result is reasonable.",
+    error_diagnosis:
+      "Predict the most likely mistake someone would make here and explain how your reasoning avoids it.",
+    progressive_unlock:
+      "Use the unlocked support to justify the next step, not just to copy it.",
+    scorecard:
+      "Evaluate your solution against accuracy, logic, method choice, justification, and interpretation.",
+  };
+
+  return supports[phase] ?? "Add one extra justification or verification step.";
 }
 
 function isPrematureFinalAnswer(
@@ -451,7 +738,7 @@ function isPrematureFinalAnswer(
 function normalizeForAnswerCheck(value: string): string {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9.\/\s]/g, " ")
+    .replace(/[^a-z0-9./\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
