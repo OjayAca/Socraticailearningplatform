@@ -83,8 +83,8 @@ export const adminOverrideSessionSupport = onCall(callableOptions, async (reques
       if (!session.exists || !reference.exists) {
         throw callableError("not-found", "session_not_found", "The learning session or private reference was not found.");
       }
-      if (session.get("status") !== "in_progress") {
-        throw callableError("failed-precondition", "support_override_unavailable", "Support cannot be overridden for this session status.");
+      if (!session.get("scorecard") || !session.get("releasedSolution")) {
+        throw callableError("failed-precondition", "support_override_unavailable", "Worked support cannot be authorized until the learner's reasoning has been scored and the solution release is recorded.");
       }
       const gates = session.get("gateStates") as GateStateMap;
       const phase = REASONING_PHASES.find((candidate) => gates?.[candidate]?.status !== "accepted")
@@ -457,8 +457,8 @@ async function queryReportRows(data: {
         accuracy: criteria.accuracy?.score ?? null,
         logicalValidity: criteria.logicalValidity?.score ?? null,
         methodSelection: criteria.methodSelection?.score ?? null,
-        justificationQuality: criteria.justificationQuality?.score ?? null,
-        interpretationQuality: criteria.interpretationQuality?.score ?? null,
+        explanationQuality: criteria.explanationQuality?.score
+          ?? Math.round((Number(criteria.justificationQuality?.score ?? 0) + Number(criteria.interpretationQuality?.score ?? 0)) / 2),
       };
     }
     if (data.kind === "usage") {

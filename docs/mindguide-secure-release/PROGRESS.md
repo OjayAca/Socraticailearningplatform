@@ -16,8 +16,8 @@
 
 ### Phase 3: learner workflow — complete
 
-- [x] Nine-stage projection with seven server-owned reasoning gates and diagnosis after every response.
-- [x] Corrective cycles, controlled support, administrator exception, math input/rendering/equivalence, evidence scorecard, abandonment/expiry, submission, retry, and adaptation.
+- [x] Four learner-visible stages backed by seven server-owned reasoning gates and diagnosis after every response.
+- [x] Corrective cycles, adaptive prompts, controlled support, score-before-solution release, four-part evidence scorecard, math input/rendering/equivalence, abandonment/expiry, submission, retry, and adaptation.
 - [x] Remove private solution and browser AI paths from the production bundle.
 
 ### Phase 4: administration and privacy — complete
@@ -27,9 +27,16 @@
 
 ### Phase 5: local verification and documentation — complete
 
-- [x] Typecheck, lint, 34 unit/Functions tests, 8 Firestore rules tests, production build, bundle scan, and public Playwright tests.
+- [x] Typecheck, lint, 48 unit/Functions tests, 8 Firestore rules tests, production build, bundle scan, and public Playwright tests.
 - [x] Remediate strict-hybrid reasoning, lifecycle replay, stale claims, administrator concurrency, anonymization, content leakage, reports/CSV, consent rotation, preferences, notifications, progress, and missing-record states.
 - [x] README, architecture, data dictionary, deployment/rollback, verification traceability, research, and implementation plan.
+
+### Phase 6: six-core-feature alignment — complete
+
+- [x] Make the Socratic solver, justification, misconception diagnosis, adaptive difficulty, progressive unlock, and scorecard the canonical learning core.
+- [x] Preserve dashboards, history, profile/settings, notifications, prepared/free-form modes, administration, reporting, review, follow-ups, consent, privacy, retention, and security.
+- [x] Introduce workflow-v4 projections while preserving workflow-v3 history and migration safety.
+- [x] Verify four-stage mapping, domain-specific private prompts, adaptive selection/scaffolding, four 25-point criteria, score-before-reveal, and released-solution access controls.
 
 ## Project-owner gates — pending
 

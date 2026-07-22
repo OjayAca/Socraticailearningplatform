@@ -5,6 +5,7 @@ import type {
   GateEvaluation,
   MathResponse,
   ReasoningPhase,
+  ReleasedSolution,
   ScorecardCategory,
   ScorecardCriterionResult,
   ScorecardResult,
@@ -236,16 +237,9 @@ export function evaluateDeterministically(options: {
 
 export function supportLevelsFor(gates: GateStateMap): SupportLevel[] {
   const current = REASONING_PHASES.find((phase) => gates[phase].status !== "accepted");
-  if (!current) {
-    return [
-      "socratic_prompt",
-      "targeted_hint",
-      "stronger_hint",
-      "partial_step",
-      "worked_explanation",
-      "full_solution",
-    ];
-  }
+  // Worked explanations and final answers are released only after the learner's
+  // draft has been scored. Finishing the gates alone must not expose them.
+  if (!current) return [];
   const gate = gates[current];
   const levels: SupportLevel[] = ["socratic_prompt"];
   if (gate.attemptCount >= 1) levels.push("targeted_hint");
@@ -297,18 +291,57 @@ export function buildScorecard(options: {
     source: "deterministic",
   });
 
+  const qualityScore = (phases: ReasoningPhase[]): number => {
+    const corrections = phases.reduce(
+      (sum, phase) => sum + Number(options.gates[phase]?.correctiveCycleCount ?? 0),
+      0
+    );
+    return Math.max(12, 25 - Math.min(corrections * 2, 13));
+  };
+  const logicalScore = qualityScore([
+    "guided_computation_or_proof",
+    "verification_and_checking",
+  ]);
+  const methodScore = qualityScore([
+    "method_selection",
+    "formula_theorem_justification",
+  ]);
+  const explanationScore = qualityScore([
+    "problem_understanding",
+    "relevant_information_identification",
+    "formula_theorem_justification",
+    "result_interpretation",
+  ]);
+
   const criteria = {
     accuracy: make(
       "accuracy",
-      accuracyPass ? 20 : 8,
+      accuracyPass ? 25 : 10,
       [accuracyPass ? "The final response is mathematically equivalent to the validated reference." : "The final response could not be verified as equivalent to the validated reference."],
       accuracyPass ? "The final result matches the validated answer." : "The submitted final result needs correction or clearer notation.",
       accuracyPass ? "Keep the checking step visible." : "Recheck the final calculation and submit an equivalent simplified result."
     ),
-    logicalValidity: make("logicalValidity", 18, gateEvidence, "All required reasoning and verification gates were accepted.", "Keep each implication or calculation step explicit."),
-    methodSelection: make("methodSelection", 18, ["Method selection was accepted by the reasoning gate.", "The saved methodology is supported by the accepted method and justification evidence."], "The selected method is relevant and connected to the accepted reasoning record.", "Name the method and continue connecting each operation to the given data."),
-    justificationQuality: make("justificationQuality", 18, ["Formula/theorem justification was accepted."], "The response stated why the selected method applies.", "Continue naming the conditions that make the method valid."),
-    interpretationQuality: make("interpretationQuality", 18, ["Result interpretation was accepted.", "The saved reflection is supported by the accepted interpretation and verification evidence."], "The result was interpreted in context and tied to the verified reasoning record.", "Continue explaining the implication of the result and what was verified."),
+    logicalValidity: make(
+      "logicalValidity",
+      logicalScore,
+      gateEvidence.filter((item) => /computation|verification/.test(item)),
+      logicalScore >= 22 ? "Strong reasoning: the computation or proof and its verification were logically connected." : "The reasoning became valid after corrective cycles.",
+      logicalScore >= 22 ? "Keep each implication or calculation step explicit." : "State why each calculation or proof step follows from the previous one."
+    ),
+    methodSelection: make(
+      "methodSelection",
+      methodScore,
+      ["Method selection and formula/theorem justification were accepted.", "The saved methodology is supported by the accepted reasoning record."],
+      methodScore >= 22 ? "The selected method is appropriate and well connected to the problem." : "The appropriate method was reached after revision.",
+      methodScore >= 22 ? "Continue checking a method's conditions before computing." : "Name the method earlier and connect it directly to the given conditions."
+    ),
+    explanationQuality: make(
+      "explanationQuality",
+      explanationScore,
+      ["Problem understanding, justification, and interpretation were accepted.", "The saved reflection is supported by the reasoning record."],
+      explanationScore >= 22 ? "Strong explanation: the justification and interpretation are connected to the problem context." : "The explanation was accepted but needed stronger justification or interpretation during the session.",
+      explanationScore >= 22 ? "Keep explaining both why the method applies and what the result means." : "Strengthen the justification by naming the required conditions, then interpret the verified result in context."
+    ),
   } satisfies Record<ScorecardCategory, ScorecardCriterionResult>;
   const total = Object.values(criteria).reduce((sum, criterion) => sum + criterion.score, 0);
   return {
@@ -318,6 +351,19 @@ export function buildScorecard(options: {
       ? "Your reasoning gates are complete and your final result matches the validated reference. Use the evidence above to strengthen future explanations."
       : "Your reasoning gates are complete, but the final result needs another verification pass before it matches the validated reference.",
     generatedAt: Date.now(),
+  };
+}
+
+export function buildReleasedSolution(reference: PrivateProblemReference): ReleasedSolution {
+  const method = reference.requiredFormula || reference.requiredTheorem || reference.expectedConcepts[0] || "A problem-appropriate method";
+  return {
+    method,
+    justification: `Use ${method} because the accepted justification established that its required conditions match the problem.`,
+    steps: reference.solutionSteps,
+    answer: reference.finalAnswer,
+    verification: "Verify the computation or proof against the original givens and the conditions of the selected method.",
+    interpretation: reference.interpretation,
+    releasedAt: Date.now(),
   };
 }
 
@@ -370,8 +416,12 @@ export function recommendDifficulty(options: {
   };
 }
 
-export function promptForPhase(phase: ReasoningPhase, reference: PrivateProblemReference): string {
-  return reference.socraticPrompts?.[phase] ?? {
+export function promptForPhase(
+  phase: ReasoningPhase,
+  reference: PrivateProblemReference,
+  adjustment: "simplify" | "maintain" | "deepen" = "maintain"
+): string {
+  const base = reference.socraticPrompts?.[phase] ?? {
     problem_understanding: "Restate the problem in your own words and identify what it asks you to determine.",
     relevant_information_identification: "Which values, variables, sets, propositions, or conditions are relevant, and what is unknown?",
     method_selection: "Which method, formula, theorem, or proof strategy should be used?",
@@ -380,6 +430,22 @@ export function promptForPhase(phase: ReasoningPhase, reference: PrivateProblemR
     verification_and_checking: "How can you verify the calculation, cases, or logical conclusion?",
     result_interpretation: "What does the verified result mean in the context of the original problem?",
   }[phase];
+  if (adjustment === "simplify") {
+    const scaffold: Record<ReasoningPhase, string> = {
+      problem_understanding: "Focus on one thing first: what is the problem asking you to find or prove?",
+      relevant_information_identification: "Separate the givens from the unknown. Which single value, variable, set, or condition belongs in each group?",
+      method_selection: "Name one formula, theorem, or proof strategy that connects the givens to the goal.",
+      formula_theorem_justification: "State one required condition for that method, then point to where the problem satisfies it.",
+      guided_computation_or_proof: "Write only the next justified calculation or logical step.",
+      verification_and_checking: "Choose one concrete check: substitution, recomputation, a case check, or validation of a proof condition.",
+      result_interpretation: "Complete this sentence in the problem's context: ‘This result means …’",
+    };
+    return `${base} ${scaffold[phase]}`;
+  }
+  if (adjustment === "deepen") {
+    return `${base} Also explain why your response would still be valid under the problem's stated conditions.`;
+  }
+  return base;
 }
 
 function severityFor(category: DiagnosisCategory): "minor" | "moderate" | "major" {

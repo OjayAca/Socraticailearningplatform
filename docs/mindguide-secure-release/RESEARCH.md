@@ -9,7 +9,7 @@ MINDGUIDE must move from a browser-authoritative localhost pilot to a server-aut
 - The React application performs Gemini requests, phase advancement, scoring, hint unlocking, and statistics writes in the browser.
 - Firestore rules allow students to update authoritative session fields while a session is in progress.
 - Prepared problem solutions and free-form reference answers are readable by the frontend.
-- The implemented phase model has seven phases; the approved capstone workflow requires nine stages with diagnosis running after every response.
+- The implementation retains seven precise internal gates while grouping them into four learner-visible stages; diagnosis runs after every response and the scorecard precedes solution release.
 - The existing administrator interface supports session monitoring and review but not managed content, users, reports, audits, privacy operations, or maintenance.
 - Typecheck, lint, unit tests, emulator rules tests, the production build, and public Playwright tests pass before the migration.
 

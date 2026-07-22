@@ -44,6 +44,10 @@ export function buildPublicProblem(problem: MindGuideProblem) {
   };
 }
 
+export function shouldPreserveCurrentSession(session: Record<string, any>): boolean {
+  return session.schemaVersion === 3 && Number(session.workflowVersion ?? 0) >= 3;
+}
+
 export function sanitizePublicProblemContext(context: Record<string, any> | undefined) {
   if (!context || context.mode === "curated") {
     return context ? { mode: "curated", problemId: context.problemId, promptSnapshot: context.promptSnapshot } : null;

@@ -29,7 +29,7 @@ npm run migrate:v3:verify -- --project=<staging-project>
 firebase deploy --only functions,firestore:rules,firestore:indexes,hosting --project <staging-project>
 ```
 
-Smoke-test registration/consent, a curated and supported free-form problem, all seven gates and corrective cycles, URL/revision bypass denial, controlled support, math keyboard/mobile input, scorecard evidence, exactly-once submission, returned follow-up, admin users/content/reports/export/audits/settings, unauthorized routes, and retention configuration.
+Smoke-test registration/consent, adaptive curated selection and supported free-form problems, all four visible stages and seven internal gates, corrective cycles, URL/revision bypass denial, controlled support, score-before-solution release, math keyboard/mobile input, four-part scorecard evidence, exactly-once submission, returned follow-up, notifications, admin users/content/reports/export/audits/settings, unauthorized routes, and retention configuration.
 
 ## Production maintenance window
 

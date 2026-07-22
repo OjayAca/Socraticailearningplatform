@@ -190,7 +190,7 @@ function profile(role: "student" | "admin", displayName: string) {
 function secureSession() {
   return {
     schemaVersion: 3,
-    workflowVersion: 3,
+    workflowVersion: 4,
     revision: 0,
     studentId: STUDENT,
     studentName: "Student One",
@@ -199,11 +199,21 @@ function secureSession() {
     difficulty: "Basic",
     problemId: "approved-problem",
     originalQuestion: "Find the mean.",
-    status: "in_progress",
-    currentPhase: "problem_understanding",
+    status: "ready_for_submission",
+    currentPhase: "critical_thinking_scorecard",
     gateStates: {},
     gateEvaluations: {},
-    allowedSupport: ["socratic_prompt"],
+    allowedSupport: [],
+    scorecard: { total: 100, criteria: {} },
+    releasedSolution: {
+      method: "mean = sum / n",
+      justification: "The problem supplies a complete numeric data set.",
+      steps: ["Add the values.", "Divide by the count."],
+      answer: "10",
+      verification: "Substitute the result into the calculation.",
+      interpretation: "The average is 10.",
+      releasedAt: Date.now(),
+    },
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   };

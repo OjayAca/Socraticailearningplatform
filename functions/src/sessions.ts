@@ -1,10 +1,14 @@
 import { onCall } from "firebase-functions/v2/https";
 import type {
+  AdaptiveRecommendation,
+  Difficulty,
   EvaluatePhaseResponseResponse,
   GetCurrentConsentNoticeResponse,
   LearningProgress,
   ReasoningPhase,
   RequestSupportResponse,
+  SolverStage,
+  SolverStageProgress,
   SessionMutationResponse,
   SessionProjection,
   SupportLevel,
@@ -12,6 +16,10 @@ import type {
 import {
   REASONING_PHASES,
   SCHEMA_VERSION,
+  SOLVER_STAGES,
+  SOLVER_STAGE_PHASES,
+  WORKFLOW_VERSION,
+  solverStageForPhase,
 } from "@mindguide/contracts";
 import { analyzeFreeFormProblem, evaluateAmbiguousResponse } from "./ai.js";
 import { asCallableError, callableError, correlationId } from "./errors.js";
@@ -38,6 +46,7 @@ import {
 } from "./validation.js";
 import {
   buildScorecard,
+  buildReleasedSolution,
   evaluateDeterministically,
   initialGateStates,
   nextReasoningPhase,
@@ -130,23 +139,42 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
     let publicProblem: Record<string, unknown>;
     let reference: PrivateProblemReference;
     let rawAI: string | null = null;
+    let adaptiveRecommendation: SessionProjection["adaptiveRecommendation"] = null;
 
     if (data.mode === "curated") {
-      const problemRef = database.doc(`problems/${data.problemId}`);
-      const [problem, privateProblem] = await Promise.all([
-        problemRef.get(),
-        problemRef.collection("private").doc("solution").get(),
-      ]);
-      if (!problem.exists || problem.get("status") !== "approved" || !privateProblem.exists) {
+      const selection = await selectAdaptiveProblem({
+        uid: actor.uid,
+        requestedProblemId: data.problemId,
+        requestedSubject: data.subject,
+        requestedTopic: data.topic,
+      });
+      const problemRef = database.doc(`problems/${selection.problem.id}`);
+      const privateProblem = await problemRef.collection("private").doc("solution").get();
+      if (!privateProblem.exists) {
         throw callableError("not-found", "problem_unavailable", "This prepared problem is unavailable.");
       }
-      publicProblem = { id: problem.id, ...problem.data() };
+      publicProblem = { id: selection.problem.id, ...selection.problem.data() };
       reference = privateProblem.data() as PrivateProblemReference;
+      adaptiveRecommendation = selection.recommendation;
     } else {
       const analyzed = await analyzeFreeFormProblem({
         question: data.question!,
         subject: data.subject!,
         topic: data.topic!,
+      }).catch(async (error) => {
+        await writeAIFailure({
+          uid: actor.uid,
+          operation: "free_form_validation",
+          reason: String(error),
+          correlationId: id,
+        }).catch(() => undefined);
+        throw callableError(
+          "unavailable",
+          "problem_analysis_unavailable",
+          "MINDGUIDE could not validate this problem right now. Please try again.",
+          true,
+          id
+        );
       });
       if (!analyzed.analysis.supported || !analyzed.analysis.solvable) {
         await writeAIFailure({
@@ -171,13 +199,18 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       };
       reference = analyzed.analysis;
       rawAI = analyzed.raw;
+      adaptiveRecommendation = {
+        recommendedDifficulty: (data.difficulty ?? "Basic") as SessionProjection["difficulty"],
+        reason: "Free-form problems keep the learner-selected complexity while Socratic prompt scaffolding adapts to response quality.",
+        confidence: "low",
+      };
     }
 
     const sessionRef = database.collection("sessions").doc();
     const now = Date.now();
     const sessionData = {
       schemaVersion: SCHEMA_VERSION,
-      workflowVersion: 3,
+      workflowVersion: WORKFLOW_VERSION,
       revision: 0,
       studentId: actor.uid,
       studentName: profile.get("displayName") ?? actor.email ?? "Learner",
@@ -195,6 +228,7 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       },
       status: "in_progress",
       currentPhase: "problem_understanding",
+      currentPrompt: promptForPhase("problem_understanding", reference),
       gateStates: initialGateStates(),
       gateEvaluations: {},
       diagnosisSummary: [],
@@ -202,6 +236,10 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       supportUsage: 0,
       draft: null,
       scorecard: null,
+      releasedSolution: null,
+      adaptiveRecommendation,
+      promptAdjustment: "maintain",
+      consecutiveStrongResponses: 0,
       parentSessionId: null,
       followUpSessionId: null,
       createdAt: Timestamp.fromMillis(now),
@@ -329,7 +367,18 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
       supportLevelsFor(updatedGates),
       session.adminAuthorizedSupport
     );
+    const consecutiveStrongResponses = result.evaluation.status === "accepted"
+      ? Number(session.consecutiveStrongResponses ?? 0) + 1
+      : 0;
+    const promptAdjustment = result.evaluation.status !== "accepted"
+      ? "simplify"
+      : consecutiveStrongResponses >= 2 && Number(session.supportUsage ?? 0) <= 1
+        ? "deepen"
+        : "maintain";
     const now = Date.now();
+    const nextPrompt = currentPhase === "controlled_solution_release"
+      ? "All reasoning gates are accepted. Complete your final response to generate the scorecard before the worked solution is released."
+      : promptForPhase(currentPhase as ReasoningPhase, referenceSnapshot.data() as PrivateProblemReference, promptAdjustment);
     const updatedSession = {
       ...session,
       revision: data.revision + 1,
@@ -344,18 +393,19 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
           ? session.diagnosisSummary ?? []
           : [...(session.diagnosisSummary ?? []), result.diagnosis.category].slice(-20),
       allowedSupport,
+      currentPrompt: nextPrompt,
+      promptAdjustment,
+      consecutiveStrongResponses,
       updatedAt: Timestamp.fromMillis(now),
       lastActivityAt: Timestamp.fromMillis(now),
     };
-    const reference = referenceSnapshot.data() as PrivateProblemReference;
     const responseBody: EvaluatePhaseResponseResponse = {
       session: projectSession(sessionSnapshot.id, updatedSession),
       evaluation: result.evaluation,
       diagnosis: result.diagnosis,
       learnerMessage: result.learnerMessage,
-      nextPrompt: currentPhase === "controlled_solution_release"
-        ? "All reasoning gates are accepted. You may request controlled support, complete your draft, and generate the scorecard."
-        : promptForPhase(currentPhase as ReasoningPhase, reference),
+      nextPrompt,
+      completion: null,
     };
     const responseRef = sessionRef.collection("responses").doc();
     await database.runTransaction(async (transaction) => {
@@ -369,6 +419,9 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
         gateEvaluations: updatedSession.gateEvaluations,
         diagnosisSummary: updatedSession.diagnosisSummary,
         allowedSupport,
+        currentPrompt: nextPrompt,
+        promptAdjustment,
+        consecutiveStrongResponses,
         updatedAt: FieldValue.serverTimestamp(),
         lastActivityAt: FieldValue.serverTimestamp(),
       });
@@ -503,10 +556,15 @@ export const finalizeScorecard = onCall(callableOptions, async (request) => {
       }
       if (!reference.exists || !session.draft) throw callableError("failed-precondition", "draft_or_reference_missing", "Complete and save the draft before generating the scorecard.");
       if (!allGatesAccepted(session.gateStates as GateStateMap)) throw callableError("failed-precondition", "reasoning_incomplete", "All seven reasoning gates must be accepted first.");
-      const scorecard = buildScorecard({ draft: session.draft, gates: session.gateStates, reference: reference.data() as PrivateProblemReference });
-      const updated = { ...session, revision: Number(session.revision) + 1, status: "ready_for_submission", currentPhase: "critical_thinking_scorecard", currentStep: "review", scorecard, mindGuideScorecard: legacyScorecard(scorecard), ctScore: scorecard.total, learningCompletedAt: Timestamp.now(), updatedAt: Timestamp.now() };
-      response = { session: projectSession(snapshot.id, updated) };
-      transaction.update(sessionRef, { revision: updated.revision, status: updated.status, currentPhase: updated.currentPhase, currentStep: updated.currentStep, scorecard, mindGuideScorecard: updated.mindGuideScorecard, ctScore: scorecard.total, learningCompletedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      const privateReference = reference.data() as PrivateProblemReference;
+      const scorecard = buildScorecard({ draft: session.draft, gates: session.gateStates, reference: privateReference });
+      const releasedSolution = buildReleasedSolution(privateReference);
+      const updated = { ...session, revision: Number(session.revision) + 1, status: "ready_for_submission", currentPhase: "critical_thinking_scorecard", currentStep: "review", currentPrompt: "Review your scorecard and compare your work with the released solution before submitting the learning record.", scorecard, releasedSolution, mindGuideScorecard: legacyScorecard(scorecard), ctScore: scorecard.total, learningCompletedAt: Timestamp.now(), updatedAt: Timestamp.now() };
+      response = {
+        session: projectSession(snapshot.id, updated),
+        completion: { scorecard, releasedSolution },
+      };
+      transaction.update(sessionRef, { revision: updated.revision, status: updated.status, currentPhase: updated.currentPhase, currentStep: updated.currentStep, currentPrompt: updated.currentPrompt, scorecard, releasedSolution, mindGuideScorecard: updated.mindGuideScorecard, ctScore: scorecard.total, learningCompletedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
       transaction.set(sessionRef.collection("scorecards").doc("final"), { ...scorecard, createdAt: FieldValue.serverTimestamp() });
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
@@ -577,6 +635,7 @@ export const submitLearningSession = onCall(callableOptions, async (request) => 
         currentStreak: progress.currentStreak,
         lastSessionDate: progress.lastSessionDate,
         topicRecommendations: {
+          ...progress.topicRecommendations,
           [slugKey(String(session.topic))]: difficultyRecommendation,
         },
         lastSessionAt: FieldValue.serverTimestamp(),
@@ -618,9 +677,12 @@ export const createFollowUpSession = onCall(callableOptions, async (request) => 
       if (!isStudentMutationAllowed(parent.get("status"), "follow_up") || parent.get("followUpSessionId")) throw callableError("failed-precondition", "follow_up_unavailable", "This returned session already has a follow-up or is not eligible.");
       const now = Timestamp.now();
       const child = {
-        ...pickSessionProblem(parent.data()!), schemaVersion: SCHEMA_VERSION, workflowVersion: 3, revision: 0,
+        ...pickSessionProblem(parent.data()!), schemaVersion: SCHEMA_VERSION, workflowVersion: WORKFLOW_VERSION, revision: 0,
         studentId: actor.uid, studentName: parent.get("studentName"), status: "in_progress", currentPhase: "problem_understanding",
-        gateStates: initialGateStates(), gateEvaluations: {}, diagnosisSummary: [], allowedSupport: ["socratic_prompt"], supportUsage: 0, draft: null, scorecard: null,
+        currentPrompt: promptForPhase("problem_understanding", reference.data() as PrivateProblemReference),
+        gateStates: initialGateStates(), gateEvaluations: {}, diagnosisSummary: [], allowedSupport: ["socratic_prompt"], supportUsage: 0, draft: null, scorecard: null, releasedSolution: null,
+        adaptiveRecommendation: parent.get("difficultyRecommendation") ?? parent.get("adaptiveRecommendation") ?? null,
+        promptAdjustment: "maintain", consecutiveStrongResponses: 0,
         parentSessionId: parent.id, followUpSessionId: null, createdAt: now, updatedAt: now, lastActivityAt: now,
         learningCompletedAt: null, submittedAt: null, reviewedAt: null, adminReview: null, statsCommittedAt: null,
         currentStep: "questioning", completedPhases: [], ctScore: 0, messages: [], phaseResponses: [], correctivePrompts: [], logicMap: [], hints: [], hintsUsed: 0,
@@ -699,9 +761,14 @@ function allGatesAccepted(gates: GateStateMap): boolean {
 }
 
 function projectSession(id: string, session: Record<string, any>): SessionProjection {
+  const currentPhase = session.currentPhase as SessionProjection["currentPhase"];
+  const currentInternalGate = REASONING_PHASES.includes(currentPhase as ReasoningPhase)
+    ? currentPhase as ReasoningPhase
+    : null;
   return {
     id,
     schemaVersion: SCHEMA_VERSION,
+    workflowVersion: WORKFLOW_VERSION,
     revision: Number(session.revision ?? 0),
     studentId: String(session.studentId),
     subject: session.subject,
@@ -710,15 +777,45 @@ function projectSession(id: string, session: Record<string, any>): SessionProjec
     problemId: session.problemId ?? null,
     originalQuestion: String(session.originalQuestion),
     status: session.status,
-    currentPhase: session.currentPhase,
+    currentPhase,
+    currentStage: solverStageForPhase(currentPhase),
+    currentInternalGate,
+    currentPrompt: String(session.currentPrompt ?? fallbackPrompt(currentInternalGate)),
+    stageProgress: projectStageProgress(session.gateStates ?? {}, currentPhase),
     gates: session.gateEvaluations ?? {},
     allowedSupport: session.allowedSupport ?? ["socratic_prompt"],
     draft: session.draft ?? null,
     scorecard: session.scorecard ?? null,
+    releasedSolution: session.releasedSolution ?? null,
+    adaptiveRecommendation: session.adaptiveRecommendation ?? session.difficultyRecommendation ?? null,
+    promptAdjustment: session.promptAdjustment ?? "maintain",
     createdAt: millis(session.createdAt),
     updatedAt: millis(session.updatedAt),
     learningCompletedAt: session.learningCompletedAt ? millis(session.learningCompletedAt) : null,
   };
+}
+
+function projectStageProgress(
+  gates: Partial<GateStateMap>,
+  currentPhase: SessionProjection["currentPhase"]
+): Record<SolverStage, SolverStageProgress> {
+  const activeStage = solverStageForPhase(currentPhase);
+  return Object.fromEntries(SOLVER_STAGES.map((stage) => {
+    const phases = SOLVER_STAGE_PHASES[stage];
+    const acceptedGates = phases.filter((phase) => gates[phase]?.status === "accepted").length;
+    const completed = acceptedGates === phases.length;
+    return [stage, {
+      stage,
+      acceptedGates,
+      totalGates: phases.length,
+      status: completed ? "completed" : stage === activeStage ? "active" : "locked",
+    } satisfies SolverStageProgress];
+  })) as Record<SolverStage, SolverStageProgress>;
+}
+
+function fallbackPrompt(phase: ReasoningPhase | null): string {
+  if (!phase) return "Review your completed reasoning and scorecard.";
+  return phase.replaceAll("_", " ");
 }
 
 function millis(value: unknown): number {
@@ -804,6 +901,98 @@ async function writeAIFailure(value: Record<string, unknown>): Promise<void> {
   await database.collection("ai_failure_logs").add({ ...value, createdAt: FieldValue.serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 90 * 86_400_000) });
 }
 
+async function selectAdaptiveProblem(options: {
+  uid: string;
+  requestedProblemId?: string;
+  requestedSubject?: string;
+  requestedTopic?: string;
+}): Promise<{
+  problem: FirebaseFirestore.QueryDocumentSnapshot;
+  recommendation: AdaptiveRecommendation;
+}> {
+  const requested = options.requestedProblemId
+    ? await database.doc(`problems/${options.requestedProblemId}`).get()
+    : null;
+  const subject = options.requestedSubject ?? requested?.get("subject");
+  const topic = options.requestedTopic ?? requested?.get("topic");
+  if (!subject || !topic) {
+    throw callableError("invalid-argument", "problem_context_required", "Choose a prepared problem topic before starting.");
+  }
+
+  const recentSnapshot = await database
+    .collection("sessions")
+    .where("studentId", "==", options.uid)
+    .orderBy("updatedAt", "desc")
+    .limit(30)
+    .get();
+  const recentTopicSessions = recentSnapshot.docs
+    .filter((document) => document.get("topic") === topic && document.get("scorecard"))
+    .slice(0, 2);
+  const currentDifficulty = (recentTopicSessions[0]?.get("difficulty") ?? "Basic") as Difficulty;
+  const recommendation = recentTopicSessions.length === 0
+    ? {
+        recommendedDifficulty: "Basic" as const,
+        reason: "No completed session exists for this topic, so adaptive practice begins at Basic.",
+        confidence: "low" as const,
+      }
+    : recommendDifficulty({
+        currentDifficulty,
+        recentSessions: recentTopicSessions.map((document) => ({
+          score: Number(document.get("scorecard")?.total ?? 0),
+          supportUsage: Number(document.get("supportUsage") ?? document.get("hintsUsed") ?? 0),
+          diagnoses: Array.isArray(document.get("diagnosisSummary")) ? document.get("diagnosisSummary") : [],
+        })),
+      });
+
+  const exact = await database.collection("problems")
+    .where("status", "==", "approved")
+    .where("subject", "==", subject)
+    .where("topic", "==", topic)
+    .where("difficulty", "==", recommendation.recommendedDifficulty)
+    .get();
+  let candidates = exact.docs;
+  if (candidates.length === 0) {
+    const allTopicProblems = await database.collection("problems")
+      .where("status", "==", "approved")
+      .where("subject", "==", subject)
+      .where("topic", "==", topic)
+      .get();
+    const levels: Difficulty[] = ["Basic", "Intermediate", "Advanced"];
+    const target = levels.indexOf(recommendation.recommendedDifficulty);
+    candidates = allTopicProblems.docs
+      .sort((first, second) => {
+        const firstDistance = Math.abs(levels.indexOf(first.get("difficulty")) - target);
+        const secondDistance = Math.abs(levels.indexOf(second.get("difficulty")) - target);
+        return firstDistance - secondDistance || first.id.localeCompare(second.id);
+      });
+  }
+  if (candidates.length === 0) {
+    throw callableError("not-found", "problem_unavailable", "No approved prepared problem is available for this topic.");
+  }
+
+  const lastUsed = new Map<string, number>();
+  recentSnapshot.docs.forEach((document) => {
+    const problemId = document.get("problemId");
+    if (typeof problemId !== "string" || lastUsed.has(problemId)) return;
+    lastUsed.set(problemId, millis(document.get("updatedAt")));
+  });
+  candidates.sort((first, second) =>
+    (lastUsed.get(first.id) ?? 0) - (lastUsed.get(second.id) ?? 0) || first.id.localeCompare(second.id)
+  );
+  const problem = candidates[0];
+  const selectedDifficulty = problem.get("difficulty") as Difficulty;
+  return {
+    problem,
+    recommendation: selectedDifficulty === recommendation.recommendedDifficulty
+      ? recommendation
+      : {
+          ...recommendation,
+          recommendedDifficulty: selectedDifficulty,
+          reason: `${recommendation.reason} The nearest available approved tier is ${selectedDifficulty}.`,
+        },
+  };
+}
+
 function pickSessionProblem(session: Record<string, any>) {
   return {
     subject: session.subject,
@@ -826,8 +1015,7 @@ function legacyScorecard(scorecard: import("@mindguide/contracts").ScorecardResu
     accuracy: scorecard.criteria.accuracy.score,
     logicalValidity: scorecard.criteria.logicalValidity.score,
     methodSelection: scorecard.criteria.methodSelection.score,
-    justificationQuality: scorecard.criteria.justificationQuality.score,
-    interpretationQuality: scorecard.criteria.interpretationQuality.score,
+    explanationQuality: scorecard.criteria.explanationQuality.score,
     total: scorecard.total,
     feedback: scorecard.feedback,
   };
@@ -837,12 +1025,10 @@ function slugKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
-function mergeSupportLevels(policy: SupportLevel[], overrides: unknown): SupportLevel[] {
-  const authorized = Array.isArray(overrides)
-    ? overrides.filter((level): level is SupportLevel =>
-        level === "worked_explanation" || level === "full_solution")
-    : [];
-  return [...new Set([...policy, ...authorized])];
+function mergeSupportLevels(policy: SupportLevel[], _overrides: unknown): SupportLevel[] {
+  // Administrator exceptions are recorded for post-score review only. They do
+  // not bypass the learner-side score-before-reveal sequence.
+  return [...new Set(policy)];
 }
 
 export type StudentMutation = "reasoning" | "support" | "draft" | "finalize" | "submit" | "abandon" | "follow_up";

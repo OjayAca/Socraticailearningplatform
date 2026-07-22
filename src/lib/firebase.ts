@@ -62,6 +62,15 @@ export const functions: Functions | null = firebaseApp
   ? getFunctions(firebaseApp, import.meta.env.VITE_FUNCTIONS_REGION || "asia-southeast1")
   : null;
 
+const useFunctionsEmulator =
+  import.meta.env.DEV &&
+  import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === "true";
+
+if (useFunctionsEmulator && functions) {
+  connectFunctionsEmulator(functions, "localhost", 5001);
+  console.info("[Firebase] Callable Functions connected to the local emulator");
+}
+
 const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY as
   | string
   | undefined;
@@ -91,7 +100,9 @@ export function connectToEmulators(): void {
     emulatorConnectionEstablished = true;
     connectAuthEmulator(auth, "http://localhost:9099");
     connectFirestoreEmulator(db, "localhost", 8080);
-    connectFunctionsEmulator(functions, "localhost", 5001);
+    if (!useFunctionsEmulator) {
+      connectFunctionsEmulator(functions, "localhost", 5001);
+    }
     console.info("[Firebase] Connected to local emulators");
   }
 }

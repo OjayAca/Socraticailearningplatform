@@ -14,8 +14,8 @@ Server SDK operations bypass Firestore rules. Deploy Functions with the dedicate
 
 ## Authoritative components
 
-- `sessions.ts`: profile bootstrap, start, seven gate evaluations, support, drafts, scorecards, exactly-once submission, abandonment, and linked follow-ups.
-- `workflow.ts`: deterministic evaluation, diagnosis taxonomy, support thresholds, five 20-point criteria, and two-session topic adaptation.
+- `sessions.ts`: profile bootstrap, adaptive prepared-problem selection, seven internal gate evaluations grouped into four visible stages, support, drafts, score-before-solution release, exactly-once submission, abandonment, and linked follow-ups.
+- `workflow.ts`: deterministic evaluation, diagnosis taxonomy, adaptive prompt scaffolding, support thresholds, four 25-point criteria, and two-session topic adaptation.
 - `ai.ts`: server-only Gemini validation and structured ambiguous evaluation.
 - `math.ts`: LaTeX bounds, unsupported-command rejection, canonicalization, evaluation, and symbolic equivalence.
 - `admin.ts`: immutable review decisions, last-admin-safe user operations, versioned content, support exceptions, reports, CSV exports, and audits.
@@ -32,9 +32,9 @@ Server SDK operations bypass Firestore rules. Deploy Functions with the dedicate
 
 ## Support and scoring
 
-The current gate starts with a Socratic prompt. One failed response enables a targeted hint; two corrective cycles enable a stronger hint; three enable one partial step. Worked explanations and full solutions require all seven gates or an audited administrator exception with a reason.
+The current gate starts with a domain-specific Socratic prompt. One failed response enables a targeted hint; two corrective cycles enable a stronger hint; three enable one partial step. Worked explanations and final answers remain locked after the seven internal gates until the learner's final response has been scored. Administrator support exceptions are post-score and cannot bypass this sequence.
 
-The scorecard contains accuracy, logical validity, method selection, justification quality, and interpretation quality. Each result includes score, evidence, reason, improvement advice, confidence, and source. Non-empty fields or text length never produce a score by themselves.
+The scorecard contains four 25-point criteria: accuracy, logical validity, method selection, and explanation quality. Explanation quality combines formula/theorem justification with contextual interpretation. Each result includes score, evidence, reason, improvement advice, confidence, and source. Non-empty fields or text length never produce a score by themselves.
 
 ## Failure contract
 

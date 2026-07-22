@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { REASONING_PHASES } from "@mindguide/contracts";
 import {
   buildScorecard,
+  buildReleasedSolution,
   evaluateDeterministically,
   initialGateStates,
   recommendDifficulty,
+  promptForPhase,
   supportLevelsFor,
   type PrivateProblemReference,
 } from "../workflow.js";
@@ -18,7 +20,7 @@ const reference: PrivateProblemReference = {
   interpretation: "The mean score is 10.",
 };
 
-describe("schema-v3 reasoning workflow", () => {
+describe("workflow-v4 Socratic reasoning core", () => {
   it("initializes exactly seven ordered gates with only the first pending", () => {
     const gates = initialGateStates();
     expect(Object.keys(gates)).toEqual(REASONING_PHASES);
@@ -99,9 +101,36 @@ describe("schema-v3 reasoning workflow", () => {
         reflection: "The result represents the central score in the complete data set.",
       },
     });
-    expect(scorecard.criteria.accuracy.score).toBe(20);
+    expect(scorecard.criteria.accuracy.score).toBe(25);
     expect(scorecard.criteria.accuracy.evidence.length).toBeGreaterThan(0);
+    expect(Object.keys(scorecard.criteria)).toEqual([
+      "accuracy",
+      "logicalValidity",
+      "methodSelection",
+      "explanationQuality",
+    ]);
     expect(scorecard.total).toBeLessThanOrEqual(100);
+  });
+
+  it("keeps worked answers locked until scoring and releases a complete solution afterward", () => {
+    const gates = initialGateStates();
+    REASONING_PHASES.forEach((phase) => { gates[phase].status = "accepted"; });
+    expect(supportLevelsFor(gates)).toEqual([]);
+
+    const released = buildReleasedSolution(reference);
+    expect(released.method).toContain("mean");
+    expect(released.steps).toEqual(reference.solutionSteps);
+    expect(released.answer).toBe(reference.finalAnswer);
+    expect(released.verification.length).toBeGreaterThan(20);
+    expect(released.interpretation).toBe(reference.interpretation);
+  });
+
+  it("adapts prompts without revealing reference answers", () => {
+    const simplified = promptForPhase("formula_theorem_justification", reference, "simplify");
+    const deepened = promptForPhase("result_interpretation", reference, "deepen");
+    expect(simplified).toContain("required condition");
+    expect(deepened).toContain("still be valid");
+    expect(`${simplified} ${deepened}`).not.toContain(reference.finalAnswer);
   });
 
   it("requires two topic sessions before adapting difficulty", () => {

@@ -23,8 +23,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
  * The StoryboardNav has been removed (it was a Figma prototype artifact).
  */
 const Layout = () => (
-  <div className="flex flex-col h-screen w-full bg-slate-50 relative overflow-hidden">
-    <div className="flex-1 flex flex-col min-h-0">
+  <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-slate-50">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
       <Outlet />
     </div>
   </div>

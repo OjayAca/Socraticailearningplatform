@@ -12,6 +12,7 @@ import {
   buildPrivateProblem,
   findForbiddenPublicKeys,
   sanitizePublicProblemContext,
+  shouldPreserveCurrentSession,
 } from "./migration-v3-core.ts";
 
 const APPLY = process.argv.includes("--apply");
@@ -216,7 +217,7 @@ function buildOperations(
   }
 
   for (const session of sessionDocs) {
-    if (session.get("schemaVersion") === 3 && session.get("workflowVersion") === 3) continue;
+    if (shouldPreserveCurrentSession(session.data())) continue;
     const source = session.data();
     const privateReference = privateReferenceFromLegacy(source);
     if (privateReference) operations.push({ path: `${session.ref.path}/private/reference`, data: privateReference, merge: false });

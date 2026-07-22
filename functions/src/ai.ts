@@ -32,19 +32,81 @@ const evaluationSchema = z.object({
   correctivePrompt: z.string().max(600),
 });
 
+const freeFormPromptSchema = z.object({
+  problem_understanding: z.string().max(600),
+  relevant_information_identification: z.string().max(600),
+  method_selection: z.string().max(600),
+  formula_theorem_justification: z.string().max(600),
+  guided_computation_or_proof: z.string().max(600),
+  verification_and_checking: z.string().max(600),
+  result_interpretation: z.string().max(600),
+});
+
 const freeFormSchema = z.object({
   supported: z.boolean(),
   solvable: z.boolean(),
   rejectionReason: z.string().nullable(),
   normalizedQuestion: z.string().min(8).max(2_000),
-  expectedConcepts: z.array(z.string().min(1).max(120)).min(1).max(20),
+  expectedConcepts: z.array(z.string().min(1).max(120)).max(20),
   requiredFormula: z.string().max(500).nullable(),
   requiredTheorem: z.string().max(500).nullable(),
-  solutionSteps: z.array(z.string().min(1).max(1_000)).min(1).max(20),
-  finalAnswer: z.string().min(1).max(2_000),
-  interpretation: z.string().min(1).max(2_000),
-  prompts: z.record(z.string(), z.string().max(600)),
+  solutionSteps: z.array(z.string().min(1).max(1_000)).max(20),
+  finalAnswer: z.string().max(2_000),
+  interpretation: z.string().max(2_000),
+  prompts: freeFormPromptSchema,
 });
+
+export const freeFormResponseJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: [
+    "supported",
+    "solvable",
+    "rejectionReason",
+    "normalizedQuestion",
+    "expectedConcepts",
+    "requiredFormula",
+    "requiredTheorem",
+    "solutionSteps",
+    "finalAnswer",
+    "interpretation",
+    "prompts",
+  ],
+  properties: {
+    supported: { type: "boolean" },
+    solvable: { type: "boolean" },
+    rejectionReason: { type: ["string", "null"] },
+    normalizedQuestion: { type: "string" },
+    expectedConcepts: { type: "array", items: { type: "string" } },
+    requiredFormula: { type: ["string", "null"] },
+    requiredTheorem: { type: ["string", "null"] },
+    solutionSteps: { type: "array", items: { type: "string" } },
+    finalAnswer: { type: "string" },
+    interpretation: { type: "string" },
+    prompts: {
+      type: "object",
+      additionalProperties: false,
+      required: [
+        "problem_understanding",
+        "relevant_information_identification",
+        "method_selection",
+        "formula_theorem_justification",
+        "guided_computation_or_proof",
+        "verification_and_checking",
+        "result_interpretation",
+      ],
+      properties: {
+        problem_understanding: { type: "string" },
+        relevant_information_identification: { type: "string" },
+        method_selection: { type: "string" },
+        formula_theorem_justification: { type: "string" },
+        guided_computation_or_proof: { type: "string" },
+        verification_and_checking: { type: "string" },
+        result_interpretation: { type: "string" },
+      },
+    },
+  },
+} as const;
 
 export interface FreeFormAnalysis extends PrivateProblemReference {
   supported: boolean;
@@ -119,8 +181,8 @@ export async function evaluateAmbiguousResponse(options: {
       source: "hybrid",
     },
     learnerMessage: accepted
-      ? "Your reasoning for this stage is accepted. Continue to the next stage."
-      : parsed.correctivePrompt || "Clarify the reasoning requested for this stage.",
+      ? "This reasoning check is accepted. Continue with the next prompt in the Socratic stage."
+      : parsed.correctivePrompt || "Clarify the reasoning requested for this check.",
     raw,
     requiresAI: false,
   };
@@ -132,7 +194,7 @@ export async function analyzeFreeFormProblem(options: {
   topic: string;
 }): Promise<{ analysis: FreeFormAnalysis; raw: string }> {
   const raw = await generateJson(
-    "You validate MINDGUIDE learner-authored problems. Accept only keyboard-entered, solvable problems in the supplied Quantitative Methods or Discrete Mathematics topic. Reject images, OCR-dependent tasks, unsupported domains, ambiguous tasks, and requests for direct answers. Return JSON only.",
+    "You validate MINDGUIDE learner-authored problems. Accept only keyboard-entered, solvable problems in the supplied Quantitative Methods or Discrete Mathematics topic. Reject images, OCR-dependent tasks, unsupported domains, ambiguous tasks, and requests for direct answers. Return every field in the requested JSON schema. For a rejected problem, use empty arrays and empty strings for private solution fields that cannot be populated. Return JSON only.",
     JSON.stringify({
       ...options,
       output: {
@@ -148,36 +210,46 @@ export async function analyzeFreeFormProblem(options: {
         interpretation: "private string",
         prompts: "object keyed by seven reasoning phase identifiers",
       },
-    })
+    }),
+    {
+      maxOutputTokens: 4_096,
+      responseJsonSchema: freeFormResponseJsonSchema,
+    }
   );
+  return { analysis: parseFreeFormAnalysis(raw), raw };
+}
+
+export function parseFreeFormAnalysis(raw: string): FreeFormAnalysis {
   const parsed = freeFormSchema.parse(extractJson(raw));
   return {
-    analysis: {
-      supported: parsed.supported,
-      solvable: parsed.solvable,
-      rejectionReason: parsed.rejectionReason,
-      normalizedQuestion: parsed.normalizedQuestion,
-      expectedConcepts: parsed.expectedConcepts,
-      requiredFormula: parsed.requiredFormula,
-      requiredTheorem: parsed.requiredTheorem,
-      solutionSteps: parsed.solutionSteps,
-      finalAnswer: parsed.finalAnswer,
-      interpretation: parsed.interpretation,
-      socraticPrompts: parsed.prompts as Partial<Record<ReasoningPhase, string>>,
-    },
-    raw,
+    supported: parsed.supported,
+    solvable: parsed.solvable,
+    rejectionReason: parsed.rejectionReason,
+    normalizedQuestion: parsed.normalizedQuestion,
+    expectedConcepts: parsed.expectedConcepts,
+    requiredFormula: parsed.requiredFormula,
+    requiredTheorem: parsed.requiredTheorem,
+    solutionSteps: parsed.solutionSteps,
+    finalAnswer: parsed.finalAnswer,
+    interpretation: parsed.interpretation,
+    socraticPrompts: parsed.prompts,
   };
 }
 
-async function generateJson(systemInstruction: string, prompt: string): Promise<string> {
+async function generateJson(
+  systemInstruction: string,
+  prompt: string,
+  options: { maxOutputTokens?: number; responseJsonSchema?: unknown } = {}
+): Promise<string> {
   const response = await client().models.generateContent({
     model: GEMINI_MODEL,
     contents: prompt.slice(0, 24_000),
     config: {
       systemInstruction,
       temperature: 0.1,
-      maxOutputTokens: 2_048,
+      maxOutputTokens: options.maxOutputTokens ?? 2_048,
       responseMimeType: "application/json",
+      responseJsonSchema: options.responseJsonSchema,
     },
   });
   const text = response.text?.trim();

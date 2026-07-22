@@ -9,7 +9,7 @@
 | `subjects`, `topics` | Approved curriculum metadata | None |
 | `problems/{id}` | Approved problem metadata and prompt text | None |
 | `policy_documents/{version}` | Active privacy/responsible-AI notice | None |
-| `sessions/{id}` | Owner-visible server state and immutable legacy history | None |
+| `sessions/{id}` | Owner-visible server state, four-stage progress, adaptive rationale, scorecard, post-score released solution, and immutable legacy history | None |
 | `sessions/{id}/responses` | Learner response plus safe evaluation/diagnosis | None |
 | `sessions/{id}/scorecards` | Evidence-backed formative criterion results | None |
 | `sessions/{id}/unlock_events` | Authorized support already released | None |
@@ -33,7 +33,7 @@
 | `ai_failure_logs` | Correlated AI fallback/failure evidence | Admin/server |
 | `idempotency`, `rate_limits`, `evaluation_locks` | Server control records | Server only |
 
-Firestore reads return whole documents, so private values must never be placed in a public document. `scripts/migrate-v3.ts --verify` and the browser-bundle scan enforce this split.
+Firestore reads return whole documents, so private references must never be placed in learner-readable problem documents or the browser bundle. After the server has generated the scorecard, it intentionally writes a bounded `releasedSolution` snapshot to the owner-readable session. `scripts/migrate-v3.ts --verify` and the browser-bundle scan enforce the pre-release split.
 
 ## Retention
 

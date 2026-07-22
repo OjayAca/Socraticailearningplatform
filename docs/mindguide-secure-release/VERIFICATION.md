@@ -17,7 +17,7 @@
 ## Implemented roadmap coverage
 
 - Trusted Gen 2 callables, App Check enforcement, Secret Manager, custom claims, stable errors, UUID idempotency, rate limits, per-session evaluation lease, and configurable least-privilege runtime identity.
-- Canonical nine-stage contracts, seven transactional strict-hybrid reasoning gates, full diagnosis record, corrective cycles, controlled support, deterministic math validation, evidence scorecard, exactly-once statistics, and two-session topic adaptation.
+- Canonical four-stage contracts backed by seven transactional strict-hybrid reasoning gates, full diagnosis records, adaptive prompt scaffolding, controlled support, deterministic math validation, score-before-solution release, four-part evidence scorecards, exactly-once statistics, and two-session topic adaptation.
 - Public/private Firestore split, deny-by-default rules, indexes, 33-problem migration seed, schema-v3 dry-run/apply/verify/rollback, legacy-history preservation, and secret-field verification.
 - MathLive/KaTeX learner input and server Compute Engine parsing/equivalence.
 - System Administrator users, content, reviews, audited exceptions, reports/CSV, audits/AI failures, settings, and maintenance views.

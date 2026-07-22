@@ -1,4 +1,5 @@
 export const SCHEMA_VERSION = 3 as const;
+export const WORKFLOW_VERSION = 4 as const;
 
 export type UserRole = "student" | "admin";
 export type AccountStatus = "active" | "suspended" | "deactivated" | "anonymized";
@@ -25,6 +26,32 @@ export const WORKFLOW_PHASES = [
 
 export type ReasoningPhase = (typeof REASONING_PHASES)[number];
 export type WorkflowPhase = (typeof WORKFLOW_PHASES)[number];
+
+export const SOLVER_STAGES = [
+  "problem_understanding",
+  "method_selection",
+  "computation",
+  "interpretation",
+] as const;
+
+export type SolverStage = (typeof SOLVER_STAGES)[number];
+
+export const SOLVER_STAGE_LABELS: Record<SolverStage, string> = {
+  problem_understanding: "Problem Understanding",
+  method_selection: "Method Selection",
+  computation: "Computation",
+  interpretation: "Interpretation",
+};
+
+export const SOLVER_STAGE_PHASES: Record<SolverStage, readonly ReasoningPhase[]> = {
+  problem_understanding: [
+    "problem_understanding",
+    "relevant_information_identification",
+  ],
+  method_selection: ["method_selection", "formula_theorem_justification"],
+  computation: ["guided_computation_or_proof", "verification_and_checking"],
+  interpretation: ["result_interpretation"],
+};
 
 export const PHASE_LABELS: Record<WorkflowPhase, string> = {
   problem_understanding: "Understand the Problem",
@@ -76,8 +103,7 @@ export type ScorecardCategory =
   | "accuracy"
   | "logicalValidity"
   | "methodSelection"
-  | "justificationQuality"
-  | "interpretationQuality";
+  | "explanationQuality";
 
 export interface MathResponse {
   plainText: string;
@@ -126,6 +152,36 @@ export interface ScorecardResult {
   generatedAt: number;
 }
 
+export interface ReleasedSolution {
+  method: string;
+  justification: string;
+  steps: string[];
+  answer: string;
+  verification: string;
+  interpretation: string;
+  releasedAt: number;
+}
+
+export interface AdaptiveRecommendation {
+  recommendedDifficulty: Difficulty;
+  reason: string;
+  confidence: Confidence;
+}
+
+export interface SessionCompletion {
+  scorecard: ScorecardResult;
+  releasedSolution: ReleasedSolution;
+}
+
+export type SolverStageStatus = "locked" | "active" | "completed";
+
+export interface SolverStageProgress {
+  stage: SolverStage;
+  status: SolverStageStatus;
+  acceptedGates: number;
+  totalGates: number;
+}
+
 export interface PublicProblem {
   id: string;
   subject: Subject;
@@ -140,6 +196,7 @@ export interface PublicProblem {
 export interface SessionProjection {
   id: string;
   schemaVersion: typeof SCHEMA_VERSION;
+  workflowVersion: typeof WORKFLOW_VERSION;
   revision: number;
   studentId: string;
   subject: Subject;
@@ -149,10 +206,17 @@ export interface SessionProjection {
   originalQuestion: string;
   status: SessionStatus;
   currentPhase: WorkflowPhase;
+  currentStage: SolverStage;
+  currentInternalGate: ReasoningPhase | null;
+  currentPrompt: string;
+  stageProgress: Record<SolverStage, SolverStageProgress>;
   gates: Partial<Record<ReasoningPhase, GateEvaluation>>;
   allowedSupport: SupportLevel[];
   draft: SessionDraft | null;
   scorecard: ScorecardResult | null;
+  releasedSolution: ReleasedSolution | null;
+  adaptiveRecommendation: AdaptiveRecommendation | null;
+  promptAdjustment: "simplify" | "maintain" | "deepen";
   createdAt: number;
   updatedAt: number;
   learningCompletedAt: number | null;
@@ -202,6 +266,7 @@ export interface EvaluatePhaseResponseResponse {
   diagnosis: DiagnosisResult;
   learnerMessage: string;
   nextPrompt: string;
+  completion: SessionCompletion | null;
 }
 
 export interface RequestSupportRequest extends MutationRequest {
@@ -225,6 +290,7 @@ export interface SaveSessionDraftRequest extends MutationRequest {
 
 export interface SessionMutationResponse {
   session: SessionProjection;
+  completion?: SessionCompletion | null;
 }
 
 export interface RevisionedSessionMutationRequest extends MutationRequest {
@@ -312,6 +378,15 @@ export function isReasoningPhase(value: unknown): value is ReasoningPhase {
 
 export function isWorkflowPhase(value: unknown): value is WorkflowPhase {
   return WORKFLOW_PHASES.includes(value as WorkflowPhase);
+}
+
+export function solverStageForPhase(phase: WorkflowPhase): SolverStage {
+  if (phase === "controlled_solution_release" || phase === "critical_thinking_scorecard") {
+    return "interpretation";
+  }
+  return SOLVER_STAGES.find((stage) =>
+    SOLVER_STAGE_PHASES[stage].includes(phase as ReasoningPhase)
+  ) ?? "problem_understanding";
 }
 
 export function nextWorkflowPhase(phase: WorkflowPhase): WorkflowPhase | null {

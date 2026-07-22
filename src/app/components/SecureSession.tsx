@@ -21,8 +21,12 @@ import type {
 } from "@mindguide/contracts";
 import {
   PHASE_LABELS,
-  REASONING_PHASES,
+  SOLVER_STAGES,
+  SOLVER_STAGE_LABELS,
+  SOLVER_STAGE_PHASES,
+  WORKFLOW_VERSION,
   isReasoningPhase,
+  solverStageForPhase,
 } from "@mindguide/contracts";
 import { db } from "@/lib/firebase";
 import {
@@ -62,13 +66,13 @@ export function SecureSession() {
       const snapshot = await getDoc(doc(db, "sessions", sessionId));
       if (!snapshot.exists()) throw new Error("The learning session was not found.");
       const data = snapshot.data();
-      if (data.schemaVersion !== 3 || data.workflowVersion !== 3) {
-        throw new Error("This is a preserved legacy session. View it from your learning history or start a schema-v3 follow-up.");
+      if (data.schemaVersion !== 3 || data.workflowVersion !== WORKFLOW_VERSION) {
+        throw new Error("This is a preserved legacy session. View it from your learning history or start a current-workflow follow-up.");
       }
       const projected = firestoreProjection(snapshot.id, data);
       setSession(projected);
       if (projected.draft) setDraft(projected.draft);
-      setPrompt(promptFor(projected.currentPhase));
+      setPrompt(projected.currentPrompt || promptFor(projected.currentPhase));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be loaded.");
     } finally {
@@ -80,8 +84,8 @@ export function SecureSession() {
 
   const progress = useMemo(() => {
     if (!session) return 0;
-    const accepted = REASONING_PHASES.filter((phase) => session.gates[phase]?.status === "accepted").length;
-    return Math.round((accepted / REASONING_PHASES.length) * 100);
+    const completed = SOLVER_STAGES.filter((stage) => session.stageProgress[stage].status === "completed").length;
+    return Math.round((completed / SOLVER_STAGES.length) * 100);
   }, [session]);
 
   async function submitReasoning() {
@@ -185,9 +189,9 @@ export function SecureSession() {
     <div className="flex-1 bg-slate-50 p-4 md:p-8">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">{session.subject} · {session.topic}</p><h1 className="mt-1 text-xl font-bold text-slate-950">{session.originalQuestion}</h1></div><span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{progress}%</span></div>
+          <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">{session.subject} · {session.topic} · {session.difficulty}</p><h1 className="mt-1 text-xl font-bold text-slate-950">{session.originalQuestion}</h1>{session.adaptiveRecommendation && <p className="mt-2 text-xs text-slate-500">Adaptive difficulty: {session.adaptiveRecommendation.reason}</p>}</div><span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{progress}%</span></div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} /></div>
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">{REASONING_PHASES.map((phase) => { const status = session.gates[phase]?.status ?? (phase === session.currentPhase ? "pending" : "locked"); return <div key={phase} className={`rounded-lg border p-2 text-xs font-semibold ${status === "accepted" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : phase === session.currentPhase ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400"}`}>{status === "accepted" ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <LockKeyhole className="mr-1 inline h-3 w-3" />}{PHASE_LABELS[phase]}</div>; })}</div>
+          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">{SOLVER_STAGES.map((stage) => { const state = session.stageProgress[stage]; return <div key={stage} className={`rounded-lg border p-3 text-xs font-semibold ${state.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state.status === "active" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400"}`}>{state.status === "completed" ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <LockKeyhole className="mr-1 inline h-3 w-3" />}{SOLVER_STAGE_LABELS[stage]}<span className="mt-1 block font-normal">{state.acceptedGates}/{state.totalGates} reasoning checks</span></div>; })}</div>
         </div>
 
         {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}</div>}
@@ -195,13 +199,13 @@ export function SecureSession() {
 
         {reasoning ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
-            <div><p className="text-xs font-bold uppercase text-indigo-600">{PHASE_LABELS[session.currentPhase]}</p><h2 className="mt-2 text-lg font-bold text-slate-950">{prompt}</h2></div>
+            <div><p className="text-xs font-bold uppercase text-indigo-600">{SOLVER_STAGE_LABELS[session.currentStage]} · {PHASE_LABELS[session.currentPhase]}</p><h2 className="mt-2 text-lg font-bold text-slate-950">{prompt}</h2>{session.promptAdjustment !== "maintain" && <p className="mt-2 text-xs font-semibold text-indigo-500">Prompt support: {session.promptAdjustment === "simplify" ? "extra scaffolding" : "deeper reasoning"}</p>}</div>
             <MathInput value={response} onChange={setResponse} />
             <button disabled={loading || (!response.plainText.trim() && !response.latex?.trim())} onClick={() => void submitReasoning()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}Submit reasoning</button>
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
-            <div><p className="text-xs font-bold uppercase text-indigo-600">Controlled solution release</p><h2 className="mt-2 text-lg font-bold">All seven reasoning gates are accepted.</h2><p className="mt-1 text-slate-600">Complete your final response and reflection. Support remains controlled by the accepted gates.</p></div>
+            <div><p className="text-xs font-bold uppercase text-indigo-600">Progressive solution unlock</p><h2 className="mt-2 text-lg font-bold">All four Socratic stages are complete.</h2><p className="mt-1 text-slate-600">Complete your final response and reflection. Your scorecard is generated before the worked solution is released.</p></div>
             {!session.scorecard ? (
               <>
                 <MathInput label="Final answer" explanationPlaceholder="State and explain your final answer..." value={draft.answer} onChange={(answer) => setDraft((current) => ({ ...current, answer }))} />
@@ -210,12 +214,19 @@ export function SecureSession() {
                 <button disabled={loading || !draft.methodology.trim() || !draft.reflection.trim() || (!draft.answer.plainText.trim() && !draft.answer.latex?.trim())} onClick={() => void saveDraftAndScore()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">Generate evidence-backed scorecard<ArrowRight className="h-5 w-5" /></button>
               </>
             ) : (
-              <div className="space-y-4"><div className="flex items-center justify-between"><h2 className="text-xl font-bold">Critical Thinking Scorecard</h2><span className="text-3xl font-bold text-indigo-600">{session.scorecard.total}/100</span></div>{Object.values(session.scorecard.criteria).map((criterion) => <div key={criterion.category} className="rounded-xl border border-indigo-100 bg-indigo-50 p-4"><div className="flex justify-between font-bold"><span>{criterion.category.replace(/([A-Z])/g, " $1")}</span><span>{criterion.score}/20</span></div><p className="mt-2 text-sm text-slate-700">{criterion.reason}</p><ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{criterion.evidence.map((item) => <li key={item}>{item}</li>)}</ul><p className="mt-2 text-xs font-semibold text-indigo-700">Improve: {criterion.improvementAdvice}</p></div>)}<p className="rounded-xl bg-slate-50 p-4 text-sm">{session.scorecard.feedback}</p><p className="text-xs font-semibold text-slate-500">Formative AI-supported feedback only — not an official grade.</p><button disabled={loading} onClick={() => void submitForReview()} className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">Submit immutable record for administrator review</button></div>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Critical Thinking Scorecard</h2><span className="text-3xl font-bold text-indigo-600">{session.scorecard.total}/100</span></div>
+                {Object.values(session.scorecard.criteria).map((criterion) => <div key={criterion.category} className="rounded-xl border border-indigo-100 bg-indigo-50 p-4"><div className="flex justify-between font-bold"><span>{criterion.category.replace(/([A-Z])/g, " $1")}</span><span>{criterion.score}/25</span></div><p className="mt-2 text-sm text-slate-700">{criterion.reason}</p><ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{criterion.evidence.map((item) => <li key={item}>{item}</li>)}</ul><p className="mt-2 text-xs font-semibold text-indigo-700">Improve: {criterion.improvementAdvice}</p></div>)}
+                <p className="rounded-xl bg-slate-50 p-4 text-sm">{session.scorecard.feedback}</p>
+                {session.releasedSolution && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold uppercase text-emerald-700">Unlocked worked solution</p><h3 className="mt-2 font-bold text-emerald-950">Method</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.method}</p><h3 className="mt-4 font-bold text-emerald-950">Why it applies</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.justification}</p><h3 className="mt-4 font-bold text-emerald-950">Steps</h3><ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-emerald-950">{session.releasedSolution.steps.map((step) => <li key={step}>{step}</li>)}</ol><h3 className="mt-4 font-bold text-emerald-950">Final answer</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.answer}</p><h3 className="mt-4 font-bold text-emerald-950">Verification</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.verification}</p><h3 className="mt-4 font-bold text-emerald-950">Interpretation</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.interpretation}</p></div>}
+                <p className="text-xs font-semibold text-slate-500">Formative AI-supported feedback only — not an official grade.</p>
+                <button disabled={loading} onClick={() => void submitForReview()} className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">Submit immutable record for administrator review</button>
+              </div>
             )}
           </div>
         )}
 
-        {session.status === "in_progress" && <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /><h2 className="font-bold">Available support</h2></div><div className="mt-3 flex flex-wrap gap-2">{session.allowedSupport.map((level) => <button key={level} onClick={() => void requestSupport(level)} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">{level.replace(/_/g, " ")}</button>)}</div>{support && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p className="font-bold text-amber-900">{support.title}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">{support.content.map((item) => <li key={item}>{item}</li>)}</ol></div>}</div>}
+        {session.status === "in_progress" && session.allowedSupport.length > 0 && <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /><h2 className="font-bold">Available support</h2></div><div className="mt-3 flex flex-wrap gap-2">{session.allowedSupport.map((level) => <button key={level} onClick={() => void requestSupport(level)} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">{level.replace(/_/g, " ")}</button>)}</div>{support && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p className="font-bold text-amber-900">{support.title}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">{support.content.map((item) => <li key={item}>{item}</li>)}</ol></div>}</div>}
         <button onClick={() => void abandonSession()} disabled={loading} className="mx-auto flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-red-700 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
       </div>
     </div>
@@ -224,9 +235,23 @@ export function SecureSession() {
 
 function firestoreProjection(id: string, data: Record<string, any>): SessionProjection {
   const millis = (value: any) => value?.toMillis?.() ?? Date.now();
+  const currentPhase = data.currentPhase as SessionProjection["currentPhase"];
+  const currentStage = solverStageForPhase(currentPhase);
+  const gateStates = data.gateStates ?? {};
+  const stageProgress = Object.fromEntries(SOLVER_STAGES.map((stage) => {
+    const phases = SOLVER_STAGE_PHASES[stage];
+    const acceptedGates = phases.filter((phase) => gateStates[phase]?.status === "accepted").length;
+    return [stage, {
+      stage,
+      acceptedGates,
+      totalGates: phases.length,
+      status: acceptedGates === phases.length ? "completed" : stage === currentStage ? "active" : "locked",
+    }];
+  })) as SessionProjection["stageProgress"];
   return {
     id,
     schemaVersion: 3,
+    workflowVersion: WORKFLOW_VERSION,
     revision: Number(data.revision ?? 0),
     studentId: data.studentId,
     subject: data.subject,
@@ -235,11 +260,18 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     problemId: data.problemId ?? null,
     originalQuestion: data.originalQuestion,
     status: data.status,
-    currentPhase: data.currentPhase,
+    currentPhase,
+    currentStage,
+    currentInternalGate: isReasoningPhase(currentPhase) ? currentPhase : null,
+    currentPrompt: data.currentPrompt ?? promptFor(currentPhase),
+    stageProgress,
     gates: data.gateEvaluations ?? {},
     allowedSupport: data.allowedSupport ?? ["socratic_prompt"],
     draft: data.draft ?? null,
     scorecard: data.scorecard ?? null,
+    releasedSolution: data.releasedSolution ?? null,
+    adaptiveRecommendation: data.adaptiveRecommendation ?? data.difficultyRecommendation ?? null,
+    promptAdjustment: data.promptAdjustment ?? "maintain",
     createdAt: millis(data.createdAt),
     updatedAt: millis(data.updatedAt),
     learningCompletedAt: data.learningCompletedAt ? millis(data.learningCompletedAt) : null,

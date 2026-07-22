@@ -1,6 +1,6 @@
 # MINDGUIDE
 
-MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and Discrete Mathematics capstone acceptability evaluation. It guides learners through evidence-producing reasoning gates before controlled solution support and a five-criterion critical-thinking scorecard. It is not an official grading system and does not claim permanent improvement in critical thinking.
+MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and Discrete Mathematics capstone acceptability evaluation. Its six core learning capabilities are the step-by-step Socratic solver, formula/theorem justification, misconception diagnosis, adaptive difficulty, progressive solution unlocking, and a four-criterion critical-thinking scorecard. It is not an official grading system and does not claim permanent improvement in critical thinking.
 
 ## Secure architecture
 
@@ -11,7 +11,7 @@ MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and
 - Gemini runs only in Functions with `GEMINI_API_KEY` stored in Secret Manager. The production-bundle scan rejects client AI code and known private instructional material.
 - MathLive provides keyboard input, KaTeX renders notation, and CortexJS Compute Engine performs server-side parsing and equivalence checks.
 
-The nine learner-visible stages are problem understanding, relevant-information identification, method selection, formula/theorem justification, guided computation or proof, verification, interpretation, controlled solution release, and the critical-thinking scorecard. Diagnosis runs after each response rather than appearing as a separate stage.
+Learners see four stages: Problem Understanding, Method Selection, Computation, and Interpretation. Seven internal reasoning gates retain separate checks for relevant information, formula/theorem justification, and verification. Diagnosis runs after every response, the scorecard is generated before the worked solution is released, and existing dashboards, history, notifications, administration, review, and privacy features remain available as supporting capabilities.
 
 ## Workspaces
 
@@ -43,6 +43,12 @@ npm run build
 npm run scan:bundle
 npm run test:e2e
 ```
+
+For interactive localhost development, `npm run dev` starts the callable Functions
+emulator and Vite together. Auth and Firestore still use the Firebase project from
+`.env`; only callable Functions are routed to `localhost:5001`. Use `npm run dev:web`
+only when the callable Functions are already deployed and configured for the target
+project.
 
 Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
 
