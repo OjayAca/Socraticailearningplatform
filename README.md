@@ -1,114 +1,70 @@
 # MINDGUIDE
 
-> **Reason Before Reveal** - A Socratic AI-based learning platform.
+MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and Discrete Mathematics capstone acceptability evaluation. It guides learners through evidence-producing reasoning gates before controlled solution support and a five-criterion critical-thinking scorecard. It is not an official grading system and does not claim permanent improvement in critical thinking.
 
-MINDGUIDE helps students strengthen critical thinking in Quantitative Methods and Discrete Mathematics through guided Socratic questioning. Instead of providing direct answers, the AI asks probing questions that help students explain their reasoning, build a logic trail, and reflect on their solution process. Teachers can then review the student's thinking log and provide feedback.
+## Secure architecture
 
-Full capstone title: **MINDGUIDE: A Socratic AI-Based Learning Platform for Enhancing Critical Thinking in Quantitative Methods and Discrete Mathematics.**
+- React renders learner-safe projections and sends bounded input to callable APIs.
+- Firebase Functions Gen 2 owns problem validation, progression, diagnosis, support, scoring, adaptation, statistics, notifications, administrative mutations, retention, and anonymization.
+- Firebase Auth custom claims are the role authority (`student` or `admin`). App Check is enforced outside the emulator.
+- Firestore separates public learning records from private references, evaluator configuration, raw AI interactions, rate limits, and audit evidence.
+- Gemini runs only in Functions with `GEMINI_API_KEY` stored in Secret Manager. The production-bundle scan rejects client AI code and known private instructional material.
+- MathLive provides keyboard input, KaTeX renders notation, and CortexJS Compute Engine performs server-side parsing and equivalence checks.
 
-## Features
+The nine learner-visible stages are problem understanding, relevant-information identification, method selection, formula/theorem justification, guided computation or proof, verification, interpretation, controlled solution release, and the critical-thinking scorecard. Diagnosis runs after each response rather than appearing as a separate stage.
 
-- **Socratic AI Questioning** - AI guides students step-by-step without giving direct answers
-- **Answer-Block Filter** - Detects pasted answers and redirects to genuine reasoning
-- **Progressive Hints** - 3-level hint system from subtle to stronger guidance
-- **Logic Map** - Visual representation of the student's reasoning process
-- **Draft & Reflection** - Students write their answer, methodology, and reflections
-- **Critical Thinking Score** - AI-evaluated score based on reasoning quality
-- **Teacher Workspace** - Review submitted thinking logs, approve, or return with feedback
-- **Firebase Authentication** - Email/password + Google OAuth
-- **Cloud Firestore** - Real-time data persistence
+## Workspaces
 
-## Tech Stack
+- `packages/contracts`: canonical schema-v3 types and workflow order.
+- `functions`: trusted Gen 2 callables and scheduled retention.
+- `src`: React learner and System Administrator interfaces.
+- `scripts/migrate-v3.ts`: dry-run/apply/verify/rollback migration.
+- `tests`: unit, migration, rules, and Playwright coverage.
+- `docs/mindguide-secure-release`: architecture, data dictionary, deployment, verification, and progress evidence.
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + TypeScript + Vite |
-| Styling | TailwindCSS v4 |
-| State | Zustand |
-| Auth & DB | Firebase (Spark Free Plan) |
-| AI | Google Gemini 2.5 Flash (free tier) / Ollama (local) |
-| Icons | Lucide React |
-| Animation | Framer Motion |
+## Local verification
 
-## Getting Started
+Requires Node.js 22, Java for the Firestore emulator, and Firebase CLI.
 
-### Prerequisites
-
-- Node.js 18+
-- A [Firebase project](https://console.firebase.google.com/) (free Spark plan)
-- A [Gemini API key](https://aistudio.google.com/apikey) (free) **or** [Ollama](https://ollama.com/) with Gemma 3
-
-### Setup
-
-1. **Clone and install:**
-   ```bash
-   git clone <repo-url>
-   cd Socraticailearningplatform
-   npm install
-   ```
-
-2. **Configure environment:**
-   ```bash
-   cp .env.example .env
-   ```
-   Fill in your Firebase config and Gemini API key in `.env`.
-
-3. **Firebase Setup:**
-   - Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com/)
-   - Enable **Authentication** -> Email/Password and Google providers
-   - Enable **Cloud Firestore** -> Start in test mode
-   - Copy the web app config into your `.env` file
-
-4. **Run locally:**
-   ```bash
-   npm run dev
-   ```
-   The app will be available at `http://localhost:5173`.
-
-### Using Ollama (Local AI)
-
-If you prefer to use a local model instead of Gemini:
-
-1. Install [Ollama](https://ollama.com/)
-2. Pull Gemma 3: `ollama pull gemma3`
-3. Set in `.env`:
-   ```env
-   VITE_AI_PROVIDER=ollama
-   VITE_OLLAMA_BASE_URL=http://localhost:11434
-   VITE_OLLAMA_MODEL=gemma3
-   ```
-
-## Project Structure
-
-```text
-src/
-|-- app/
-|   |-- components/
-|   |   |-- AuthScreens.tsx         # Login, Signup, Role Selection
-|   |   |-- StudentScreens.tsx      # Student Dashboard, Task Start
-|   |   |-- TeacherScreens.tsx      # Teacher Workspace, Review
-|   |   |-- SessionScreensPart1.tsx # Trigger, Questioning, Hints, Logic Map
-|   |   |-- SessionScreensPart2.tsx # Draft, Review, Log, Confirmation
-|   |   `-- ProtectedRoute.tsx      # Route guard
-|   |-- App.tsx
-|   `-- routes.tsx
-|-- lib/
-|   |-- firebase.ts        # Firebase init
-|   |-- ai-config.ts       # AI provider config
-|   |-- gemini.ts          # Gemini/Ollama client
-|   |-- prompts.ts         # System prompts & templates
-|   `-- socratic-engine.ts # AI orchestration
-|-- stores/
-|   |-- auth-store.ts      # Auth state (Zustand)
-|   `-- session-store.ts   # Session state (Zustand)
-`-- types/
-    `-- index.ts           # TypeScript interfaces
+```bash
+npm install
+copy .env.example .env
+npm run check
 ```
 
-## Team
+Useful focused commands:
 
-Capstone project for CC-TECHNO32.
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run test:rules
+npm run build
+npm run scan:bundle
+npm run test:e2e
+```
 
-## License
+Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
 
-See [ATTRIBUTIONS.md](./ATTRIBUTIONS.md) for third-party licenses.
+## Schema-v3 migration
+
+Migration is dry-run by default and requires an authenticated Admin SDK environment plus the target project ID.
+
+```bash
+set FIREBASE_PROJECT_ID=your-staging-project
+npm run migrate:v3
+npm run migrate:v3 -- --apply
+npm run migrate:v3:verify
+```
+
+Rollback requires the exact manifest created by the apply operation:
+
+```bash
+npm run migrate:v3:rollback -- --backup="migration-backups/<backup>.json" --project="your-project-id"
+```
+
+Do not run apply in production before a managed Firestore export and verified staging rehearsal. See [Deployment and rollback](docs/mindguide-secure-release/DEPLOYMENT.md).
+
+## Release status
+
+The implementation and local release gates are complete on `codex/mindguide-secure-release`. Production remains closed until a Firebase project owner completes billing/API enablement, dedicated service-account IAM, App Check registration, Secret Manager configuration, credential rotation, staging migration/smoke testing, privacy-date configuration, and the controlled deployment checklist.

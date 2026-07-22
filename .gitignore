@@ -3,6 +3,10 @@ node_modules
 
 # Build output
 dist
+functions/lib/
+packages/contracts/lib/
+playwright-report/
+test-results/
 
 # Environment variables (contains API keys — NEVER commit)
 .env
@@ -25,3 +29,4 @@ npm-debug.log*
 
 # Local Firebase migration backups (may contain private student data)
 .local-backups/
+migration-backups/

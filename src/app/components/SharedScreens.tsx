@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { User, Mail, Shield, CheckCircle2, Loader2, Sun, Moon, Bell, AlertCircle, RefreshCw } from "lucide-react";
 import { motion } from "motion/react";
 import { isAdminRole, useAuthStore } from "@/stores/auth-store";
@@ -9,6 +9,9 @@ import {
   useNotificationStore,
 } from "@/stores/notification-store";
 import { useNavigate } from "react-router";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { UserStats } from "@/types";
 
 // ─── Profile Content ────────────────────────────────────────────────
 
@@ -19,6 +22,7 @@ export function ProfileContent() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [learningStats, setLearningStats] = useState<UserStats | null>(null);
 
   const displayName = userProfile?.displayName || "User";
   const initials = displayName
@@ -28,6 +32,26 @@ export function ProfileContent() {
     .toUpperCase()
     .slice(0, 2);
   const isAdministrator = isAdminRole(userProfile?.role);
+  useEffect(() => {
+    if (!db || !userProfile?.uid || isAdministrator) return;
+    let active = true;
+    getDoc(doc(db, "learning_progress", userProfile.uid))
+      .then((snapshot) => {
+        if (!active || !snapshot.exists()) return;
+        const progress = snapshot.data();
+        const completed = Number(progress.sessionsCompleted ?? 0);
+        setLearningStats({
+          sessionsCompleted: completed,
+          averageCTScore: Number(progress.averageCTScore ?? (completed ? Math.round(Number(progress.scoreTotal ?? 0) / completed) : 0)),
+          currentStreak: Number(progress.currentStreak ?? 0),
+          lastSessionDate: progress.lastSessionAt ?? null,
+          topicPerformance: [],
+        });
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [isAdministrator, userProfile?.uid]);
+  const stats = learningStats ?? userProfile?.stats;
 
   async function handleSaveName(e: React.FormEvent) {
     e.preventDefault();
@@ -166,7 +190,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-4">
                 <User className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{userProfile?.stats?.sessionsCompleted || 0}</div>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.sessionsCompleted || 0}</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Sessions Completed</div>
             </div>
 
@@ -174,7 +198,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{userProfile?.stats?.averageCTScore || 0}%</div>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.averageCTScore || 0}%</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Avg Scorecard Total</div>
             </div>
 
@@ -182,7 +206,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mb-4">
                 <Sun className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{userProfile?.stats?.currentStreak || 0}</div>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.currentStreak || 0}</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Day Streak</div>
             </div>
           </div>

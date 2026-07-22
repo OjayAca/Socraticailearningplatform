@@ -360,20 +360,20 @@ export interface AdminReview {
 }
 
 /** Pre-v2 feedback shape accepted only by migration/read normalization. */
-export interface LegacyTeacherFeedback {
+export interface LegacyAdministratorFeedback {
   comment: string;
   action: "approved" | "returned";
   timestamp: Timestamp;
 }
 
 /** @deprecated Use `AdminReview`; retained for legacy document reads only. */
-export type TeacherFeedback = LegacyTeacherFeedback;
+export type AdministratorFeedback = LegacyAdministratorFeedback;
 
 /**
  * Firestore document shape for a Socratic session (`sessions/{sessionId}`).
  *
  * This is the central data object — it captures the entire guided learning
- * interaction from the student's initial question through teacher review.
+ * interaction from the student's initial question through administrator review.
  */
 export interface Session {
   id: string;
@@ -421,26 +421,13 @@ export interface Session {
   /** @deprecated Pre-v2 reviewer identifier; migration-only. */
   teacherId?: string | null;
   /** @deprecated Pre-v2 feedback; migration-only. */
-  teacherFeedback?: LegacyTeacherFeedback | null;
+  /** Schema-v2 stored field name retained for migration compatibility. */
+  teacherFeedback?: LegacyAdministratorFeedback | null;
   /** @deprecated Pre-v2 completion time; migration-only. */
   completedAt?: Timestamp | null;
 }
 
 // ─── AI Types ────────────────────────────────────────────────
-
-/** Supported AI provider backends. */
-export type AIProvider = "gemini" | "ollama";
-
-/** Configuration for the AI provider. */
-export interface AIProviderConfig {
-  provider: AIProvider;
-  /** Gemini API key (only used when provider is "gemini"). */
-  geminiApiKey?: string;
-  /** Base URL for Ollama (defaults to http://localhost:11434). */
-  ollamaBaseUrl?: string;
-  /** Model name for Ollama (e.g., "gemma3"). */
-  ollamaModel?: string;
-}
 
 /** The structured response from the Socratic AI engine. */
 export interface SocraticResponse {

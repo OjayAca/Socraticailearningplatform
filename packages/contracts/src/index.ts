@@ -1,0 +1,320 @@
+export const SCHEMA_VERSION = 3 as const;
+
+export type UserRole = "student" | "admin";
+export type AccountStatus = "active" | "suspended" | "deactivated" | "anonymized";
+export type Subject = "Quantitative Methods" | "Discrete Mathematics";
+export type Difficulty = "Basic" | "Intermediate" | "Advanced";
+export type Confidence = "low" | "medium" | "high";
+export type EvaluationSource = "deterministic" | "ai" | "hybrid";
+
+export const REASONING_PHASES = [
+  "problem_understanding",
+  "relevant_information_identification",
+  "method_selection",
+  "formula_theorem_justification",
+  "guided_computation_or_proof",
+  "verification_and_checking",
+  "result_interpretation",
+] as const;
+
+export const WORKFLOW_PHASES = [
+  ...REASONING_PHASES,
+  "controlled_solution_release",
+  "critical_thinking_scorecard",
+] as const;
+
+export type ReasoningPhase = (typeof REASONING_PHASES)[number];
+export type WorkflowPhase = (typeof WORKFLOW_PHASES)[number];
+
+export const PHASE_LABELS: Record<WorkflowPhase, string> = {
+  problem_understanding: "Understand the Problem",
+  relevant_information_identification: "Identify Relevant Information",
+  method_selection: "Select a Method",
+  formula_theorem_justification: "Justify the Formula or Theorem",
+  guided_computation_or_proof: "Guided Computation or Proof",
+  verification_and_checking: "Verify and Check",
+  result_interpretation: "Interpret the Result",
+  controlled_solution_release: "Controlled Solution Support",
+  critical_thinking_scorecard: "Critical Thinking Scorecard",
+};
+
+export type GateStatus = "locked" | "pending" | "needs_revision" | "accepted";
+export type SupportLevel =
+  | "socratic_prompt"
+  | "targeted_hint"
+  | "stronger_hint"
+  | "partial_step"
+  | "worked_explanation"
+  | "full_solution";
+
+export type SessionStatus =
+  | "in_progress"
+  | "ready_for_submission"
+  | "submitted"
+  | "reviewed"
+  | "returned"
+  | "abandoned"
+  | "expired";
+
+export type DiagnosisCategory =
+  | "conceptual_error"
+  | "procedural_error"
+  | "wrong_formula"
+  | "theorem_condition_violation"
+  | "invalid_logic"
+  | "misinterpreted_variable"
+  | "computational_error"
+  | "incorrect_interpretation"
+  | "weak_justification"
+  | "skipped_reasoning"
+  | "unsupported_response"
+  | "none";
+
+export type DiagnosisSeverity = "minor" | "moderate" | "major";
+export type DiagnosisResolution = "open" | "resolved" | "superseded";
+export type ScorecardCategory =
+  | "accuracy"
+  | "logicalValidity"
+  | "methodSelection"
+  | "justificationQuality"
+  | "interpretationQuality";
+
+export interface MathResponse {
+  plainText: string;
+  latex?: string;
+  normalizedLatex?: string;
+  mathJson?: unknown;
+}
+
+export interface GateEvaluation {
+  phase: ReasoningPhase;
+  status: Exclude<GateStatus, "locked" | "pending">;
+  attemptCount: number;
+  correctiveCycleCount: number;
+  evidenceSummary: string;
+  confidence: Confidence;
+  source: EvaluationSource;
+  evaluatedAt: number;
+  acceptedAt: number | null;
+}
+
+export interface DiagnosisResult {
+  category: DiagnosisCategory;
+  evidence: string[];
+  confidence: Confidence;
+  severity: DiagnosisSeverity;
+  targetPhase: ReasoningPhase;
+  correctivePrompt: string;
+  resolutionStatus: DiagnosisResolution;
+  source: EvaluationSource;
+}
+
+export interface ScorecardCriterionResult {
+  category: ScorecardCategory;
+  score: number;
+  evidence: string[];
+  reason: string;
+  improvementAdvice: string;
+  confidence: Confidence;
+  source: EvaluationSource;
+}
+
+export interface ScorecardResult {
+  criteria: Record<ScorecardCategory, ScorecardCriterionResult>;
+  total: number;
+  feedback: string;
+  generatedAt: number;
+}
+
+export interface PublicProblem {
+  id: string;
+  subject: Subject;
+  topic: string;
+  difficulty: Difficulty;
+  problemText: string;
+  supportedResponseFormats: Array<"text" | "latex">;
+  status: "draft" | "approved" | "archived";
+  version: number;
+}
+
+export interface SessionProjection {
+  id: string;
+  schemaVersion: typeof SCHEMA_VERSION;
+  revision: number;
+  studentId: string;
+  subject: Subject;
+  topic: string;
+  difficulty: Difficulty;
+  problemId: string | null;
+  originalQuestion: string;
+  status: SessionStatus;
+  currentPhase: WorkflowPhase;
+  gates: Partial<Record<ReasoningPhase, GateEvaluation>>;
+  allowedSupport: SupportLevel[];
+  draft: SessionDraft | null;
+  scorecard: ScorecardResult | null;
+  createdAt: number;
+  updatedAt: number;
+  learningCompletedAt: number | null;
+}
+
+export interface SessionDraft {
+  answer: MathResponse;
+  methodology: string;
+  reflection: string;
+}
+
+export interface CallableErrorBody {
+  code: string;
+  message: string;
+  retryable: boolean;
+  correlationId: string;
+}
+
+export interface MutationRequest {
+  requestId: string;
+}
+
+export interface BootstrapProfileRequest extends MutationRequest {
+  displayName: string;
+  consentVersion?: string;
+}
+
+export interface StartLearningSessionRequest extends MutationRequest {
+  mode: "curated" | "free_form";
+  problemId?: string;
+  question?: string;
+  subject?: Subject;
+  topic?: string;
+  difficulty?: Difficulty;
+}
+
+export interface EvaluatePhaseResponseRequest extends MutationRequest {
+  sessionId: string;
+  expectedPhase: ReasoningPhase;
+  revision: number;
+  response: MathResponse;
+}
+
+export interface EvaluatePhaseResponseResponse {
+  session: SessionProjection;
+  evaluation: GateEvaluation;
+  diagnosis: DiagnosisResult;
+  learnerMessage: string;
+  nextPrompt: string;
+}
+
+export interface RequestSupportRequest extends MutationRequest {
+  sessionId: string;
+  requestedLevel: SupportLevel;
+  revision: number;
+}
+
+export interface RequestSupportResponse {
+  session: SessionProjection;
+  level: SupportLevel;
+  title: string;
+  content: string[];
+}
+
+export interface SaveSessionDraftRequest extends MutationRequest {
+  sessionId: string;
+  revision: number;
+  draft: SessionDraft;
+}
+
+export interface SessionMutationResponse {
+  session: SessionProjection;
+}
+
+export interface RevisionedSessionMutationRequest extends MutationRequest {
+  sessionId: string;
+  revision: number;
+}
+
+export type FinalizeScorecardRequest = RevisionedSessionMutationRequest;
+export type SubmitLearningSessionRequest = RevisionedSessionMutationRequest;
+
+export interface GetCurrentConsentNoticeResponse {
+  version: string;
+  title: string;
+  summary: string;
+  collectedData: string[];
+  purpose: string;
+  retention: string;
+}
+
+export interface LearningProgress {
+  userId: string;
+  sessionsCompleted: number;
+  scoreTotal: number;
+  averageCTScore: number;
+  currentStreak: number;
+  lastSessionAt: number | null;
+  lastSessionDate: string | null;
+  topicRecommendations: Record<string, unknown>;
+}
+
+export type ReportKind =
+  | "learning_progress"
+  | "scorecards"
+  | "misconceptions"
+  | "activity"
+  | "usage";
+
+export interface ReportQueryRequest {
+  kind: ReportKind;
+  subject?: Subject;
+  topic?: string;
+  from?: number;
+  to?: number;
+  includeIdentity?: boolean;
+  exportReason?: string;
+  limit?: number;
+}
+
+export interface ReportRow {
+  kind: ReportKind;
+  [key: string]: unknown;
+}
+
+export interface ReportQueryResponse {
+  kind: ReportKind;
+  rows: ReportRow[];
+  generatedAt: number;
+  pseudonymized: boolean;
+}
+
+export interface AdminReviewSessionRequest extends MutationRequest {
+  sessionId: string;
+  outcome: "reviewed" | "returned";
+  comment: string;
+}
+
+export interface ContentMutationRequest extends MutationRequest {
+  collection:
+    | "subjects"
+    | "topics"
+    | "problems"
+    | "formula_theorem_references"
+    | "socratic_prompt_bank"
+    | "misconception_categories"
+    | "difficulty_policies"
+    | "system_settings"
+    | "policy_documents";
+  id: string;
+  value?: Record<string, unknown>;
+}
+
+export function isReasoningPhase(value: unknown): value is ReasoningPhase {
+  return REASONING_PHASES.includes(value as ReasoningPhase);
+}
+
+export function isWorkflowPhase(value: unknown): value is WorkflowPhase {
+  return WORKFLOW_PHASES.includes(value as WorkflowPhase);
+}
+
+export function nextWorkflowPhase(phase: WorkflowPhase): WorkflowPhase | null {
+  const index = WORKFLOW_PHASES.indexOf(phase);
+  return index >= 0 ? WORKFLOW_PHASES[index + 1] ?? null : null;
+}

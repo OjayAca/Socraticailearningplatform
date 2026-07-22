@@ -8,34 +8,34 @@ import {
 } from "@firebase/rules-unit-testing";
 import {
   Timestamp,
+  collection,
   doc,
   getDoc,
   getDocs,
   query,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  collection,
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
 const PROJECT_ID = "mindguide-test";
-const STUDENT_ONE = "student-one";
-const STUDENT_TWO = "student-two";
+const STUDENT = "student-one";
+const OTHER_STUDENT = "student-two";
 const ADMIN = "system-admin";
-const SESSION_ID = "session-one";
+const SESSION = "secure-session";
 
 let environment: RulesTestEnvironment;
 
 beforeAll(async () => {
+  const [host, portText] = (process.env.FIRESTORE_EMULATOR_HOST ?? "127.0.0.1:8086").split(":");
   environment = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: {
       rules: readFileSync(resolve("firestore.rules"), "utf8"),
-      host: "127.0.0.1",
-      port: 8080,
+      host,
+      port: Number(portText),
     },
   });
 });
@@ -45,263 +45,166 @@ beforeEach(async () => {
   await environment.withSecurityRulesDisabled(async (context) => {
     const database = context.firestore();
     await Promise.all([
-      setDoc(doc(database, "users", STUDENT_ONE), userProfile("student", "Student One")),
-      setDoc(doc(database, "users", STUDENT_TWO), userProfile("student", "Student Two")),
-      setDoc(doc(database, "users", ADMIN), userProfile("admin", "System Admin")),
+      setDoc(doc(database, "users", STUDENT), profile("student", "Student One")),
+      setDoc(doc(database, "users", OTHER_STUDENT), profile("student", "Student Two")),
+      setDoc(doc(database, "users", ADMIN), profile("admin", "System Admin")),
+      setDoc(doc(database, "users", STUDENT, "consents", "privacy-2026-07-18"), {
+        version: "privacy-2026-07-18",
+        acknowledgedAt: Timestamp.now(),
+      }),
+      setDoc(doc(database, "sessions", SESSION), secureSession()),
+      setDoc(doc(database, "sessions", SESSION, "private", "reference"), {
+        finalAnswer: "private answer",
+        solutionSteps: ["private step"],
+      }),
+      setDoc(doc(database, "sessions", SESSION, "responses", "response-one"), {
+        phase: "problem_understanding",
+        response: { plainText: "The problem asks for the mean." },
+      }),
+      setDoc(doc(database, "problems", "approved-problem"), {
+        status: "approved",
+        problemText: "Public prompt",
+      }),
+      setDoc(doc(database, "problems", "approved-problem", "private", "solution"), {
+        finalAnswer: "42",
+      }),
+      setDoc(doc(database, "problems", "draft-problem"), {
+        status: "draft",
+        problemText: "Draft prompt",
+      }),
+      setDoc(doc(database, "notifications", "notice"), {
+        recipientId: STUDENT,
+        read: false,
+      }),
+      setDoc(doc(database, "audit_logs", "audit"), {
+        actorId: ADMIN,
+        action: "content_upsert",
+        createdAt: Timestamp.now(),
+      }),
     ]);
   });
 });
 
-afterAll(async () => {
-  await environment?.cleanup();
-});
+afterAll(async () => environment.cleanup());
 
-describe("MINDGUIDE Firestore authorization", () => {
-  it("denies role escalation while allowing a profile preference update", async () => {
-    const database = environment.authenticatedContext(STUDENT_ONE).firestore();
-    await assertFails(updateDoc(doc(database, "users", STUDENT_ONE), { role: "admin" }));
-    await assertSucceeds(
-      updateDoc(doc(database, "users", STUDENT_ONE), {
-        "preferences.liveAlertPopups": false,
-      })
-    );
+describe("schema-v3 authority boundary", () => {
+  it("denies client profile creation and role escalation but permits bounded preference changes", async () => {
+    const database = studentDb();
+    await assertFails(setDoc(doc(database, "users", "new-user"), profile("student", "New User")));
+    await assertFails(updateDoc(doc(database, "users", STUDENT), { role: "admin", updatedAt: serverTimestamp() }));
+    await assertSucceeds(updateDoc(doc(database, "users", STUDENT), {
+      preferences: { liveAlertPopups: false, theme: "system", reducedMotion: false },
+      updatedAt: serverTimestamp(),
+    }));
   });
 
-  it("denies cross-student session reads and writes", async () => {
-    await seedSession(SESSION_ID, STUDENT_TWO, "in_progress");
-    const database = environment.authenticatedContext(STUDENT_ONE).firestore();
-
-    await assertFails(getDoc(doc(database, "sessions", SESSION_ID)));
-    await assertFails(
-      updateDoc(doc(database, "sessions", SESSION_ID), {
-        currentStep: "draft",
-        updatedAt: serverTimestamp(),
-      })
-    );
+  it("allows an owner to read the public session projection and responses", async () => {
+    const database = studentDb();
+    await assertSucceeds(getDoc(doc(database, "sessions", SESSION)));
+    await assertSucceeds(getDocs(collection(database, "sessions", SESSION, "responses")));
+    await assertSucceeds(getDoc(doc(database, "users", STUDENT, "consents", "privacy-2026-07-18")));
   });
 
-  it("allows owner-scoped queries and administrator reads", async () => {
-    await seedSession(SESSION_ID, STUDENT_ONE, "submitted");
-    const studentDb = environment.authenticatedContext(STUDENT_ONE).firestore();
-    const adminDb = environment.authenticatedContext(ADMIN).firestore();
-
-    await assertSucceeds(
-      getDocs(
-        query(
-          collection(studentDb, "sessions"),
-          where("studentId", "==", STUDENT_ONE)
-        )
-      )
-    );
-    await assertSucceeds(getDoc(doc(adminDb, "sessions", SESSION_ID)));
+  it("denies all student session creates and authoritative updates", async () => {
+    const database = studentDb();
+    await assertFails(setDoc(doc(database, "sessions", "forged"), secureSession()));
+    await assertFails(updateDoc(doc(database, "sessions", SESSION), {
+      currentPhase: "critical_thinking_scorecard",
+      scorecard: { total: 100 },
+      revision: 99,
+    }));
   });
 
-  it("allows one submission transition with its deterministic admin notification", async () => {
-    await seedSession(SESSION_ID, STUDENT_ONE, "in_progress");
-    const database = environment.authenticatedContext(STUDENT_ONE).firestore();
-    const sessionRef = doc(database, "sessions", SESSION_ID);
-    const notificationId = `session_submitted__${SESSION_ID}__${ADMIN}`;
-
-    await assertSucceeds(
-      runTransaction(database, async (transaction) => {
-        transaction.update(sessionRef, {
-          status: "submitted",
-          currentStep: "confirmation",
-          currentPhase: "scorecard",
-          submittedAt: serverTimestamp(),
-          statsCommittedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        transaction.set(doc(database, "notifications", notificationId), {
-          eventType: "session_submitted",
-          senderId: STUDENT_ONE,
-          recipientId: ADMIN,
-          sessionId: SESSION_ID,
-          title: "New learner session",
-          message: "Student One submitted a session.",
-          actionUrl: `/admin/review/${SESSION_ID}`,
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      })
-    );
-
-    await assertFails(
-      updateDoc(sessionRef, {
-        status: "submitted",
-        submittedAt: serverTimestamp(),
-        statsCommittedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      })
-    );
+  it("denies cross-student public reads and all student private reads", async () => {
+    const other = environment.authenticatedContext(OTHER_STUDENT).firestore();
+    await assertFails(getDoc(doc(other, "sessions", SESSION)));
+    await assertFails(getDoc(doc(studentDb(), "sessions", SESSION, "private", "reference")));
+    await assertFails(getDoc(doc(studentDb(), "problems", "approved-problem", "private", "solution")));
   });
 
-  it("rejects arbitrary notification IDs and recipients", async () => {
-    await seedSession(SESSION_ID, STUDENT_ONE, "in_progress");
-    const database = environment.authenticatedContext(STUDENT_ONE).firestore();
+  it("uses custom claims for administrator reads", async () => {
+    const admin = adminDb();
+    await assertSucceeds(getDoc(doc(admin, "sessions", SESSION)));
+    await assertSucceeds(getDoc(doc(admin, "sessions", SESSION, "private", "reference")));
+    await assertSucceeds(getDoc(doc(admin, "problems", "approved-problem", "private", "solution")));
+    await assertSucceeds(getDoc(doc(admin, "audit_logs", "audit")));
 
-    await assertFails(
-      runTransaction(database, async (transaction) => {
-        transaction.update(doc(database, "sessions", SESSION_ID), {
-          status: "submitted",
-          currentStep: "confirmation",
-          currentPhase: "scorecard",
-          submittedAt: serverTimestamp(),
-          statsCommittedAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        transaction.set(doc(database, "notifications", "arbitrary-id"), {
-          eventType: "session_submitted",
-          senderId: STUDENT_ONE,
-          recipientId: STUDENT_TWO,
-          sessionId: SESSION_ID,
-          title: "Invalid",
-          message: "Invalid recipient",
-          actionUrl: "/student/history",
-          read: false,
-          createdAt: serverTimestamp(),
-        });
-      })
-    );
+    const profileOnlyAdmin = environment.authenticatedContext("profile-only-admin").firestore();
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "profile-only-admin"), profile("admin", "Profile Only"));
+    });
+    await assertFails(getDoc(doc(profileOnlyAdmin, "audit_logs", "audit")));
+
+    const staleClaimAdmin = environment.authenticatedContext("stale-claim-admin", { role: "admin" }).firestore();
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "users", "stale-claim-admin"), profile("student", "Stale Claim"));
+    });
+    await assertFails(getDoc(doc(staleClaimAdmin, "audit_logs", "audit")));
   });
 
-  it("records administrator identity once and rejects conflicting review actions", async () => {
-    await seedSession(SESSION_ID, STUDENT_ONE, "submitted");
-    const database = environment.authenticatedContext(ADMIN).firestore();
-    const sessionRef = doc(database, "sessions", SESSION_ID);
+  it("blocks inactive accounts from protected data while allowing their own profile read", async () => {
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await updateDoc(doc(context.firestore(), "users", STUDENT), { status: "suspended" });
+    });
+    const database = studentDb();
+    await assertSucceeds(getDoc(doc(database, "users", STUDENT)));
+    await assertFails(getDoc(doc(database, "sessions", SESSION)));
+    await assertFails(getDocs(query(collection(database, "problems"), where("status", "==", "approved"))));
+  });
 
-    await assertFails(
-      updateDoc(sessionRef, {
-        status: "reviewed",
-        updatedAt: serverTimestamp(),
-        reviewedAt: serverTimestamp(),
-        reviewedBy: "another-admin",
-        adminReview: {
-          comment: "Looks good.",
-          outcome: "reviewed",
-          reviewedBy: "another-admin",
-          reviewedAt: serverTimestamp(),
-        },
-      })
-    );
+  it("exposes only approved public content to students", async () => {
+    const database = studentDb();
+    await assertSucceeds(getDoc(doc(database, "problems", "approved-problem")));
+    await assertFails(getDoc(doc(database, "problems", "draft-problem")));
+    await assertSucceeds(getDocs(query(collection(database, "problems"), where("status", "==", "approved"))));
+  });
 
-    await assertSucceeds(
-      updateDoc(sessionRef, {
-        status: "returned",
-        updatedAt: serverTimestamp(),
-        reviewedAt: serverTimestamp(),
-        reviewedBy: ADMIN,
-        adminReview: {
-          comment: "Explain the final implication.",
-          outcome: "returned",
-          reviewedBy: ADMIN,
-          reviewedAt: serverTimestamp(),
-        },
-      })
-    );
-
-    await assertFails(
-      updateDoc(sessionRef, {
-        status: "reviewed",
-        updatedAt: serverTimestamp(),
-        reviewedAt: serverTimestamp(),
-        reviewedBy: ADMIN,
-        adminReview: {
-          comment: "Changed outcome.",
-          outcome: "reviewed",
-          reviewedBy: ADMIN,
-          reviewedAt: serverTimestamp(),
-        },
-      })
-    );
+  it("allows recipients to mark notifications read but forbids notification creation", async () => {
+    const database = studentDb();
+    await assertSucceeds(updateDoc(doc(database, "notifications", "notice"), { read: true }));
+    await assertFails(setDoc(doc(database, "notifications", "forged"), { recipientId: STUDENT, read: false }));
   });
 });
 
-async function seedSession(
-  id: string,
-  studentId: string,
-  status: "in_progress" | "submitted"
-) {
-  await environment.withSecurityRulesDisabled(async (context) => {
-    await setDoc(
-      doc(context.firestore(), "sessions", id),
-      sessionDocument(studentId, status)
-    );
-  });
+function studentDb() {
+  return environment.authenticatedContext(STUDENT).firestore();
 }
 
-function userProfile(role: "student" | "admin", displayName: string) {
+function adminDb() {
+  return environment.authenticatedContext(ADMIN, { role: "admin" }).firestore();
+}
+
+function profile(role: "student" | "admin", displayName: string) {
   return {
+    schemaVersion: 3,
     displayName,
     email: `${displayName.toLowerCase().replace(/\s/g, ".")}@example.test`,
     role,
+    status: "active",
     createdAt: Timestamp.now(),
-    preferences: { liveAlertPopups: true },
-    stats: {
-      sessionsCompleted: 0,
-      averageCTScore: 0,
-      currentStreak: 0,
-      lastSessionDate: null,
-      topicPerformance: [],
-    },
+    updatedAt: Timestamp.now(),
+    preferences: { liveAlertPopups: true, theme: "system", reducedMotion: false },
   };
 }
 
-function sessionDocument(
-  studentId: string,
-  status: "in_progress" | "submitted"
-) {
-  const submittedAt = status === "submitted" ? Timestamp.now() : null;
+function secureSession() {
   return {
-    schemaVersion: 2,
-    studentId,
-    studentName: studentId === STUDENT_ONE ? "Student One" : "Student Two",
-    studentEmail: `${studentId}@example.test`,
-    subject: "Discrete Mathematics",
-    topic: "Logic and Propositions",
-    problemMode: "curated",
-    problemContext: {
-      mode: "curated",
-      problemId: "dm-logic-basic-1",
-      promptSnapshot: {
-        subject: "Discrete Mathematics",
-        topic: "Logic and Propositions",
-        difficulty: "Basic",
-        problemText: "Determine whether p implies q.",
-      },
-    },
+    schemaVersion: 3,
+    workflowVersion: 3,
+    revision: 0,
+    studentId: STUDENT,
+    studentName: "Student One",
+    subject: "Quantitative Methods",
+    topic: "Measures of Central Tendency",
     difficulty: "Basic",
-    selectedProblemId: "dm-logic-basic-1",
-    originalQuestion: "Determine whether p implies q.",
-    status,
-    currentStep: status === "submitted" ? "confirmation" : "questioning",
-    currentPhase: status === "submitted" ? "scorecard" : "problem_understanding",
-    completedPhases: [],
-    ctScore: status === "submitted" ? 75 : 0,
+    problemId: "approved-problem",
+    originalQuestion: "Find the mean.",
+    status: "in_progress",
+    currentPhase: "problem_understanding",
+    gateStates: {},
+    gateEvaluations: {},
+    allowedSupport: ["socratic_prompt"],
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
-    submittedAt,
-    reviewedAt: null,
-    reviewedBy: null,
-    adminReview: null,
-    statsCommittedAt: submittedAt,
-    messages: [],
-    phaseResponses: [],
-    correctivePrompts: [],
-    logicMap: [],
-    draft: status === "submitted"
-      ? { answer: "p implies q", methodology: "truth conditions", reflection: "The implication is false only when p is true and q is false." }
-      : null,
-    aiSummary: null,
-    hints: [],
-    hintsUsed: 0,
-    diagnosisResult: null,
-    detectedMisconception: null,
-    unlockLevel: 0,
-    mindGuideScorecard: null,
-    scorecard: null,
-    aiFallbackEvents: [],
-    parentSessionId: null,
-    followUpSessionId: null,
   };
 }

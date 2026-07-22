@@ -1,0 +1,28 @@
+{
+  "name": "@mindguide/functions",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@cortex-js/compute-engine": "^0.84.1",
+    "@google/genai": "^1.52.0",
+    "@mindguide/contracts": "file:vendor/contracts",
+    "firebase-admin": "^14.2.0",
+    "firebase-functions": "^7.3.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

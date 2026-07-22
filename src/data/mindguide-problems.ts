@@ -1103,6 +1103,4 @@ export function assertValidMindGuideProblemBank(
   }
 }
 
-assertValidMindGuideProblemBank();
-
 export default mindGuideProblems;

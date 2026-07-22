@@ -17,9 +17,6 @@ import {
 } from "react-router";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
-import { SessionRouteGuard } from "./components/SessionRouteGuard";
-import { useSessionStore } from "@/stores/session-store";
-import { getSessionPath } from "@/lib/session-routes";
 
 /**
  * Base layout — provides a full-height container for all routes.
@@ -33,7 +30,7 @@ const Layout = () => (
   </div>
 );
 
-const LegacyTeacherReviewRedirect = () => {
+const LegacyAdministratorReviewRedirect = () => {
   const { sessionId } = useParams();
   return (
     <Navigate
@@ -44,18 +41,11 @@ const LegacyTeacherReviewRedirect = () => {
 };
 
 const SessionIndexRedirect = () => {
-  const activeSession = useSessionStore((state) => state.activeSession);
-  return (
-    <Navigate
-      to={
-        activeSession
-          ? getSessionPath(activeSession.id, activeSession.currentStep)
-          : "/student/history"
-      }
-      replace
-    />
-  );
+  const { sessionId } = useParams();
+  return <Navigate to={sessionId ? `/session/${sessionId}/learn` : "/student/history"} replace />;
 };
+
+const LegacySessionStepRedirect = () => <SessionIndexRedirect />;
 
 const NotFound = () => (
   <div className="flex flex-1 items-center justify-center bg-slate-50 p-6">
@@ -107,45 +97,45 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "student/dashboard",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentDashboard }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentDashboard }),
           },
           {
             path: "student/profile",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentProfileScreen }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentProfile }),
           },
           {
             path: "student/settings",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentSettingsScreen }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentSettings }),
           },
           {
             path: "student/history",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentHistoryScreen }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentHistory }),
           },
           {
             path: "student/notifications",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentNotificationsScreen }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentNotifications }),
           },
           {
             path: "student/task",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).TaskStart }),
+            lazy: async () => ({ Component: (await import("./components/SecureTaskStart")).SecureTaskStart }),
           },
           {
             path: "student/review/:sessionId",
-            lazy: async () => ({ Component: (await import("./components/StudentScreens")).StudentReviewScreen }),
+            lazy: async () => ({ Component: (await import("./components/SecureStudent")).SecureStudentReview }),
           },
           {
             path: "session/:sessionId",
-            Component: SessionRouteGuard,
             children: [
               { index: true, Component: SessionIndexRedirect },
-              { path: "trigger", lazy: async () => ({ Component: (await import("./components/SessionScreensPart1")).SessionTrigger }) },
-              { path: "questioning", lazy: async () => ({ Component: (await import("./components/SessionScreensPart1")).SessionQuestioning }) },
-              { path: "hints", lazy: async () => ({ Component: (await import("./components/SessionScreensPart1")).SessionHints }) },
-              { path: "logic-map", lazy: async () => ({ Component: (await import("./components/SessionScreensPart1")).SessionLogicMap }) },
-              { path: "draft", lazy: async () => ({ Component: (await import("./components/SessionScreensPart2")).SessionDraft }) },
-              { path: "review", lazy: async () => ({ Component: (await import("./components/SessionScreensPart2")).SessionReview }) },
-              { path: "log", lazy: async () => ({ Component: (await import("./components/SessionScreensPart2")).SessionLog }) },
-              { path: "confirmation", lazy: async () => ({ Component: (await import("./components/SessionScreensPart2")).SessionConfirmation }) },
+              { path: "learn", lazy: async () => ({ Component: (await import("./components/SecureSession")).SecureSession }) },
+              { path: "trigger", Component: LegacySessionStepRedirect },
+              { path: "questioning", Component: LegacySessionStepRedirect },
+              { path: "hints", Component: LegacySessionStepRedirect },
+              { path: "logic-map", Component: LegacySessionStepRedirect },
+              { path: "draft", Component: LegacySessionStepRedirect },
+              { path: "review", Component: LegacySessionStepRedirect },
+              { path: "log", Component: LegacySessionStepRedirect },
+              { path: "confirmation", Component: LegacySessionStepRedirect },
             ],
           },
           { path: "session/trigger", element: <Navigate to="/student/history" replace /> },
@@ -163,19 +153,24 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedRoute requiredRole="admin" />,
         children: [
-          { path: "admin/dashboard", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherDashboard }) },
-          { path: "admin/profile", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherProfileScreen }) },
-          { path: "admin/settings", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherSettingsScreen }) },
-          { path: "admin/submissions", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherSubmissionsScreen }) },
-          { path: "admin/notifications", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherNotificationsScreen }) },
-          { path: "admin/review/:sessionId", lazy: async () => ({ Component: (await import("./components/TeacherScreens")).TeacherReview }) },
-          { path: "admin/review", element: <Navigate to="/admin/submissions" replace /> },
+          { path: "admin/dashboard", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminDashboard }) },
+          { path: "admin/users", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminUsers }) },
+          { path: "admin/content/:collection", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminContent }) },
+          { path: "admin/reports", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminReports }) },
+          { path: "admin/logs", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminLogs }) },
+          { path: "admin/settings", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminSettings }) },
+          { path: "admin/maintenance", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminMaintenance }) },
+          { path: "admin/review/:sessionId", lazy: async () => ({ Component: (await import("./components/SecureAdmin")).SecureAdminReview }) },
+          { path: "admin/profile", element: <Navigate to="/admin/settings" replace /> },
+          { path: "admin/submissions", element: <Navigate to="/admin/dashboard" replace /> },
+          { path: "admin/notifications", element: <Navigate to="/admin/dashboard" replace /> },
+          { path: "admin/review", element: <Navigate to="/admin/dashboard" replace /> },
           { path: "teacher/dashboard", element: <Navigate to="/admin/dashboard" replace /> },
           { path: "teacher/profile", element: <Navigate to="/admin/profile" replace /> },
           { path: "teacher/settings", element: <Navigate to="/admin/settings" replace /> },
           { path: "teacher/submissions", element: <Navigate to="/admin/submissions" replace /> },
           { path: "teacher/notifications", element: <Navigate to="/admin/notifications" replace /> },
-          { path: "teacher/review/:sessionId?", Component: LegacyTeacherReviewRedirect },
+          { path: "teacher/review/:sessionId?", Component: LegacyAdministratorReviewRedirect },
         ],
       },
       { path: "*", Component: NotFound },

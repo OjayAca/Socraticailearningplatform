@@ -9,6 +9,7 @@ import {
   orderBy,
   query,
   updateDoc,
+  serverTimestamp,
   where,
   type DocumentData,
   type QueryDocumentSnapshot,
@@ -229,6 +230,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     try {
       await updateDoc(doc(requireDb(), "users", userId), {
         "preferences.liveAlertPopups": enabled,
+        updatedAt: serverTimestamp(),
       });
       if (userId === get().listenerUserId) {
         set({
@@ -314,7 +316,7 @@ export function getNotificationActionUrl(
     role === "student"
   ) {
     return encodedSessionId
-      ? `/session/${encodedSessionId}/log`
+      ? `/student/review/${encodedSessionId}`
       : "/student/history";
   }
 

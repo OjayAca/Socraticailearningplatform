@@ -286,5 +286,5 @@ Write a 3-4 sentence summary covering:
 3. Key moments where they showed understanding
 4. Any areas where they needed extra help
 
-Keep it factual and objective — this will be read by their teacher.`;
+Keep it factual and objective — this will be read by a system administrator.`;
 }

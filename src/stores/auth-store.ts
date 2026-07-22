@@ -26,6 +26,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db, firebaseSetupMessage, isFirebaseConfigured } from "@/lib/firebase";
+import { bootstrapProfile } from "@/lib/secure-api";
 import type { UserProfile, UserStats } from "@/types";
 
 type CanonicalUserRole = "student" | "admin";
@@ -291,7 +292,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // 2. Update Firestore Document
       const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      await setDoc(userRef, { displayName: normalizedName }, { merge: true });
+      await setDoc(
+        userRef,
+        { displayName: normalizedName, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
       
       // 3. Update Local Store State
       set((state) => ({
@@ -344,26 +349,15 @@ async function createUserProfile(
   user: User,
   displayName: string
 ): Promise<UserProfile> {
-  const profile: Omit<UserProfile, "uid"> = {
-    displayName,
-    email: user.email || "",
-    role: "student" as UserProfile["role"],
-    createdAt: serverTimestamp() as any,
-    stats: {
-      sessionsCompleted: 0,
-      averageCTScore: 0,
-      currentStreak: 0,
-      lastSessionDate: null,
-      topicPerformance: [],
-    },
-    preferences: {
-      liveAlertPopups: true,
-    },
-  };
-
   const userRef = doc(requireDb(), "users", user.uid);
-  await setDoc(userRef, profile);
-  return { uid: user.uid, ...profile };
+  await bootstrapProfile({ displayName });
+  const snapshot = await getDoc(userRef);
+  if (!snapshot.exists()) {
+    throw new ProfileLoadError(
+      "Your secure account profile could not be created. Retry or contact the system administrator."
+    );
+  }
+  return normalizeUserProfile({ uid: user.uid, ...snapshot.data() });
 }
 
 function loadUserProfile(user: User): Promise<UserProfile> {
@@ -400,7 +394,7 @@ function normalizeRole(role: unknown): CanonicalUserRole {
   );
 }
 
-/** Returns true for the canonical administrator role and the legacy teacher value. */
+/** Returns true for the canonical administrator role and the schema-v2 role value. */
 export function isAdminRole(role: unknown): boolean {
   return role === "admin" || role === "teacher";
 }

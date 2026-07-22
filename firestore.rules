@@ -6,585 +6,181 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function userPath(uid) {
-      return /databases/$(database)/documents/users/$(uid);
-    }
-
-    function sessionPath(sessionId) {
-      return /databases/$(database)/documents/sessions/$(sessionId);
-    }
-
-    function userExists(uid) {
-      return exists(userPath(uid));
-    }
-
-    function userRole(uid) {
-      return get(userPath(uid)).data.role;
+    function activeAccount() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
     }
 
     function isAdmin() {
-      return signedIn()
-        && userExists(request.auth.uid)
-        && userRole(request.auth.uid) == "admin";
+      return activeAccount()
+        && request.auth.token.role == "admin"
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    function isStudent() {
-      return signedIn()
-        && userExists(request.auth.uid)
-        && userRole(request.auth.uid) == "student";
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
     }
 
-    function isAdminUser(uid) {
-      return userExists(uid) && userRole(uid) == "admin";
+    function validPreferences(value) {
+      return value is map
+        && value.keys().hasOnly(["liveAlertPopups", "theme", "reducedMotion"])
+        && (!value.keys().hasAny(["liveAlertPopups"]) || value.liveAlertPopups is bool)
+        && (!value.keys().hasAny(["theme"]) || value.theme in ["light", "dark", "system"])
+        && (!value.keys().hasAny(["reducedMotion"]) || value.reducedMotion is bool);
     }
 
-    function validPreferences(preferences) {
-      return preferences is map
-        && preferences.keys().hasOnly(["liveAlertPopups"])
-        && preferences.liveAlertPopups is bool;
-    }
-
-    function validStats(stats) {
-      return stats is map
-        && stats.keys().hasOnly([
-          "sessionsCompleted",
-          "averageCTScore",
-          "currentStreak",
-          "lastSessionDate",
-          "topicPerformance"
-        ])
-        && stats.sessionsCompleted is int
-        && stats.sessionsCompleted >= 0
-        && stats.averageCTScore is number
-        && stats.averageCTScore >= 0
-        && stats.averageCTScore <= 100
-        && stats.currentStreak is int
-        && stats.currentStreak >= 0
-        && (stats.lastSessionDate == null || stats.lastSessionDate is timestamp)
-        && stats.topicPerformance is list
-        && stats.topicPerformance.size() <= 11;
-    }
-
-    function validNewProfile(data) {
-      return data.keys().hasOnly([
-          "displayName",
-          "email",
-          "role",
-          "createdAt",
-          "stats",
-          "preferences"
-        ])
-        && data.displayName is string
-        && data.displayName.size() >= 1
-        && data.displayName.size() <= 120
-        && data.email is string
-        && data.email.size() <= 320
-        && data.role == "student"
-        && data.createdAt == request.time
-        && validStats(data.stats)
-        && validPreferences(data.preferences);
-    }
-
-    function validProfileUpdate() {
+    function validOwnProfileUpdate() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           "displayName",
-          "stats",
-          "preferences"
+          "preferences",
+          "updatedAt"
         ])
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.displayName is string
         && request.resource.data.displayName.size() >= 1
         && request.resource.data.displayName.size() <= 120
-        && validStats(request.resource.data.stats)
-        && validPreferences(request.resource.data.preferences);
-    }
-
-    function validSubjectTopic(subject, topic) {
-      return (
-          subject == "Quantitative Methods"
-          && topic in [
-            "Measures of Central Tendency",
-            "Variance and Standard Deviation",
-            "Data Interpretation",
-            "Probability",
-            "Correlation and Basic Regression"
-          ]
-        ) || (
-          subject == "Discrete Mathematics"
-          && topic in [
-            "Logic and Propositions",
-            "Truth Tables",
-            "Counting Principles",
-            "Permutations and Combinations",
-            "Pigeonhole Principle",
-            "Basic Proof Reasoning"
-          ]
-        );
-    }
-
-    function validDifficulty(difficulty) {
-      return difficulty == null
-        || difficulty in ["Basic", "Intermediate", "Advanced"];
-    }
-
-    function validStep(step) {
-      return step in [
-        "trigger",
-        "questioning",
-        "hints",
-        "logic_map",
-        "draft",
-        "review",
-        "log",
-        "confirmation"
-      ];
-    }
-
-    function validPhase(phase) {
-      return phase in [
-        "problem_understanding",
-        "method_selection",
-        "formula_theorem_justification",
-        "guided_computation_or_reasoning",
-        "error_diagnosis",
-        "progressive_unlock",
-        "scorecard"
-      ];
-    }
-
-    function validCuratedContext(data) {
-      return data.problemMode == "curated"
-        && data.problemContext is map
-        && data.problemContext.keys().hasOnly([
-          "mode",
-          "problemId",
-          "promptSnapshot"
-        ])
-        && data.problemContext.mode == "curated"
-        && data.problemContext.problemId is string
-        && data.problemContext.problemId.size() >= 1
-        && data.problemContext.problemId.size() <= 120
-        && data.selectedProblemId == data.problemContext.problemId
-        && data.problemContext.promptSnapshot is map
-        && data.problemContext.promptSnapshot.keys().hasOnly([
-          "subject",
-          "topic",
-          "difficulty",
-          "problemText"
-        ])
-        && data.problemContext.promptSnapshot.subject == data.subject
-        && data.problemContext.promptSnapshot.topic == data.topic
-        && data.problemContext.promptSnapshot.difficulty == data.difficulty
-        && data.problemContext.promptSnapshot.problemText == data.originalQuestion;
-    }
-
-    function validFreeFormAnalysis(analysis, data) {
-      return analysis is map
-        && analysis.analysisVersion == 1
-        && analysis.validationStatus in ["validated", "legacy_unverified"]
-        && analysis.isSupported is bool
-        && analysis.isSolvable is bool
-        && (analysis.rejectionReason == null || analysis.rejectionReason is string)
-        && analysis.normalizedQuestion is string
-        && analysis.normalizedQuestion.size() >= 1
-        && analysis.normalizedQuestion.size() <= 2000
-        && analysis.subject == data.subject
-        && analysis.topic == data.topic
-        && analysis.expectedConcepts is list
-        && analysis.expectedConcepts.size() <= 20
-        && (analysis.requiredFormula == null || analysis.requiredFormula is string)
-        && (analysis.requiredTheorem == null || analysis.requiredTheorem is string)
-        && analysis.solutionOutline is list
-        && analysis.solutionOutline.size() <= 20
-        && analysis.referenceAnswer is string
-        && analysis.referenceAnswer.size() <= 4000
-        && analysis.interpretation is string
-        && analysis.interpretation.size() <= 2000
-        && analysis.rubric is list
-        && analysis.rubric.size() == 5
-        && (
-          analysis.validationStatus == "legacy_unverified"
-          || (
-            analysis.isSupported == true
-            && analysis.isSolvable == true
-            && analysis.rejectionReason == null
-            && analysis.expectedConcepts.size() >= 1
-            && analysis.solutionOutline.size() >= 1
-            && analysis.referenceAnswer.size() >= 1
-          )
-        );
-    }
-
-    function validFreeFormContext(data) {
-      return data.problemMode == "free_form"
-        && data.problemContext is map
-        && data.problemContext.keys().hasOnly(["mode", "question", "analysis"])
-        && data.problemContext.mode == "free_form"
-        && data.problemContext.question == data.originalQuestion
-        && data.selectedProblemId == null
-        && validFreeFormAnalysis(data.problemContext.analysis, data);
-    }
-
-    function validDraft(draft) {
-      return draft == null || (
-        draft is map
-        && draft.keys().hasOnly(["answer", "methodology", "reflection"])
-        && draft.answer is string
-        && draft.answer.size() <= 4000
-        && draft.methodology is string
-        && draft.methodology.size() <= 4000
-        && draft.reflection is string
-        && draft.reflection.size() <= 2000
-      );
-    }
-
-    function validMessage(message) {
-      return message is map
-        && message.role in ["student", "ai"]
-        && message.content is string
-        && message.content.size() >= 1
-        && (
-          (message.role == "student" && message.content.size() <= 2000)
-          || (message.role == "ai" && message.content.size() <= 4000)
-        )
-        && message.timestamp is number;
-    }
-
-    function validMessageAppend() {
-      return request.resource.data.messages.size() >= resource.data.messages.size()
-        && request.resource.data.messages.size() <= resource.data.messages.size() + 2
-        && (
-          request.resource.data.messages.size() == resource.data.messages.size()
-          || validMessage(
-            request.resource.data.messages[
-              request.resource.data.messages.size() - 1
-            ]
-          )
-        )
-        && (
-          request.resource.data.messages.size() < resource.data.messages.size() + 2
-          || validMessage(
-            request.resource.data.messages[
-              request.resource.data.messages.size() - 2
-            ]
-          )
-        );
-    }
-
-    function validSessionKeys(data) {
-      return !data.keys().hasAny([
-        "selectedProblem",
-        "teacherFeedback",
-        "teacherId",
-        "completedAt"
-      ]);
-    }
-
-    function validSessionCore(data) {
-      return validSessionKeys(data)
-        && data.schemaVersion == 2
-        && data.studentId is string
-        && data.studentName is string
-        && data.studentName.size() >= 1
-        && data.studentName.size() <= 120
-        && validSubjectTopic(data.subject, data.topic)
-        && validDifficulty(data.difficulty)
-        && data.status in ["in_progress", "submitted", "reviewed", "returned"]
-        && data.originalQuestion is string
-        && data.originalQuestion.size() >= 1
-        && data.originalQuestion.size() <= 2000
-        && validStep(data.currentStep)
-        && validPhase(data.currentPhase)
-        && data.ctScore is number
-        && data.ctScore >= 0
-        && data.ctScore <= 100
-        && data.createdAt is timestamp
-        && data.updatedAt is timestamp
-        && (data.submittedAt == null || data.submittedAt is timestamp)
-        && (data.reviewedAt == null || data.reviewedAt is timestamp)
-        && (data.statsCommittedAt == null || data.statsCommittedAt is timestamp)
-        && data.messages is list
-        && data.messages.size() <= 81
-        && data.phaseResponses is list
-        && data.phaseResponses.size() <= 40
-        && validDraft(data.draft)
-        && (data.aiSummary == null || (
-          data.aiSummary is string && data.aiSummary.size() <= 4000
-        ))
-        && data.hints is list
-        && data.hints.size() <= 20
-        && data.unlockLevel is int
-        && data.unlockLevel >= 0
-        && data.unlockLevel <= 5
-        && (
-          validCuratedContext(data)
-          || validFreeFormContext(data)
-        );
-    }
-
-    function validParentForNewSession(data) {
-      return data.parentSessionId == null || (
-        exists(sessionPath(data.parentSessionId))
-        && get(sessionPath(data.parentSessionId)).data.studentId == request.auth.uid
-        && get(sessionPath(data.parentSessionId)).data.status == "returned"
-        && get(sessionPath(data.parentSessionId)).data.followUpSessionId == null
-      );
-    }
-
-    function validSessionCreate(data) {
-      return isStudent()
-        && data.studentId == request.auth.uid
-        && validSessionCore(data)
-        && validParentForNewSession(data)
-        && data.status == "in_progress"
-        && data.createdAt == request.time
-        && data.updatedAt == request.time
-        && data.submittedAt == null
-        && data.reviewedAt == null
-        && data.reviewedBy == null
-        && data.adminReview == null
-        && data.statsCommittedAt == null
-        && data.followUpSessionId == null
-        && data.messages.size() == 0
-        && data.phaseResponses.size() == 0
-        && data.hints.size() == 0
-        && (
-          data.problemMode != "free_form"
-          || data.problemContext.analysis.validationStatus == "validated"
-        );
-    }
-
-    function validStudentWorkUpdate() {
-      return resource.data.studentId == request.auth.uid
-        && resource.data.status == "in_progress"
-        && request.resource.data.studentId == resource.data.studentId
-        && request.resource.data.createdAt == resource.data.createdAt
+        && validPreferences(request.resource.data.preferences)
         && request.resource.data.updatedAt == request.time
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "status",
-          "currentStep",
-          "currentPhase",
-          "completedPhases",
-          "ctScore",
-          "updatedAt",
-          "submittedAt",
-          "statsCommittedAt",
-          "messages",
-          "phaseResponses",
-          "correctivePrompts",
-          "logicMap",
-          "draft",
-          "aiSummary",
-          "hints",
-          "hintsUsed",
-          "diagnosisResult",
-          "detectedMisconception",
-          "unlockLevel",
-          "mindGuideScorecard",
-          "scorecard",
-          "aiFallbackEvents"
-        ])
-        && (
-          (
-            request.resource.data.status == "in_progress"
-            && request.resource.data.submittedAt == null
-            && request.resource.data.statsCommittedAt == null
-          ) || (
-            request.resource.data.status == "submitted"
-            && request.resource.data.submittedAt == request.time
-            && request.resource.data.statsCommittedAt == request.time
-          )
-        )
-        && request.resource.data.reviewedAt == null
-        && request.resource.data.reviewedBy == null
-        && request.resource.data.adminReview == null
-        && validMessageAppend()
-        && validSessionCore(request.resource.data);
-    }
-
-    function validFollowUpLinkUpdate(sessionId) {
-      return isStudent()
-        && resource.data.studentId == request.auth.uid
-        && resource.data.status == "returned"
-        && resource.data.followUpSessionId == null
-        && request.resource.data.status == "returned"
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.followUpSessionId is string
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "followUpSessionId",
-          "updatedAt"
-        ])
-        && existsAfter(sessionPath(request.resource.data.followUpSessionId))
-        && getAfter(sessionPath(request.resource.data.followUpSessionId)).data.studentId
-          == request.auth.uid
-        && getAfter(sessionPath(request.resource.data.followUpSessionId)).data.parentSessionId
-          == sessionId
-        && getAfter(sessionPath(request.resource.data.followUpSessionId)).data.status
-          == "in_progress";
-    }
-
-    function validAdminReview(status) {
-      return request.resource.data.adminReview is map
-        && request.resource.data.adminReview.keys().hasOnly([
-          "comment",
-          "outcome",
-          "reviewedBy",
-          "reviewedAt"
-        ])
-        && request.resource.data.adminReview.comment is string
-        && request.resource.data.adminReview.comment.size() >= 1
-        && request.resource.data.adminReview.comment.size() <= 2000
-        && request.resource.data.adminReview.outcome == status
-        && request.resource.data.adminReview.reviewedBy == request.auth.uid
-        && request.resource.data.adminReview.reviewedAt == request.time;
-    }
-
-    function validAdminReviewUpdate() {
-      return isAdmin()
-        && resource.data.status == "submitted"
-        && request.resource.data.status in ["reviewed", "returned"]
-        && request.resource.data.studentId == resource.data.studentId
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.reviewedAt == request.time
-        && request.resource.data.reviewedBy == request.auth.uid
-        && validAdminReview(request.resource.data.status)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "status",
-          "updatedAt",
-          "reviewedAt",
-          "reviewedBy",
-          "adminReview"
-        ])
-        && validSessionCore(request.resource.data);
-    }
-
-    function sessionAfter(sessionId) {
-      return getAfter(sessionPath(sessionId)).data;
-    }
-
-    function validNotificationKeys(data) {
-      return data.keys().hasOnly([
-        "eventType",
-        "senderId",
-        "recipientId",
-        "sessionId",
-        "title",
-        "message",
-        "read",
-        "actionUrl",
-        "createdAt"
-      ]);
-    }
-
-    function validNotificationCreate(notificationId) {
-      return signedIn()
-        && validNotificationKeys(request.resource.data)
-        && request.resource.data.eventType in [
-          "session_submitted",
-          "session_reviewed",
-          "session_returned",
-          "follow_up_started"
-        ]
-        && notificationId
-          == request.resource.data.eventType
-            + "__"
-            + request.resource.data.sessionId
-            + "__"
-            + request.resource.data.recipientId
-        && request.resource.data.senderId == request.auth.uid
-        && request.resource.data.title is string
-        && request.resource.data.title.size() >= 1
-        && request.resource.data.title.size() <= 160
-        && request.resource.data.message is string
-        && request.resource.data.message.size() >= 1
-        && request.resource.data.message.size() <= 1000
-        && request.resource.data.actionUrl is string
-        && request.resource.data.actionUrl.size() >= 1
-        && request.resource.data.actionUrl.size() <= 500
-        && request.resource.data.read == false
-        && request.resource.data.createdAt == request.time
-        && (
-          (
-            request.resource.data.eventType == "session_submitted"
-            && sessionAfter(request.resource.data.sessionId).studentId
-              == request.auth.uid
-            && sessionAfter(request.resource.data.sessionId).status
-              == "submitted"
-            && isAdminUser(request.resource.data.recipientId)
-          ) || (
-            request.resource.data.eventType == "session_reviewed"
-            && isAdmin()
-            && sessionAfter(request.resource.data.sessionId).studentId
-              == request.resource.data.recipientId
-            && sessionAfter(request.resource.data.sessionId).status
-              == "reviewed"
-            && sessionAfter(request.resource.data.sessionId).reviewedBy
-              == request.auth.uid
-          ) || (
-            request.resource.data.eventType == "session_returned"
-            && isAdmin()
-            && sessionAfter(request.resource.data.sessionId).studentId
-              == request.resource.data.recipientId
-            && sessionAfter(request.resource.data.sessionId).status
-              == "returned"
-            && sessionAfter(request.resource.data.sessionId).reviewedBy
-              == request.auth.uid
-          ) || (
-            request.resource.data.eventType == "follow_up_started"
-            && sessionAfter(request.resource.data.sessionId).studentId
-              == request.auth.uid
-            && sessionAfter(request.resource.data.sessionId).status
-              == "in_progress"
-            && sessionAfter(request.resource.data.sessionId).parentSessionId
-              != null
-            && isAdminUser(request.resource.data.recipientId)
-          )
-        );
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.status == resource.data.status;
     }
 
     match /users/{userId} {
-      allow get: if signedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin() || (
-        signedIn() && resource.data.role in ["admin", "teacher"]
-      );
-      allow create: if signedIn()
-        && request.auth.uid == userId
-        && validNewProfile(request.resource.data);
-      allow update: if signedIn()
-        && request.auth.uid == userId
-        && validProfileUpdate();
-      allow delete: if false;
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, delete: if false;
+      allow update: if isOwner(userId) && activeAccount() && validOwnProfileUpdate();
+
+      match /consents/{version} {
+        allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /subjects/{subjectId} {
+      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow write: if false;
+    }
+
+    match /topics/{topicId} {
+      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow write: if false;
+    }
+
+    match /problems/{problemId} {
+      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow write: if false;
+
+      match /private/{documentId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /formula_theorem_references/{referenceId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /socratic_prompt_bank/{promptId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /misconception_categories/{categoryId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /difficulty_policies/{policyId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /policy_documents/{policyId} {
+      allow read: if activeAccount() && (isAdmin() || resource.data.status == "active");
+      allow write: if false;
     }
 
     match /sessions/{sessionId} {
-      allow get: if signedIn()
-        && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if signedIn()
-        && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow create: if validSessionCreate(request.resource.data);
-      allow update: if signedIn() && (
-        validStudentWorkUpdate()
-        || validFollowUpLinkUpdate(sessionId)
-        || validAdminReviewUpdate()
-      );
-      allow delete: if false;
+      allow get: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow list: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow create, update, delete: if false;
+
+      match /responses/{responseId} {
+        allow read: if activeAccount()
+          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
+        allow write: if false;
+      }
+
+      match /scorecards/{scorecardId} {
+        allow read: if activeAccount()
+          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
+        allow write: if false;
+      }
+
+      match /unlock_events/{eventId} {
+        allow read: if activeAccount()
+          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
+        allow write: if false;
+      }
+
+      match /private/{documentId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+
+      match /private_evaluations/{documentId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+
+      match /private_ai/{documentId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /learning_progress/{userId} {
+      allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
+      allow write: if false;
     }
 
     match /notifications/{notificationId} {
-      allow get, list: if signedIn()
-        && resource.data.recipientId == request.auth.uid;
-      allow create: if validNotificationCreate(notificationId);
-      allow update: if signedIn()
+      allow get, list: if activeAccount() && resource.data.recipientId == request.auth.uid;
+      allow create, delete: if false;
+      allow update: if activeAccount()
         && resource.data.recipientId == request.auth.uid
         && request.resource.data.recipientId == resource.data.recipientId
         && request.resource.data.read == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "read"
-        ]);
-      allow delete: if false;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /ai_failure_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /system_settings/{settingId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /idempotency/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /rate_limits/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /evaluation_locks/{documentId} {
+      allow read, write: if false;
     }
 
     match /{document=**} {
