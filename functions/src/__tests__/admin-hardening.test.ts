@@ -17,11 +17,15 @@ describe("administrator hardening helpers", () => {
 
   it("validates and strips server-managed problem fields", () => {
     const result = validateManagedContent("problems", "mean-1", {
+      subjectId: "quantitative-methods",
+      topicId: "quantitative-methods-measures-of-central-tendency",
       subject: "Quantitative Methods",
       topic: "Measures of Central Tendency",
       difficulty: "Basic",
+      variant: 1,
       problemText: "Find the mean of 8, 10, and 12.",
       supportedResponseFormats: ["text", "latex"],
+      formulaTheoremReferenceIds: ["ref-mean"],
       status: "draft",
       version: 99,
     });

@@ -1,18 +1,24 @@
 import { httpsCallable } from "firebase/functions";
 import type {
+  AcademicProfile,
+  AdminBulkImportProblemsRequest,
+  AdminRecordProblemValidationRequest,
   AdminReviewSessionRequest,
   BootstrapProfileRequest,
+  CatalogReadinessResponse,
+  CompleteAcademicProfileRequest,
   ContentMutationRequest,
   EvaluatePhaseResponseRequest,
   EvaluatePhaseResponseResponse,
   GetCurrentConsentNoticeResponse,
+  LearningCatalog,
   ReportQueryRequest,
   ReportQueryResponse,
   RequestSupportRequest,
   RequestSupportResponse,
   SaveSessionDraftRequest,
   SessionMutationResponse,
-  StartLearningSessionRequest,
+  StartLearningSessionInput,
 } from "@mindguide/contracts";
 import { firebaseSetupMessage, functions } from "./firebase";
 import { secureErrorMessage } from "./secure-error";
@@ -31,8 +37,18 @@ export async function getCurrentConsentNotice(): Promise<GetCurrentConsentNotice
   return call("getCurrentConsentNotice", {});
 }
 
+export async function getLearningCatalog(): Promise<LearningCatalog> {
+  return call("getLearningCatalog", {});
+}
+
+export async function completeAcademicProfile(
+  input: Omit<CompleteAcademicProfileRequest, "requestId">
+): Promise<{ academicProfile: AcademicProfile }> {
+  return call("completeAcademicProfile", { ...input, requestId: newRequestId() });
+}
+
 export async function startLearningSession(
-  input: Omit<StartLearningSessionRequest, "requestId"> & { requestId?: string }
+  input: StartLearningSessionInput & { requestId?: string }
 ): Promise<SessionMutationResponse> {
   return call("startLearningSession", { ...input, requestId: input.requestId ?? newRequestId() });
 }
@@ -95,6 +111,26 @@ export async function adminArchiveContent(
   input: Omit<ContentMutationRequest, "requestId" | "value">
 ): Promise<Record<string, unknown>> {
   return call("adminArchiveContent", { ...input, requestId: newRequestId() });
+}
+
+export async function adminCatalogReadiness(): Promise<CatalogReadinessResponse> {
+  return call("adminCatalogReadiness", {});
+}
+
+export async function adminSubmitProblemValidation(problemId: string): Promise<Record<string, unknown>> {
+  return call("adminSubmitProblemValidation", { problemId, requestId: newRequestId() });
+}
+
+export async function adminRecordProblemValidation(
+  input: Omit<AdminRecordProblemValidationRequest, "requestId">
+): Promise<Record<string, unknown>> {
+  return call("adminRecordProblemValidation", { ...input, requestId: newRequestId() });
+}
+
+export async function adminBulkImportProblems(
+  input: Omit<AdminBulkImportProblemsRequest, "requestId">
+): Promise<Record<string, unknown>> {
+  return call("adminBulkImportProblems", { ...input, requestId: newRequestId() });
 }
 
 export async function adminManageUser(input: {

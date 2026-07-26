@@ -12,17 +12,22 @@ import { useNavigate } from "react-router";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { UserStats } from "@/types";
+import type { AcademicProfile } from "@mindguide/contracts";
+import { completeAcademicProfile } from "@/lib/secure-api";
 
 // ─── Profile Content ────────────────────────────────────────────────
 
 export function ProfileContent() {
-  const { userProfile, updateDisplayName, error, clearError } = useAuthStore();
+  const { userProfile, updateDisplayName, reloadProfile, error, clearError } = useAuthStore();
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState(userProfile?.displayName || "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [learningStats, setLearningStats] = useState<UserStats | null>(null);
+  const [academicProfile, setAcademicProfile] = useState<AcademicProfile>(userProfile?.academicProfile ?? {
+    studentNumber: "", course: "", yearLevel: "", section: "",
+  });
 
   const displayName = userProfile?.displayName || "User";
   const initials = displayName
@@ -74,6 +79,22 @@ export function ProfileContent() {
           ? caughtError.message
           : "Your display name could not be updated. Try again."
       );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleSaveAcademicProfile(e: React.FormEvent) {
+    e.preventDefault();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await completeAcademicProfile(academicProfile);
+      await reloadProfile();
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (caughtError) {
+      setSaveError(caughtError instanceof Error ? caughtError.message : "Academic profile could not be updated.");
     } finally {
       setIsSaving(false);
     }
@@ -184,6 +205,26 @@ export function ProfileContent() {
         </div>
       ) : (
         <>
+          <form onSubmit={handleSaveAcademicProfile} className="rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-white">Academic profile</h3>
+            <p className="mt-1 text-sm text-slate-500">Required capstone fields; visible only to you and authorized System Administrators.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {([
+                ["studentNumber", "Student number"],
+                ["course", "Course"],
+                ["yearLevel", "Year level"],
+                ["section", "Section"],
+              ] as const).map(([field, label]) => (
+                <label key={field} className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                  {label}
+                  <input required value={academicProfile[field]} onChange={(event) => setAcademicProfile((current) => ({ ...current, [field]: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-transparent p-3 font-normal" />
+                </label>
+              ))}
+            </div>
+            <button disabled={isSaving} className="mt-4 rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white disabled:opacity-50">
+              {isSaving ? "Saving..." : "Save academic profile"}
+            </button>
+          </form>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-12 mb-6">Your Learning Stats</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-center items-center text-center">

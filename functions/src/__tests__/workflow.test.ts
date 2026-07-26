@@ -144,4 +144,22 @@ describe("workflow-v4 Socratic reasoning core", () => {
       { score: 72, supportUsage: 0, diagnoses: ["invalid_logic"] },
     ] }).recommendedDifficulty).toBe("Intermediate");
   });
+
+  it("uses administrator-managed difficulty thresholds", () => {
+    const recommendation = recommendDifficulty({
+      currentDifficulty: "Basic",
+      recentSessions: [
+        { score: 75, supportUsage: 2, diagnoses: [] },
+        { score: 76, supportUsage: 2, diagnoses: [] },
+      ],
+      policy: {
+        minimumCompletedSessions: 2,
+        increaseScoreThreshold: 75,
+        decreaseScoreThreshold: 50,
+        maxHintsForIncrease: 2,
+        arithmeticErrorAloneLowersDifficulty: false,
+      },
+    });
+    expect(recommendation.recommendedDifficulty).toBe("Intermediate");
+  });
 });

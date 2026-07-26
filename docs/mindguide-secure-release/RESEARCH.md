@@ -33,6 +33,6 @@ MINDGUIDE must move from a browser-authoritative localhost pilot to a server-aut
 
 ## References
 
-- `MINDGUIDE_System_Fix_and_Development_Plan.md`
+- `CAPSTONE_MANUSCRIPT_AMENDMENTS.md`
 - Firebase callable Functions, App Check, Firestore rules, and Emulator documentation
 - MathLive, KaTeX, and CortexJS Compute Engine documentation

@@ -81,19 +81,34 @@ beforeEach(async () => {
         action: "content_upsert",
         createdAt: Timestamp.now(),
       }),
+      setDoc(doc(database, "content_validation_records", "validation-one"), {
+        problemId: "approved-problem",
+        decision: "approved",
+        validatorName: "Faculty Validator",
+      }),
     ]);
   });
 });
 
 afterAll(async () => environment.cleanup());
 
-describe("schema-v3 authority boundary", () => {
+describe("schema-v4 authority boundary", () => {
   it("denies client profile creation and role escalation but permits bounded preference changes", async () => {
     const database = studentDb();
     await assertFails(setDoc(doc(database, "users", "new-user"), profile("student", "New User")));
     await assertFails(updateDoc(doc(database, "users", STUDENT), { role: "admin", updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(database, "users", STUDENT), {
       preferences: { liveAlertPopups: false, theme: "system", reducedMotion: false },
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(doc(database, "users", STUDENT), {
+      academicProfile: {
+        studentNumber: "forged",
+        course: "forged",
+        yearLevel: "4",
+        section: "A",
+      },
+      academicProfileComplete: true,
       updatedAt: serverTimestamp(),
     }));
   });
@@ -128,6 +143,8 @@ describe("schema-v3 authority boundary", () => {
     await assertSucceeds(getDoc(doc(admin, "sessions", SESSION, "private", "reference")));
     await assertSucceeds(getDoc(doc(admin, "problems", "approved-problem", "private", "solution")));
     await assertSucceeds(getDoc(doc(admin, "audit_logs", "audit")));
+    await assertSucceeds(getDoc(doc(admin, "content_validation_records", "validation-one")));
+    await assertFails(getDoc(doc(studentDb(), "content_validation_records", "validation-one")));
 
     const profileOnlyAdmin = environment.authenticatedContext("profile-only-admin").firestore();
     await environment.withSecurityRulesDisabled(async (context) => {
@@ -176,7 +193,7 @@ function adminDb() {
 
 function profile(role: "student" | "admin", displayName: string) {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     displayName,
     email: `${displayName.toLowerCase().replace(/\s/g, ".")}@example.test`,
     role,
@@ -189,7 +206,7 @@ function profile(role: "student" | "admin", displayName: string) {
 
 function secureSession() {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     workflowVersion: 4,
     revision: 0,
     studentId: STUDENT,

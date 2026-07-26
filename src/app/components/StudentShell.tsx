@@ -25,9 +25,9 @@ export function StudentShell({ active, children }: { active: string; children: R
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      <aside className="hidden w-64 shrink-0 bg-slate-950 p-5 text-white md:block">
+      <aside className="hidden min-h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white p-5 text-slate-900 md:flex">
         <div className="flex items-center gap-2 text-xl font-bold">
-          <BrainCircuit className="h-7 w-7 text-indigo-400" />
+          <BrainCircuit className="h-7 w-7 text-indigo-600" />
           MINDGUIDE
         </div>
         <nav className="mt-8 space-y-1">
@@ -38,7 +38,7 @@ export function StudentShell({ active, children }: { active: string; children: R
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold ${
                 active === id
                   ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -48,7 +48,7 @@ export function StudentShell({ active, children }: { active: string; children: R
         </nav>
         <button
           onClick={() => void signOut().then(() => navigate("/login"))}
-          className="mt-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+          className="mt-auto flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         >
           <LogOut className="h-4 w-4" />
           Sign out

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   collection,
   doc,
@@ -12,7 +12,6 @@ import { Link, Navigate, useNavigate, useParams } from "react-router";
 import {
   Activity,
   AlertCircle,
-  Archive,
   BarChart3,
   BookOpen,
   ClipboardList,
@@ -30,7 +29,6 @@ import {
 import { db } from "@/lib/firebase";
 import type { ReportKind } from "@mindguide/contracts";
 import {
-  adminArchiveContent,
   adminExportReport,
   adminManageUser,
   adminOverrideSessionSupport,
@@ -39,18 +37,11 @@ import {
   adminUpsertContent,
 } from "@/lib/secure-api";
 import { useAuthStore } from "@/stores/auth-store";
-
-const CONTENT_COLLECTIONS = [
-  "subjects",
-  "topics",
-  "problems",
-  "formula_theorem_references",
-  "socratic_prompt_bank",
-  "misconception_categories",
-  "difficulty_policies",
-] as const;
-
-type ContentCollection = (typeof CONTENT_COLLECTIONS)[number];
+import {
+  CONTENT_COLLECTIONS,
+  ManagedContentEditor,
+  type ContentCollection,
+} from "./ManagedContentEditor";
 
 function AdminShell({ active, children }: { active: string; children: ReactNode }) {
   const signOut = useAuthStore((state) => state.signOut);
@@ -104,25 +95,17 @@ export function SecureAdminUsers() {
   const [loading, setLoading] = useState(true);
   async function load() { if (!db) return; setLoading(true); const snapshot = await getDocs(collection(db, "users")); setUsersList(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))); setLoading(false); }
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, []);
-  const filtered = useMemo(() => usersList.filter((user) => `${user.displayName} ${user.email} ${user.role} ${user.status}`.toLowerCase().includes(search.toLowerCase())), [search, usersList]);
+  const filtered = useMemo(() => usersList.filter((user) => `${user.displayName} ${user.email} ${user.role} ${user.status} ${user.academicProfile?.studentNumber ?? ""} ${user.academicProfile?.course ?? ""} ${user.academicProfile?.yearLevel ?? ""} ${user.academicProfile?.section ?? ""}`.toLowerCase().includes(search.toLowerCase())), [search, usersList]);
   async function act(userId: string, action: "promote" | "demote" | "suspend" | "activate" | "deactivate" | "anonymize" | "reset_access") {
     setMessage(null); try { const result = await adminManageUser({ userId, action, reason }); setMessage(action === "reset_access" ? `Reset link: ${String(result.resetLink)}` : `Account action '${action}' completed. The user must refresh their token.`); await load(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "User action failed."); }
   }
-  return <AdminShell active="users"><PageTitle title="User Account Management" description="Search, promote, suspend, reactivate, deactivate, anonymize, or issue access-reset links. The final active administrator is protected." /><div className="mt-6 grid gap-3 md:grid-cols-2"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search users" className="rounded-xl border bg-white p-3" /><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Required audit reason" className="rounded-xl border bg-white p-3" /></div>{message && <div className="mt-4 break-all rounded-xl bg-indigo-50 p-4 text-sm font-semibold text-indigo-800">{message}</div>}{loading ? <Spinner /> : <div className="mt-6 overflow-x-auto rounded-2xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr><th className="p-3">Account</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map((user) => <tr key={user.id} className="border-t"><td className="p-3"><p className="font-bold">{user.displayName}</p><p className="text-xs text-slate-500">{user.email}</p></td><td>{user.role}</td><td>{user.status ?? "active"}</td><td className="flex flex-wrap gap-1 py-3">{(user.role === "admin" ? ["demote"] : ["promote"]).map((action) => <Action key={action} onClick={() => void act(user.id, action as "promote" | "demote")}>{action}</Action>)}<Action onClick={() => void act(user.id, user.status === "suspended" ? "activate" : "suspend")}>{user.status === "suspended" ? "activate" : "suspend"}</Action>{user.status !== "deactivated" && user.status !== "anonymized" && <Action onClick={() => void act(user.id, "deactivate")}>deactivate</Action>}{user.role !== "admin" && user.status === "deactivated" && <Action onClick={() => void act(user.id, "anonymize")}>anonymize</Action>}<Action onClick={() => void act(user.id, "reset_access")}>reset</Action></td></tr>)}</tbody></table></div>}</AdminShell>;
+  return <AdminShell active="users"><PageTitle title="User Account Management" description="Search academic profiles, promote, suspend, reactivate, deactivate, anonymize, or issue access-reset links. The final active administrator is protected." /><div className="mt-6 grid gap-3 md:grid-cols-2"><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, email, student number, course, year, or section" className="rounded-xl border bg-white p-3" /><input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Required audit reason" className="rounded-xl border bg-white p-3" /></div>{message && <div className="mt-4 break-all rounded-xl bg-indigo-50 p-4 text-sm font-semibold text-indigo-800">{message}</div>}{loading ? <Spinner /> : <div className="mt-6 overflow-x-auto rounded-2xl border bg-white"><table className="w-full text-left text-sm"><thead className="bg-slate-50"><tr><th className="p-3">Account and academic profile</th><th>Role</th><th>Status</th><th>Actions</th></tr></thead><tbody>{filtered.map((user) => <tr key={user.id} className="border-t"><td className="p-3"><p className="font-bold">{user.displayName}</p><p className="text-xs text-slate-500">{user.email}</p>{user.role === "student" && <p className="mt-1 text-xs text-slate-600">{user.academicProfileComplete ? `${user.academicProfile?.studentNumber} · ${user.academicProfile?.course} · Year ${user.academicProfile?.yearLevel} · ${user.academicProfile?.section}` : "Academic profile incomplete"}</p>}</td><td>{user.role}</td><td>{user.status ?? "active"}</td><td className="flex flex-wrap gap-1 py-3">{(user.role === "admin" ? ["demote"] : ["promote"]).map((action) => <Action key={action} onClick={() => void act(user.id, action as "promote" | "demote")}>{action}</Action>)}<Action onClick={() => void act(user.id, user.status === "suspended" ? "activate" : "suspend")}>{user.status === "suspended" ? "activate" : "suspend"}</Action>{user.status !== "deactivated" && user.status !== "anonymized" && <Action onClick={() => void act(user.id, "deactivate")}>deactivate</Action>}{user.role !== "admin" && user.status === "deactivated" && <Action onClick={() => void act(user.id, "anonymize")}>anonymize</Action>}<Action onClick={() => void act(user.id, "reset_access")}>reset</Action></td></tr>)}</tbody></table></div>}</AdminShell>;
 }
 
 export function SecureAdminContent() {
   const params = useParams();
   const collectionName = CONTENT_COLLECTIONS.includes(params.collection as ContentCollection) ? params.collection as ContentCollection : "problems";
-  const [items, setItems] = useState<Record<string, any>[]>([]);
-  const [recordId, setRecordId] = useState("");
-  const [json, setJson] = useState('{\n  "status": "draft"\n}');
-  const [message, setMessage] = useState<string | null>(null);
-  const load = useCallback(async () => { if (!db) return; const snapshot = await getDocs(collection(db, collectionName)); setItems(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }))); }, [collectionName]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  async function save() { try { const value = JSON.parse(json); await adminUpsertContent({ collection: collectionName, id: recordId, value }); setMessage("Versioned content saved and audited."); await load(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Content could not be saved."); } }
-  async function archive(id: string) { try { await adminArchiveContent({ collection: collectionName, id }); await load(); } catch (cause) { setMessage(cause instanceof Error ? cause.message : "Content could not be archived."); } }
-  return <AdminShell active="content"><PageTitle title="Managed Learning Content" description="Create, version, approve, and archive content. Problem private solutions are stored in protected subdocuments." /><div className="mt-5 flex flex-wrap gap-2">{CONTENT_COLLECTIONS.map((item) => <Link key={item} to={`/admin/content/${item}`} className={`rounded-lg px-3 py-2 text-xs font-bold ${item === collectionName ? "bg-emerald-600 text-white" : "border bg-white"}`}>{item.replace(/_/g, " ")}</Link>)}</div>{message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800">{message}</div>}<div className="mt-6 grid gap-6 xl:grid-cols-2"><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Create or update</h2><input value={recordId} onChange={(event) => setRecordId(event.target.value)} placeholder="stable-record-id" className="mt-3 w-full rounded-lg border p-3" /><textarea value={json} onChange={(event) => setJson(event.target.value)} rows={16} className="mt-3 w-full rounded-lg border p-3 font-mono text-xs" /><button disabled={!recordId} onClick={() => void save()} className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-bold text-white disabled:opacity-50"><Save className="h-4 w-4" />Save version</button></div><div className="rounded-2xl border bg-white p-5"><h2 className="font-bold">Existing records ({items.length})</h2><div className="mt-3 max-h-[38rem] divide-y overflow-auto">{items.map((item) => <div key={item.id} className="flex items-start justify-between gap-3 py-3"><button className="min-w-0 text-left" onClick={() => { setRecordId(item.id); const copy = { ...item }; delete copy.id; setJson(JSON.stringify(copy, null, 2)); }}><p className="truncate font-semibold">{item.name ?? item.problemText ?? item.id}</p><p className="text-xs text-slate-500">{item.id} · v{item.version ?? 0} · {item.status}</p></button><button onClick={() => void archive(item.id)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button></div>)}</div></div></div></AdminShell>;
+  return <AdminShell active="content"><PageTitle title="Managed Learning Content" description="Use typed, versioned forms. Problems require protected references, a complete seven-phase prompt set, and recorded external faculty evidence before approval." /><div className="mt-5 flex flex-wrap gap-2">{CONTENT_COLLECTIONS.map((item) => <Link key={item} to={`/admin/content/${item}`} className={`rounded-lg px-3 py-2 text-xs font-bold ${item === collectionName ? "bg-emerald-600 text-white" : "border bg-white"}`}>{item.replace(/_/g, " ")}</Link>)}</div><ManagedContentEditor collectionName={collectionName} /></AdminShell>;
 }
 
 export function SecureAdminReports() {

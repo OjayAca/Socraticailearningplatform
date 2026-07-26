@@ -22,7 +22,9 @@ export interface PrivateProblemReference {
   solutionSteps: string[];
   finalAnswer: string;
   interpretation: string;
+  formulaTheoremConditions?: string[];
   socraticPrompts?: Partial<Record<ReasoningPhase, string>>;
+  misconceptionPrompts?: Partial<Record<DiagnosisCategory, string>>;
 }
 
 export interface GateState {
@@ -159,7 +161,12 @@ export function evaluateDeterministically(options: {
       case "formula_theorem_justification": {
         const hasReason = REASON_WORDS.some((word) => combined.includes(word));
         const hasCondition = /condition|assum|given|requires|valid|appl/.test(combined);
-        accepted = hasReason && hasCondition && significant.length >= 6;
+        const managedConditionTerms = (reference.formulaTheoremConditions ?? [])
+          .flatMap((condition) => normalize(condition).split(" "))
+          .filter((word) => word.length > 4);
+        const referencesManagedCondition = managedConditionTerms.length === 0
+          || managedConditionTerms.some((word) => combined.includes(word));
+        accepted = hasReason && hasCondition && referencesManagedCondition && significant.length >= 6;
         confidence = accepted ? "high" : hasReason ? "medium" : "low";
         category = accepted ? "none" : "weak_justification";
         evidence = accepted
@@ -204,6 +211,9 @@ export function evaluateDeterministically(options: {
   // The deterministic pass cheaply rejects clearly inadequate input and sends
   // every otherwise plausible response to the reference-aware AI evaluator.
   const requiresAI = accepted || confidence === "medium";
+  if (!accepted && reference.misconceptionPrompts?.[category]) {
+    correctivePrompt = reference.misconceptionPrompts[category]!;
+  }
   const status = "needs_revision" as const;
   const now = Date.now();
   return {
@@ -379,33 +389,50 @@ export function recommendDifficulty(options: {
     supportUsage: number;
     diagnoses: string[];
   }>;
+  policy?: {
+    minimumCompletedSessions: number;
+    increaseScoreThreshold: number;
+    decreaseScoreThreshold: number;
+    maxHintsForIncrease: number;
+    arithmeticErrorAloneLowersDifficulty: boolean;
+  };
 }): { recommendedDifficulty: Difficulty; reason: string; confidence: "low" | "medium" | "high" } {
   const levels: Difficulty[] = ["Basic", "Intermediate", "Advanced"];
   const currentIndex = levels.indexOf(options.currentDifficulty);
-  if (options.recentSessions.length < 2) {
+  const policy = options.policy ?? {
+    minimumCompletedSessions: 2,
+    increaseScoreThreshold: 80,
+    decreaseScoreThreshold: 60,
+    maxHintsForIncrease: 1,
+    arithmeticErrorAloneLowersDifficulty: false,
+  };
+  if (options.recentSessions.length < policy.minimumCompletedSessions) {
     return {
       recommendedDifficulty: options.currentDifficulty,
-      reason: "At least two completed sessions in this topic are required before changing difficulty.",
+      reason: `At least ${policy.minimumCompletedSessions} completed sessions in this topic are required before changing difficulty.`,
       confidence: "low",
     };
   }
-  const recent = options.recentSessions.slice(0, 2);
+  const recent = options.recentSessions.slice(0, policy.minimumCompletedSessions);
   const major = new Set(["conceptual_error", "theorem_condition_violation", "invalid_logic", "skipped_reasoning"]);
   const majorDiagnoses = recent.flatMap((session) => session.diagnoses.filter((item) => major.has(item)));
-  if (recent.every((session) => session.score >= 80 && session.supportUsage <= 1) && majorDiagnoses.length === 0) {
+  if (recent.every((session) =>
+    session.score >= policy.increaseScoreThreshold
+    && session.supportUsage <= policy.maxHintsForIncrease
+  ) && majorDiagnoses.length === 0) {
     return {
       recommendedDifficulty: levels[Math.min(currentIndex + 1, levels.length - 1)],
-      reason: "Two strong topic sessions (80 or higher) were completed with limited support and no major conceptual or logical diagnosis.",
+      reason: `${policy.minimumCompletedSessions} strong topic sessions met the configured score and support thresholds with no major conceptual or logical diagnosis.`,
       confidence: "high",
     };
   }
   const repeatedMajor = majorDiagnoses.some((item, index) => majorDiagnoses.indexOf(item) !== index);
-  if (recent.every((session) => session.score < 60) || repeatedMajor) {
+  if (recent.every((session) => session.score < policy.decreaseScoreThreshold) || repeatedMajor) {
     return {
       recommendedDifficulty: levels[Math.max(currentIndex - 1, 0)],
       reason: repeatedMajor
         ? "A major conceptual or logical diagnosis repeated across the two most recent topic sessions."
-        : "The two most recent topic scorecards were below 60.",
+        : `The recent topic scorecards were below the configured threshold of ${policy.decreaseScoreThreshold}.`,
       confidence: "high",
     };
   }

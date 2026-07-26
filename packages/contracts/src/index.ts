@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 3 as const;
+export const SCHEMA_VERSION = 4 as const;
 export const WORKFLOW_VERSION = 4 as const;
 
 export type UserRole = "student" | "admin";
@@ -7,6 +7,71 @@ export type Subject = "Quantitative Methods" | "Discrete Mathematics";
 export type Difficulty = "Basic" | "Intermediate" | "Advanced";
 export type Confidence = "low" | "medium" | "high";
 export type EvaluationSource = "deterministic" | "ai" | "hybrid";
+export type ManagedContentStatus =
+  | "draft"
+  | "pending_validation"
+  | "approved"
+  | "rejected"
+  | "archived";
+
+export interface AcademicProfile {
+  studentNumber: string;
+  course: string;
+  yearLevel: string;
+  section: string;
+}
+
+export interface CatalogSubject {
+  id: string;
+  name: Subject;
+  status: "approved";
+  version: number;
+}
+
+export interface CatalogTopic {
+  id: string;
+  subjectId: string;
+  subject: Subject;
+  name: string;
+  status: "approved";
+  version: number;
+  ready: boolean;
+}
+
+export interface LearningCatalog {
+  subjects: CatalogSubject[];
+  topics: CatalogTopic[];
+  generatedAt: number;
+}
+
+export interface ManagedReferenceVersion {
+  id: string;
+  version: number;
+}
+
+export interface SessionConfigurationVersions {
+  topic: ManagedReferenceVersion;
+  problem: ManagedReferenceVersion;
+  formulaTheoremReferences: ManagedReferenceVersion[];
+  prompts: ManagedReferenceVersion[];
+  misconceptionPolicies: ManagedReferenceVersion[];
+  difficultyPolicy: ManagedReferenceVersion;
+}
+
+export interface ContentValidationRecord {
+  id: string;
+  problemId: string;
+  syllabusReference: string;
+  contentMatrixItem: string;
+  validatorName: string;
+  validatorRole: string;
+  validationDate: number;
+  evidenceReference: string;
+  evidenceHash: string;
+  decision: "approved" | "rejected";
+  createdAt: number;
+  createdBy: string;
+}
 
 export const REASONING_PHASES = [
   "problem_understanding",
@@ -184,13 +249,17 @@ export interface SolverStageProgress {
 
 export interface PublicProblem {
   id: string;
+  subjectId: string;
+  topicId: string;
   subject: Subject;
   topic: string;
   difficulty: Difficulty;
+  variant: number;
   problemText: string;
   supportedResponseFormats: Array<"text" | "latex">;
-  status: "draft" | "approved" | "archived";
+  status: ManagedContentStatus;
   version: number;
+  validationRecordId?: string;
 }
 
 export interface SessionProjection {
@@ -199,6 +268,8 @@ export interface SessionProjection {
   workflowVersion: typeof WORKFLOW_VERSION;
   revision: number;
   studentId: string;
+  subjectId: string;
+  topicId: string;
   subject: Subject;
   topic: string;
   difficulty: Difficulty;
@@ -216,6 +287,7 @@ export interface SessionProjection {
   scorecard: ScorecardResult | null;
   releasedSolution: ReleasedSolution | null;
   adaptiveRecommendation: AdaptiveRecommendation | null;
+  configurationVersions: SessionConfigurationVersions | null;
   promptAdjustment: "simplify" | "maintain" | "deepen";
   createdAt: number;
   updatedAt: number;
@@ -244,14 +316,25 @@ export interface BootstrapProfileRequest extends MutationRequest {
   consentVersion?: string;
 }
 
-export interface StartLearningSessionRequest extends MutationRequest {
-  mode: "curated" | "free_form";
-  problemId?: string;
-  question?: string;
-  subject?: Subject;
-  topic?: string;
-  difficulty?: Difficulty;
+export interface CompleteAcademicProfileRequest extends MutationRequest, AcademicProfile {}
+
+export interface CuratedLearningSessionInput {
+  mode: "curated";
+  topicId: string;
 }
+
+export interface FreeFormLearningSessionInput {
+  mode: "free_form";
+  topicId: string;
+  question: string;
+  requestedDifficulty: Difficulty;
+}
+
+export type StartLearningSessionInput =
+  | CuratedLearningSessionInput
+  | FreeFormLearningSessionInput;
+
+export type StartLearningSessionRequest = MutationRequest & StartLearningSessionInput;
 
 export interface EvaluatePhaseResponseRequest extends MutationRequest {
   sessionId: string;
@@ -370,6 +453,55 @@ export interface ContentMutationRequest extends MutationRequest {
     | "policy_documents";
   id: string;
   value?: Record<string, unknown>;
+}
+
+export interface AdminSubmitProblemValidationRequest extends MutationRequest {
+  problemId: string;
+}
+
+export interface AdminRecordProblemValidationRequest extends MutationRequest {
+  problemId: string;
+  syllabusReference: string;
+  contentMatrixItem: string;
+  validatorName: string;
+  validatorRole: string;
+  validationDate: number;
+  evidenceReference: string;
+  evidenceHash: string;
+  decision: "approved" | "rejected";
+}
+
+export interface AdminImportProblemDraft {
+  id: string;
+  subjectId: string;
+  topicId: string;
+  subject: Subject;
+  topic: string;
+  difficulty: Difficulty;
+  variant: 1 | 2 | 3;
+  problemText: string;
+  supportedResponseFormats: Array<"text" | "latex">;
+  formulaTheoremReferenceIds: string[];
+  privateSolution: Record<string, unknown>;
+}
+
+export interface AdminBulkImportProblemsRequest extends MutationRequest {
+  problems: AdminImportProblemDraft[];
+  dryRun: boolean;
+}
+
+export interface CatalogReadinessResponse {
+  ready: boolean;
+  expectedProblemCount: number;
+  approvedProblemCount: number;
+  cells: Array<{
+    topicId: string;
+    difficulty: Difficulty;
+    approvedVariants: number;
+    ready: boolean;
+  }>;
+  issues: string[];
+  generatedAt: number;
 }
 
 export function isReasoningPhase(value: unknown): value is ReasoningPhase {

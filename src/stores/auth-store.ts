@@ -380,9 +380,27 @@ function normalizeUserProfile(
   return {
     ...profile,
     role: role as UserProfile["role"],
+    academicProfile: normalizeAcademicProfile(profile.academicProfile),
+    academicProfileComplete:
+      profile.academicProfileComplete === true && normalizeAcademicProfile(profile.academicProfile) !== null,
     stats: normalizeUserStats(profile.stats as UserStats | undefined),
     preferences: normalizeUserPreferences(profile.preferences),
   } as unknown as UserProfile;
+}
+
+function normalizeAcademicProfile(value: unknown): UserProfile["academicProfile"] {
+  if (!value || typeof value !== "object") return null;
+  const profile = value as Record<string, unknown>;
+  const fields = ["studentNumber", "course", "yearLevel", "section"] as const;
+  if (!fields.every((field) => typeof profile[field] === "string" && String(profile[field]).trim())) {
+    return null;
+  }
+  return {
+    studentNumber: String(profile.studentNumber),
+    course: String(profile.course),
+    yearLevel: String(profile.yearLevel),
+    section: String(profile.section),
+  };
 }
 
 function normalizeRole(role: unknown): CanonicalUserRole {

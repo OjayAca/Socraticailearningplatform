@@ -250,10 +250,12 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
   })) as SessionProjection["stageProgress"];
   return {
     id,
-    schemaVersion: 3,
+    schemaVersion: 4,
     workflowVersion: WORKFLOW_VERSION,
     revision: Number(data.revision ?? 0),
     studentId: data.studentId,
+    subjectId: data.subjectId ?? "",
+    topicId: data.topicId ?? "",
     subject: data.subject,
     topic: data.topic,
     difficulty: data.difficulty,
@@ -271,6 +273,7 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     scorecard: data.scorecard ?? null,
     releasedSolution: data.releasedSolution ?? null,
     adaptiveRecommendation: data.adaptiveRecommendation ?? data.difficultyRecommendation ?? null,
+    configurationVersions: data.configurationVersions ?? null,
     promptAdjustment: data.promptAdjustment ?? "maintain",
     createdAt: millis(data.createdAt),
     updatedAt: millis(data.updatedAt),

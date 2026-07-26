@@ -15,10 +15,10 @@ Learners see four stages: Problem Understanding, Method Selection, Computation, 
 
 ## Workspaces
 
-- `packages/contracts`: canonical schema-v3 types and workflow order.
+- `packages/contracts`: canonical schema-v4 types and workflow order.
 - `functions`: trusted Gen 2 callables and scheduled retention.
 - `src`: React learner and System Administrator interfaces.
-- `scripts/migrate-v3.ts`: dry-run/apply/verify/rollback migration.
+- `scripts/migrate-v4.ts`: faculty-gated 99-problem schema-v4 dry-run/apply/verify/rollback migration.
 - `tests`: unit, migration, rules, and Playwright coverage.
 - `docs/mindguide-secure-release`: architecture, data dictionary, deployment, verification, and progress evidence.
 
@@ -52,25 +52,26 @@ project.
 
 Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
 
-## Schema-v3 migration
+## Schema-v4 migration
 
-Migration is dry-run by default and requires an authenticated Admin SDK environment plus the target project ID.
+Migration is dry-run by default and requires an authenticated Admin SDK environment plus the target project ID. It upgrades an existing schema-v3 project; it also seeds missing managed references defensively, but production must still follow the staged export/restore procedure.
 
 ```bash
 set FIREBASE_PROJECT_ID=your-staging-project
-npm run migrate:v3
-npm run migrate:v3 -- --apply
-npm run migrate:v3:verify
+npm run migrate:v4
+npm run migrate:v4 -- --apply
+npm run migrate:v4:verify
+npm run release:preflight -- --project=your-staging-project --output=preflight.json
 ```
 
 Rollback requires the exact manifest created by the apply operation:
 
 ```bash
-npm run migrate:v3:rollback -- --backup="migration-backups/<backup>.json" --project="your-project-id"
+npm run migrate:v4:rollback -- --backup=".local-backups/<backup>.json" --project="your-project-id"
 ```
 
 Do not run apply in production before a managed Firestore export and verified staging rehearsal. See [Deployment and rollback](docs/mindguide-secure-release/DEPLOYMENT.md).
 
 ## Release status
 
-The implementation and local release gates are complete on `codex/mindguide-secure-release`. Production remains closed until a Firebase project owner completes billing/API enablement, dedicated service-account IAM, App Check registration, Secret Manager configuration, credential rotation, staging migration/smoke testing, privacy-date configuration, and the controlled deployment checklist.
+Schema-v4 repository implementation is complete. The learner catalog remains intentionally closed until all 99 problem variants have recorded external faculty-validation evidence. Production also remains closed until a Firebase project owner completes billing/API enablement, dedicated service-account IAM, App Check registration, Secret Manager configuration, credential rotation, staging migration/smoke testing, privacy-date configuration, and the controlled deployment checklist.

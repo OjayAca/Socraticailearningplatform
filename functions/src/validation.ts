@@ -18,24 +18,29 @@ export const bootstrapProfileSchema = z.object({
   consentVersion: z.string().trim().min(1).max(80).optional(),
 });
 
-export const startSessionSchema = z
-  .object({
+export const academicProfileSchema = z.object({
+  studentNumber: z.string().trim().min(1).max(80),
+  course: z.string().trim().min(1).max(160),
+  yearLevel: z.string().trim().min(1).max(80),
+  section: z.string().trim().min(1).max(80),
+});
+
+export const completeAcademicProfileSchema = academicProfileSchema.extend({ requestId });
+
+export const startSessionSchema = z.discriminatedUnion("mode", [
+  z.object({
     requestId,
-    mode: z.enum(["curated", "free_form"]),
-    problemId: z.string().trim().min(1).max(160).optional(),
-    question: z.string().trim().min(8).max(2_000).optional(),
-    subject: subject.optional(),
-    topic: z.string().trim().min(1).max(160).optional(),
-    difficulty: difficulty.optional(),
-  })
-  .superRefine((value, context) => {
-    if (value.mode === "curated" && !value.problemId) {
-      context.addIssue({ code: "custom", path: ["problemId"], message: "A prepared problem is required." });
-    }
-    if (value.mode === "free_form" && (!value.question || !value.subject || !value.topic)) {
-      context.addIssue({ code: "custom", path: ["question"], message: "Question, subject, and topic are required." });
-    }
-  });
+    mode: z.literal("curated"),
+    topicId: z.string().trim().min(1).max(160),
+  }),
+  z.object({
+    requestId,
+    mode: z.literal("free_form"),
+    topicId: z.string().trim().min(1).max(160),
+    question: z.string().trim().min(8).max(2_000),
+    requestedDifficulty: difficulty,
+  }),
+]);
 
 export const evaluateResponseSchema = z.object({
   requestId,
@@ -125,15 +130,23 @@ export const reportQuerySchema = z.object({
   limit: z.number().int().min(1).max(1_000).default(100),
 });
 
-const managedStatus = z.enum(["draft", "approved", "archived"]);
+const managedStatus = z.enum(["draft", "pending_validation", "approved", "rejected", "archived"]);
 const privateProblemSolution = z.object({
   expectedConcepts: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
   requiredFormula: z.string().max(1_000).nullable().optional(),
   requiredTheorem: z.string().max(1_000).nullable().optional(),
-  solutionSteps: z.array(z.string().trim().min(1).max(2_000)).min(1).max(30),
+  solutionSteps: z.array(z.string().trim().min(1).max(2_000)).min(1).max(30).optional(),
+  workedSteps: z.array(z.string().trim().min(1).max(2_000)).min(1).max(30).optional(),
   finalAnswer: z.string().trim().min(1).max(4_000),
   interpretation: z.string().trim().min(1).max(4_000),
   socraticPrompts: z.record(z.string(), z.string().max(1_000)).optional(),
+}).superRefine((value, context) => {
+  if (!value.solutionSteps && !value.workedSteps) {
+    context.addIssue({ code: "custom", path: ["workedSteps"], message: "Protected worked steps are required." });
+  }
+}).transform((value) => {
+  const { workedSteps, ...rest } = value;
+  return { ...rest, solutionSteps: value.solutionSteps ?? workedSteps! };
 });
 
 const managedSchemas = {
@@ -145,11 +158,15 @@ const managedSchemas = {
     status: managedStatus,
   }),
   problems: z.object({
+    subjectId: z.string().trim().min(1).max(160),
+    topicId: z.string().trim().min(1).max(160),
     subject,
     topic: z.string().trim().min(1).max(160),
     difficulty,
+    variant: z.number().int().min(1).max(3),
     problemText: z.string().trim().min(8).max(4_000),
     supportedResponseFormats: z.array(z.enum(["text", "latex"])).min(1),
+    formulaTheoremReferenceIds: z.array(z.string().trim().min(1).max(160)).min(1).max(12),
     status: managedStatus,
     privateSolution: privateProblemSolution.optional(),
   }),
@@ -171,9 +188,14 @@ const managedSchemas = {
   }),
   misconception_categories: z.object({
     name: z.string().trim().min(1).max(160),
+    phases: z.array(z.enum(REASONING_PHASES)).default([]),
+    correctivePrompt: z.string().trim().min(1).max(1_000).optional(),
+    priority: z.number().int().min(0).max(100).default(0),
     status: managedStatus,
   }),
   difficulty_policies: z.object({
+    subjectId: z.string().trim().min(1).max(160).nullable().optional(),
+    topicId: z.string().trim().min(1).max(160).nullable().optional(),
     minimumCompletedSessions: z.number().int().min(1).max(100),
     increaseScoreThreshold: z.number().min(0).max(100),
     decreaseScoreThreshold: z.number().min(0).max(100),
@@ -191,6 +213,40 @@ const managedSchemas = {
     retention: z.string().trim().min(1).max(2_000),
   }),
 } as const;
+
+export const submitProblemValidationSchema = z.object({
+  requestId,
+  problemId: z.string().trim().min(1).max(160),
+});
+
+export const recordProblemValidationSchema = submitProblemValidationSchema.extend({
+  syllabusReference: z.string().trim().min(1).max(500),
+  contentMatrixItem: z.string().trim().min(1).max(240),
+  validatorName: z.string().trim().min(1).max(160),
+  validatorRole: z.string().trim().min(1).max(160),
+  validationDate: z.number().int().positive(),
+  evidenceReference: z.string().trim().min(1).max(1_000),
+  evidenceHash: z.string().trim().min(16).max(256),
+  decision: z.enum(["approved", "rejected"]),
+});
+
+export const bulkImportProblemsSchema = z.object({
+  requestId,
+  dryRun: z.boolean(),
+  problems: z.array(z.object({
+    id: z.string().trim().min(1).max(160).regex(/^[A-Za-z0-9_-]+$/),
+    subjectId: z.string().trim().min(1).max(160),
+    topicId: z.string().trim().min(1).max(160),
+    subject,
+    topic: z.string().trim().min(1).max(160),
+    difficulty,
+    variant: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+    problemText: z.string().trim().min(8).max(4_000),
+    supportedResponseFormats: z.array(z.enum(["text", "latex"])).min(1),
+    formulaTheoremReferenceIds: z.array(z.string().trim().min(1).max(160)).min(1).max(12),
+    privateSolution: privateProblemSolution,
+  })).min(1).max(100),
+});
 
 export function validateManagedContent(
   collection: string,

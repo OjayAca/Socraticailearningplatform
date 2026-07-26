@@ -1,5 +1,6 @@
 import { onCall } from "firebase-functions/v2/https";
 import type {
+  AcademicProfile,
   AdaptiveRecommendation,
   Difficulty,
   EvaluatePhaseResponseResponse,
@@ -22,6 +23,13 @@ import {
   solverStageForPhase,
 } from "@mindguide/contracts";
 import { analyzeFreeFormProblem, evaluateAmbiguousResponse } from "./ai.js";
+import {
+  buildCatalogReadiness,
+  buildLearningCatalog,
+  readApprovedTopic,
+  resolveDifficultyPolicy,
+  resolveProblemConfiguration,
+} from "./configuration.js";
 import { asCallableError, callableError, correlationId } from "./errors.js";
 import { normalizeMathResponse } from "./math.js";
 import { aiCallableOptions, callableOptions, database, FieldValue, Timestamp } from "./runtime.js";
@@ -36,6 +44,7 @@ import {
 } from "./security.js";
 import {
   bootstrapProfileSchema,
+  completeAcademicProfileSchema,
   evaluateResponseSchema,
   parseInput,
   revisionedSessionMutationSchema,
@@ -66,6 +75,53 @@ export const getCurrentConsentNotice = onCall(callableOptions, async (request) =
     await requireActor(request);
     return await readCurrentConsentNotice();
   } catch (error) {
+    throw asCallableError(error, id);
+  }
+});
+
+export const getLearningCatalog = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  try {
+    await requireActor(request);
+    return await buildLearningCatalog();
+  } catch (error) {
+    throw asCallableError(error, id);
+  }
+});
+
+export const completeAcademicProfile = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<{ academicProfile: AcademicProfile }>>> | undefined;
+  try {
+    const actor = await requireActor(request);
+    const data = parseInput(completeAcademicProfileSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "completeAcademicProfile", data.requestId);
+    if (operation.cached) return operation.cached;
+    const profileRef = database.doc(`users/${actor.uid}`);
+    const academicProfile: AcademicProfile = {
+      studentNumber: data.studentNumber,
+      course: data.course,
+      yearLevel: data.yearLevel,
+      section: data.section,
+    };
+    const response = { academicProfile };
+    await database.runTransaction(async (transaction) => {
+      const profile = await transaction.get(profileRef);
+      if (!profile.exists || profile.get("role") !== "student") {
+        throw callableError("failed-precondition", "student_profile_required", "Only an active student profile can store academic details.");
+      }
+      transaction.update(profileRef, {
+        schemaVersion: SCHEMA_VERSION,
+        academicProfile,
+        academicProfileComplete: true,
+        academicProfileCompletedAt: profile.get("academicProfileCompletedAt") ?? FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
     throw asCallableError(error, id);
   }
 });
@@ -105,6 +161,8 @@ export const bootstrapProfile = onCall(callableOptions, async (request) => {
         updatedAt: FieldValue.serverTimestamp(),
         lastActivityAt: FieldValue.serverTimestamp(),
         preferences: current.get("preferences") ?? { liveAlertPopups: true },
+        academicProfile: current.get("academicProfile") ?? null,
+        academicProfileComplete: current.get("academicProfileComplete") === true,
       };
       transaction.set(profileRef, profile, { merge: true });
       if (data.consentVersion) {
@@ -136,17 +194,34 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
     await requireCurrentConsent(actor.uid);
 
     const profile = await database.doc(`users/${actor.uid}`).get();
+    if (profile.get("role") === "student" && profile.get("academicProfileComplete") !== true) {
+      throw callableError(
+        "failed-precondition",
+        "academic_profile_required",
+        "Complete your student number, course, year level, and section before starting a learning session."
+      );
+    }
+    const readiness = await buildCatalogReadiness();
+    if (!readiness.ready) {
+      throw callableError(
+        "failed-precondition",
+        "formal_evaluation_not_ready",
+        "Learning sessions are disabled until all 99 problem variants have recorded faculty approval."
+      );
+    }
+    const topic = await readApprovedTopic(data.topicId);
     let publicProblem: Record<string, unknown>;
     let reference: PrivateProblemReference;
     let rawAI: string | null = null;
     let adaptiveRecommendation: SessionProjection["adaptiveRecommendation"] = null;
+    let configurationVersions: SessionProjection["configurationVersions"] = null;
+    let privateConfigurationSnapshot: Record<string, unknown> | null = null;
 
     if (data.mode === "curated") {
       const selection = await selectAdaptiveProblem({
         uid: actor.uid,
-        requestedProblemId: data.problemId,
-        requestedSubject: data.subject,
-        requestedTopic: data.topic,
+        topicId: topic.id,
+        subjectId: topic.subjectId,
       });
       const problemRef = database.doc(`problems/${selection.problem.id}`);
       const privateProblem = await problemRef.collection("private").doc("solution").get();
@@ -154,13 +229,22 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
         throw callableError("not-found", "problem_unavailable", "This prepared problem is unavailable.");
       }
       publicProblem = { id: selection.problem.id, ...selection.problem.data() };
-      reference = privateProblem.data() as PrivateProblemReference;
+      const resolved = await resolveProblemConfiguration(
+        selection.problem,
+        privateProblem.data() as PrivateProblemReference
+      );
+      reference = resolved.reference;
+      configurationVersions = resolved.versions;
+      privateConfigurationSnapshot = {
+        versions: resolved.versions,
+        difficultyPolicy: resolved.difficultyPolicy,
+      };
       adaptiveRecommendation = selection.recommendation;
     } else {
       const analyzed = await analyzeFreeFormProblem({
         question: data.question!,
-        subject: data.subject!,
-        topic: data.topic!,
+        subject: topic.subject,
+        topic: topic.name,
       }).catch(async (error) => {
         await writeAIFailure({
           uid: actor.uid,
@@ -191,17 +275,19 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       }
       publicProblem = {
         id: null,
-        subject: data.subject,
-        topic: data.topic,
-        difficulty: data.difficulty ?? "Basic",
+        subjectId: topic.subjectId,
+        topicId: topic.id,
+        subject: topic.subject,
+        topic: topic.name,
+        difficulty: data.requestedDifficulty,
         problemText: analyzed.analysis.normalizedQuestion,
         supportedResponseFormats: ["text", "latex"],
       };
       reference = analyzed.analysis;
       rawAI = analyzed.raw;
       adaptiveRecommendation = {
-        recommendedDifficulty: (data.difficulty ?? "Basic") as SessionProjection["difficulty"],
-        reason: "Free-form problems keep the learner-selected complexity while Socratic prompt scaffolding adapts to response quality.",
+        recommendedDifficulty: data.requestedDifficulty,
+        reason: "Free-form problems retain their intrinsic learner-selected complexity; adaptation applies to Socratic scaffolding rather than substituting the problem.",
         confidence: "low",
       };
     }
@@ -214,6 +300,8 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       revision: 0,
       studentId: actor.uid,
       studentName: profile.get("displayName") ?? actor.email ?? "Learner",
+      subjectId: publicProblem.subjectId,
+      topicId: publicProblem.topicId,
       subject: publicProblem.subject,
       topic: publicProblem.topic,
       difficulty: publicProblem.difficulty,
@@ -238,6 +326,7 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       scorecard: null,
       releasedSolution: null,
       adaptiveRecommendation,
+      configurationVersions,
       promptAdjustment: "maintain",
       consecutiveStrongResponses: 0,
       parentSessionId: null,
@@ -270,6 +359,7 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       transaction.create(sessionRef, sessionData);
       transaction.create(sessionRef.collection("private").doc("reference"), {
         ...reference,
+        configurationSnapshot: privateConfigurationSnapshot,
         createdAt: FieldValue.serverTimestamp(),
       });
       if (rawAI) {
@@ -771,6 +861,8 @@ function projectSession(id: string, session: Record<string, any>): SessionProjec
     workflowVersion: WORKFLOW_VERSION,
     revision: Number(session.revision ?? 0),
     studentId: String(session.studentId),
+    subjectId: String(session.subjectId ?? ""),
+    topicId: String(session.topicId ?? ""),
     subject: session.subject,
     topic: String(session.topic),
     difficulty: session.difficulty,
@@ -788,6 +880,7 @@ function projectSession(id: string, session: Record<string, any>): SessionProjec
     scorecard: session.scorecard ?? null,
     releasedSolution: session.releasedSolution ?? null,
     adaptiveRecommendation: session.adaptiveRecommendation ?? session.difficultyRecommendation ?? null,
+    configurationVersions: session.configurationVersions ?? null,
     promptAdjustment: session.promptAdjustment ?? "maintain",
     createdAt: millis(session.createdAt),
     updatedAt: millis(session.updatedAt),
@@ -903,22 +996,12 @@ async function writeAIFailure(value: Record<string, unknown>): Promise<void> {
 
 async function selectAdaptiveProblem(options: {
   uid: string;
-  requestedProblemId?: string;
-  requestedSubject?: string;
-  requestedTopic?: string;
+  topicId: string;
+  subjectId: string;
 }): Promise<{
   problem: FirebaseFirestore.QueryDocumentSnapshot;
   recommendation: AdaptiveRecommendation;
 }> {
-  const requested = options.requestedProblemId
-    ? await database.doc(`problems/${options.requestedProblemId}`).get()
-    : null;
-  const subject = options.requestedSubject ?? requested?.get("subject");
-  const topic = options.requestedTopic ?? requested?.get("topic");
-  if (!subject || !topic) {
-    throw callableError("invalid-argument", "problem_context_required", "Choose a prepared problem topic before starting.");
-  }
-
   const recentSnapshot = await database
     .collection("sessions")
     .where("studentId", "==", options.uid)
@@ -926,9 +1009,9 @@ async function selectAdaptiveProblem(options: {
     .limit(30)
     .get();
   const recentTopicSessions = recentSnapshot.docs
-    .filter((document) => document.get("topic") === topic && document.get("scorecard"))
-    .slice(0, 2);
+    .filter((document) => document.get("topicId") === options.topicId && document.get("scorecard"));
   const currentDifficulty = (recentTopicSessions[0]?.get("difficulty") ?? "Basic") as Difficulty;
+  const policy = await resolveDifficultyPolicy(options.subjectId, options.topicId);
   const recommendation = recentTopicSessions.length === 0
     ? {
         recommendedDifficulty: "Basic" as const,
@@ -942,55 +1025,52 @@ async function selectAdaptiveProblem(options: {
           supportUsage: Number(document.get("supportUsage") ?? document.get("hintsUsed") ?? 0),
           diagnoses: Array.isArray(document.get("diagnosisSummary")) ? document.get("diagnosisSummary") : [],
         })),
+        policy,
       });
 
-  const exact = await database.collection("problems")
+  const candidateQuery = database.collection("problems")
     .where("status", "==", "approved")
-    .where("subject", "==", subject)
-    .where("topic", "==", topic)
-    .where("difficulty", "==", recommendation.recommendedDifficulty)
-    .get();
-  let candidates = exact.docs;
-  if (candidates.length === 0) {
-    const allTopicProblems = await database.collection("problems")
-      .where("status", "==", "approved")
-      .where("subject", "==", subject)
-      .where("topic", "==", topic)
-      .get();
-    const levels: Difficulty[] = ["Basic", "Intermediate", "Advanced"];
-    const target = levels.indexOf(recommendation.recommendedDifficulty);
-    candidates = allTopicProblems.docs
-      .sort((first, second) => {
-        const firstDistance = Math.abs(levels.indexOf(first.get("difficulty")) - target);
-        const secondDistance = Math.abs(levels.indexOf(second.get("difficulty")) - target);
-        return firstDistance - secondDistance || first.id.localeCompare(second.id);
-      });
-  }
-  if (candidates.length === 0) {
-    throw callableError("not-found", "problem_unavailable", "No approved prepared problem is available for this topic.");
-  }
-
-  const lastUsed = new Map<string, number>();
-  recentSnapshot.docs.forEach((document) => {
-    const problemId = document.get("problemId");
-    if (typeof problemId !== "string" || lastUsed.has(problemId)) return;
-    lastUsed.set(problemId, millis(document.get("updatedAt")));
+    .where("topicId", "==", options.topicId)
+    .where("difficulty", "==", recommendation.recommendedDifficulty);
+  const stateRef = database.doc(`learning_progress/${options.uid}/assignment_state/${options.topicId}`);
+  const problem = await database.runTransaction(async (transaction) => {
+    const [candidateSnapshot, state] = await Promise.all([
+      transaction.get(candidateQuery),
+      transaction.get(stateRef),
+    ]);
+    const candidates = candidateSnapshot.docs
+      .filter((document) => document.get("validationRecordId"))
+      .sort((first, second) =>
+        Number(first.get("variant") ?? 0) - Number(second.get("variant") ?? 0)
+        || first.id.localeCompare(second.id)
+      );
+    if (candidates.length < 3) {
+      throw callableError(
+        "failed-precondition",
+        "problem_variants_incomplete",
+        "This topic and difficulty do not yet have three faculty-validated variants."
+      );
+    }
+    const recentByDifficulty = state.exists && state.get("recentByDifficulty")
+      ? state.get("recentByDifficulty") as Record<string, unknown>
+      : {};
+    const recentIds = Array.isArray(recentByDifficulty[recommendation.recommendedDifficulty])
+      ? (recentByDifficulty[recommendation.recommendedDifficulty] as unknown[])
+        .filter((value): value is string => typeof value === "string")
+      : [];
+    const selected = candidates.find((candidate) => !recentIds.includes(candidate.id)) ?? candidates[0];
+    transaction.set(stateRef, {
+      recentByDifficulty: {
+        ...recentByDifficulty,
+        [recommendation.recommendedDifficulty]: [selected.id, ...recentIds]
+          .filter((value, index, values) => values.indexOf(value) === index)
+          .slice(0, 2),
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return selected;
   });
-  candidates.sort((first, second) =>
-    (lastUsed.get(first.id) ?? 0) - (lastUsed.get(second.id) ?? 0) || first.id.localeCompare(second.id)
-  );
-  const problem = candidates[0];
-  const selectedDifficulty = problem.get("difficulty") as Difficulty;
-  return {
-    problem,
-    recommendation: selectedDifficulty === recommendation.recommendedDifficulty
-      ? recommendation
-      : {
-          ...recommendation,
-          recommendedDifficulty: selectedDifficulty,
-          reason: `${recommendation.reason} The nearest available approved tier is ${selectedDifficulty}.`,
-        },
-  };
+  return { problem, recommendation };
 }
 
 function pickSessionProblem(session: Record<string, any>) {

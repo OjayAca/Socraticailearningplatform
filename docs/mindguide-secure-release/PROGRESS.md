@@ -1,6 +1,6 @@
 # MINDGUIDE Secure Release Progress
 
-## Status: implementation complete; project-owner release gates pending
+## Status: schema-v4 implementation complete; faculty validation and project-owner release gates pending
 
 ### Phase 1: Baseline and trusted backend — complete
 
@@ -37,6 +37,22 @@
 - [x] Preserve dashboards, history, profile/settings, notifications, prepared/free-form modes, administration, reporting, review, follow-ups, consent, privacy, retention, and security.
 - [x] Introduce workflow-v4 projections while preserving workflow-v3 history and migration safety.
 - [x] Verify four-stage mapping, domain-specific private prompts, adaptive selection/scaffolding, four 25-point criteria, score-before-reveal, and released-solution access controls.
+
+### Phase 7: capstone alignment assessment remediation — repository complete
+
+- [x] Add required student number, course, year level, and section with a server-owned first-session gate.
+- [x] Replace hard-coded learner topics and learner-selected prepared problems with a readiness-gated Firestore catalog and server assignment.
+- [x] Resolve and version-pin approved formula/theorem references, seven prompts, misconception corrections, and adaptive policies for new sessions.
+- [x] Add typed administrator forms, bulk draft API, immutable faculty-validation decisions, schema-v4 migration/rollback/verification, and release preflight.
+- [x] Expand the repository seed to 99 records without claiming generated drafts are faculty approved.
+- [x] Align the data dictionary, architecture, verification evidence, and manuscript amendment guidance.
+- [x] Pass typecheck, lint, 55 unit/Functions tests, 8 rules tests, production build, private-material scan, and 2 public Playwright tests (2 credential-dependent tests skipped).
+
+### Academic approval gate — pending
+
+- [ ] Replace or verify the 66 generated parallel drafts using the official syllabi and approved content matrix.
+- [ ] Record external faculty evidence for all 99 problems through the validation workflow.
+- [ ] Confirm `release:preflight` reports 99 approved problems and 33 complete cells.
 
 ## Project-owner gates — pending
 

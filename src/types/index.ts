@@ -6,10 +6,11 @@
  */
 
 import type { Timestamp } from "firebase/firestore";
+import type { AcademicProfile } from "@mindguide/contracts";
 
 // ─── User Types ──────────────────────────────────────────────
 
-/** Canonical roles accepted by schema-v2 application code. */
+/** Canonical roles accepted by schema-v4 application code. */
 export type UserRole = "student" | "admin";
 
 /** Role value accepted only while normalizing pre-v2 documents. */
@@ -27,6 +28,8 @@ export interface UserProfile {
   displayName: string;
   email: string;
   role: UserRole | null;
+  academicProfile: AcademicProfile | null;
+  academicProfileComplete: boolean;
   createdAt: Timestamp;
   stats: UserStats;
   preferences: UserPreferences;

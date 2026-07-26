@@ -97,6 +97,11 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /content_validation_records/{validationId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     match /policy_documents/{policyId} {
       allow read: if activeAccount() && (isAdmin() || resource.data.status == "active");
       allow write: if false;

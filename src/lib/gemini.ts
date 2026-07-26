@@ -1,7 +1,7 @@
 /**
  * Legacy compatibility shim.
  *
- * Browser-side AI providers were removed in schema v3. Authoritative learning
+ * Browser-side AI providers were removed in schema v3 and remain disabled in schema v4. Authoritative learning
  * operations use Firebase callable Functions through `secure-api.ts`.
  */
 
@@ -33,6 +33,6 @@ export async function sendMessage(
 ): Promise<string> {
   throw new AIRequestError(
     "server_authority_required",
-    "This legacy browser AI path is disabled. Start or resume a secure schema-v3 session."
+    "This legacy browser AI path is disabled. Start or resume a secure schema-v4 session."
   );
 }

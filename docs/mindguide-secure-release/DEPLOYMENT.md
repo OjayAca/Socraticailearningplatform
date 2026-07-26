@@ -23,9 +23,10 @@ The prototype rollback point is the annotated tag `mindguide-v2-pilot-baseline`.
 npm ci
 npm run check
 firebase use <staging-project>
-npm run migrate:v3 -- --project=<staging-project>
-npm run migrate:v3 -- --apply --project=<staging-project>
-npm run migrate:v3:verify -- --project=<staging-project>
+npm run migrate:v4 -- --project=<staging-project>
+npm run migrate:v4 -- --apply --project=<staging-project>
+npm run migrate:v4:verify -- --project=<staging-project>
+npm run release:preflight -- --project=<staging-project> --output=preflight.json
 firebase deploy --only functions,firestore:rules,firestore:indexes,hosting --project <staging-project>
 ```
 
@@ -54,4 +55,4 @@ If migration verification or smoke testing fails, keep maintenance mode active, 
 
 ## Approval gate
 
-Release only when local/staging gates pass, no critical security/data-integrity/progression defect remains, the production dependency audit has no high/critical finding, privacy dates are configured, the managed export is restorable, and documentation traceability is signed off. Tag and deploy Functions, rules, indexes, and frontend from the same commit.
+Release only when local/staging gates pass, `release:preflight` confirms all 99 faculty-approved variants and 33 complete cells, no critical security/data-integrity/progression defect remains, the production dependency audit has no high/critical finding, privacy dates are configured, the managed export is restorable, and documentation traceability is signed off. Tag and deploy Functions, rules, indexes, and frontend from the same commit.

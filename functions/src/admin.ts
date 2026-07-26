@@ -10,15 +10,19 @@ import {
   requireAdmin,
 } from "./security.js";
 import {
+  bulkImportProblemsSchema,
   adminSupportOverrideSchema,
   adminReviewSchema,
   adminUserSchema,
   contentMutationSchema,
   parseInput,
+  recordProblemValidationSchema,
   reportQuerySchema,
+  submitProblemValidationSchema,
   validateManagedContent,
 } from "./validation.js";
 import { REASONING_PHASES, type ReasoningPhase, type ReportKind, type SupportLevel } from "@mindguide/contracts";
+import { buildCatalogReadiness } from "./configuration.js";
 import { supportContent, type GateStateMap, type PrivateProblemReference } from "./workflow.js";
 
 export const adminReviewSession = onCall(callableOptions, async (request) => {
@@ -140,6 +144,13 @@ export const adminUpsertContent = onCall(callableOptions, async (request) => {
       );
     }
     const validatedValue = validateManagedContent(data.collection, data.id, data.value);
+    if (data.collection === "problems" && validatedValue.status === "approved") {
+      throw callableError(
+        "failed-precondition",
+        "faculty_validation_required",
+        "Problems can be approved only through the recorded faculty-validation decision workflow."
+      );
+    }
     if (data.collection === "system_settings" && data.id === "privacy" && "studyClosedAt" in validatedValue) {
       validatedValue.studyClosedAt = normalizeOptionalTimestamp(validatedValue.studyClosedAt);
     }
@@ -189,6 +200,197 @@ export const adminUpsertContent = onCall(callableOptions, async (request) => {
       response = { id: data.id, collection: data.collection, version };
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminCatalogReadiness = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  try {
+    await requireAdmin(request);
+    return await buildCatalogReadiness();
+  } catch (error) {
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminSubmitProblemValidation = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    const data = parseInput(submitProblemValidationSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminSubmitProblemValidation", data.requestId);
+    if (operation.cached) return operation.cached;
+    const problemRef = database.doc(`problems/${data.problemId}`);
+    await assertProblemReadyForValidation(problemRef);
+    const response = { problemId: data.problemId, status: "pending_validation" };
+    await database.runTransaction(async (transaction) => {
+      const problem = await transaction.get(problemRef);
+      if (!problem.exists || !["draft", "rejected"].includes(String(problem.get("status")))) {
+        throw callableError("failed-precondition", "problem_not_submittable", "Only draft or rejected problems can be submitted for validation.");
+      }
+      transaction.update(problemRef, {
+        status: "pending_validation",
+        validationRecordId: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+      writeAudit(transaction, actor.uid, "problem_validation_submitted", problemRef.path, {
+        problemId: data.problemId,
+        version: problem.get("version"),
+      });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminRecordProblemValidation = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    const data = parseInput(recordProblemValidationSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminRecordProblemValidation", data.requestId);
+    if (operation.cached) return operation.cached;
+    const problemRef = database.doc(`problems/${data.problemId}`);
+    const validationRef = database.doc(`content_validation_records/${data.requestId}`);
+    const response = {
+      problemId: data.problemId,
+      validationRecordId: validationRef.id,
+      status: data.decision,
+    };
+    await database.runTransaction(async (transaction) => {
+      const [problem, existingValidation] = await Promise.all([
+        transaction.get(problemRef),
+        transaction.get(validationRef),
+      ]);
+      if (!problem.exists || problem.get("status") !== "pending_validation") {
+        throw callableError("failed-precondition", "problem_not_pending_validation", "The problem is not awaiting a faculty-validation decision.");
+      }
+      if (existingValidation.exists) {
+        throw callableError("already-exists", "validation_record_exists", "This validation decision has already been recorded.");
+      }
+      transaction.create(validationRef, {
+        problemId: data.problemId,
+        problemVersion: Number(problem.get("version") ?? 1),
+        syllabusReference: data.syllabusReference,
+        contentMatrixItem: data.contentMatrixItem,
+        validatorName: data.validatorName,
+        validatorRole: data.validatorRole,
+        validationDate: Timestamp.fromMillis(data.validationDate),
+        evidenceReference: data.evidenceReference,
+        evidenceHash: data.evidenceHash,
+        decision: data.decision,
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: actor.uid,
+      });
+      transaction.update(problemRef, {
+        status: data.decision,
+        validationRecordId: validationRef.id,
+        validatedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+      writeAudit(transaction, actor.uid, "problem_validation_decision", problemRef.path, {
+        decision: data.decision,
+        validationRecordId: validationRef.id,
+      });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminBulkImportProblems = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    const data = parseInput(bulkImportProblemsSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminBulkImportProblems", data.requestId);
+    if (operation.cached) return operation.cached;
+    const ids = data.problems.map((problem) => problem.id);
+    if (new Set(ids).size !== ids.length) {
+      throw callableError("invalid-argument", "duplicate_problem_id", "The import contains duplicate problem IDs.");
+    }
+    const topicIds = [...new Set(data.problems.map((problem) => problem.topicId))];
+    const referenceIds = [...new Set(data.problems.flatMap((problem) => problem.formulaTheoremReferenceIds))];
+    const [existingProblems, topics, references] = await Promise.all([
+      database.getAll(...ids.map((problemId) => database.doc(`problems/${problemId}`))),
+      database.getAll(...topicIds.map((topicId) => database.doc(`topics/${topicId}`))),
+      database.getAll(...referenceIds.map((referenceId) => database.doc(`formula_theorem_references/${referenceId}`))),
+    ]);
+    if (existingProblems.some((problem) => problem.exists)) {
+      throw callableError("already-exists", "problem_id_exists", "At least one imported problem ID already exists.");
+    }
+    if (topics.some((topic) => !topic.exists || topic.get("status") !== "approved")) {
+      throw callableError("failed-precondition", "topic_unapproved", "Every imported problem must reference an approved topic.");
+    }
+    if (references.some((reference) => !reference.exists || reference.get("status") !== "approved")) {
+      throw callableError("failed-precondition", "reference_unapproved", "Every imported problem must reference approved formula or theorem content.");
+    }
+    const response = { valid: true, imported: data.dryRun ? 0 : data.problems.length, checked: data.problems.length, dryRun: data.dryRun };
+    if (data.dryRun) {
+      await database.runTransaction(async (transaction) => {
+        completeIdempotentRequest(transaction, operation!.ref, response);
+      });
+      return response;
+    }
+    const batch = database.batch();
+    for (const problem of data.problems) {
+      const problemRef = database.doc(`problems/${problem.id}`);
+      batch.create(problemRef, {
+        subjectId: problem.subjectId,
+        topicId: problem.topicId,
+        subject: problem.subject,
+        topic: problem.topic,
+        difficulty: problem.difficulty,
+        variant: problem.variant,
+        problemText: problem.problemText,
+        supportedResponseFormats: problem.supportedResponseFormats,
+        formulaTheoremReferenceIds: problem.formulaTheoremReferenceIds,
+        status: "draft",
+        version: 1,
+        createdAt: FieldValue.serverTimestamp(),
+        createdBy: actor.uid,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+        archivedAt: null,
+      });
+      batch.create(problemRef.collection("private").doc("solution"), {
+        ...problem.privateSolution,
+        version: 1,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: actor.uid,
+      });
+    }
+    batch.create(database.collection("audit_logs").doc(), {
+      actorId: actor.uid,
+      action: "problem_bulk_import",
+      target: "problems",
+      details: { count: data.problems.length },
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    batch.set(operation.ref, {
+      status: "completed",
+      result: response,
+      leaseExpiresAt: null,
+      completedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    await batch.commit();
     return response;
   } catch (error) {
     if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
@@ -527,6 +729,40 @@ function writeAudit(
     details,
     createdAt: FieldValue.serverTimestamp(),
   });
+}
+
+async function assertProblemReadyForValidation(
+  problemRef: FirebaseFirestore.DocumentReference
+): Promise<void> {
+  const [problem, privateSolution, prompts] = await Promise.all([
+    problemRef.get(),
+    problemRef.collection("private").doc("solution").get(),
+    database.collection("socratic_prompt_bank").where("problemId", "==", problemRef.id).where("status", "==", "approved").get(),
+  ]);
+  if (!problem.exists || !privateSolution.exists) {
+    throw callableError("failed-precondition", "problem_incomplete", "The problem and its protected solution must exist before validation.");
+  }
+  const topic = await database.doc(`topics/${String(problem.get("topicId"))}`).get();
+  if (!topic.exists || topic.get("status") !== "approved") {
+    throw callableError("failed-precondition", "topic_unapproved", "The problem must reference an approved topic.");
+  }
+  const referenceIds = Array.isArray(problem.get("formulaTheoremReferenceIds"))
+    ? problem.get("formulaTheoremReferenceIds").filter((value: unknown): value is string => typeof value === "string")
+    : [];
+  if (referenceIds.length === 0) {
+    throw callableError("failed-precondition", "problem_reference_missing", "At least one formula or theorem reference is required.");
+  }
+  const references = await database.getAll(...referenceIds.map((referenceId: string) =>
+    database.doc(`formula_theorem_references/${referenceId}`)
+  ));
+  if (references.some((reference) => !reference.exists || reference.get("status") !== "approved")) {
+    throw callableError("failed-precondition", "problem_reference_unapproved", "All linked formula or theorem references must be approved.");
+  }
+  const promptPhases = new Set(prompts.docs.map((prompt) => prompt.get("phase")));
+  const missing = REASONING_PHASES.filter((phase) => !promptPhases.has(phase));
+  if (missing.length > 0) {
+    throw callableError("failed-precondition", "prompt_set_incomplete", `Approved prompts are missing for: ${missing.join(", ")}.`);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
