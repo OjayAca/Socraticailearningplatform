@@ -11,10 +11,10 @@ export const adminAuth = getAuth();
 export { FieldValue, Timestamp };
 
 export const REGION = process.env.FUNCTIONS_REGION || "asia-southeast1";
-export const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === "true";
+const IS_EMULATOR = process.env.FUNCTIONS_EMULATOR === "true";
 export const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 export const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
-export const FUNCTIONS_SERVICE_ACCOUNT = process.env.FUNCTIONS_SERVICE_ACCOUNT || undefined;
+const FUNCTIONS_SERVICE_ACCOUNT = process.env.FUNCTIONS_SERVICE_ACCOUNT || undefined;
 
 setGlobalOptions({
   region: REGION,

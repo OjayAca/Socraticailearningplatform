@@ -141,10 +141,10 @@ export function SecureTaskStart() {
   if (userProfile && !userProfile.academicProfileComplete) {
     return (
       <StudentShell active="task">
-        <form onSubmit={saveAcademicProfile} className="mx-auto max-w-2xl rounded-3xl border bg-white p-8 shadow-sm">
-          <UserRoundCheck className="h-12 w-12 text-indigo-600" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-950">Complete your academic profile</h1>
-          <p className="mt-2 text-sm text-slate-600">
+        <form onSubmit={saveAcademicProfile} className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <UserRoundCheck className="h-12 w-12 text-indigo-600 dark:text-indigo-400" />
+          <h1 className="mt-4 text-2xl font-bold text-slate-950 dark:text-white">Complete your academic profile</h1>
+          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
             These fields are required before your first learning session and are visible only to you and authorized System Administrators.
           </p>
           {error && <ErrorMessage message={error} />}
@@ -155,7 +155,7 @@ export function SecureTaskStart() {
               ["yearLevel", "Year level"],
               ["section", "Section"],
             ] as const).map(([field, label]) => (
-              <label key={field} className="text-sm font-bold text-slate-800">
+              <label key={field} className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {label}
                 <input
                   required
@@ -165,12 +165,12 @@ export function SecureTaskStart() {
                     ...current,
                     [field]: event.target.value,
                   }))}
-                  className="mt-2 w-full rounded-lg border p-3 font-normal"
+                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 font-normal text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </label>
             ))}
           </div>
-          <button disabled={loading} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
+          <button disabled={loading} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">
             {loading ? "Saving profile..." : "Save and continue"}
           </button>
         </form>
@@ -181,19 +181,19 @@ export function SecureTaskStart() {
   if (consented === false) {
     return (
       <StudentShell active="task">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-indigo-100 bg-white p-8 shadow-sm">
-          <ShieldCheck className="h-12 w-12 text-indigo-600" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-950">Privacy and Responsible AI Notice</h1>
-          <p className="mt-3 text-slate-600">{notice?.summary}</p>
-          <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-indigo-100 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <ShieldCheck className="h-12 w-12 text-indigo-600 dark:text-indigo-400" />
+          <h1 className="mt-4 text-2xl font-bold text-slate-950 dark:text-white">Privacy and Responsible AI Notice</h1>
+          <p className="mt-3 text-slate-600 dark:text-slate-300">{notice?.summary}</p>
+          <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
             Raw AI service logs are retained for 90 days. Identifiable learning records follow the configured capstone retention period.
           </div>
-          <label className="mt-6 flex items-start gap-3 text-sm font-medium text-slate-700">
+          <label className="mt-6 flex items-start gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={acknowledge} onChange={(event) => setAcknowledge(event.target.checked)} className="mt-1" />
             I have read the notice, understand that AI feedback can be inaccurate, and consent to the described capstone data use.
           </label>
-          {error && <ErrorMessage message={error} />}
-          <button disabled={!acknowledge || loading} onClick={() => void acceptNotice()} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
+          {error && <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
+          <button type="button" disabled={!acknowledge || loading} onClick={() => void acceptNotice()} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">
             {loading ? "Saving acknowledgement..." : "Acknowledge and continue"}
           </button>
         </div>
@@ -205,15 +205,15 @@ export function SecureTaskStart() {
     <StudentShell active="task">
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-slate-950">Start a secure MINDGUIDE session</h1>
-          <p className="mt-2 text-slate-600">Choose an approved topic. For prepared practice, the server assigns an adaptive, non-repeating validated variant.</p>
+          <h1 className="text-3xl font-bold text-slate-950 dark:text-white">Start a secure MINDGUIDE session</h1>
+          <p className="mt-2 text-slate-600 dark:text-slate-400">Choose an approved topic. For prepared practice, the server assigns an adaptive, non-repeating validated variant.</p>
         </div>
         {error && <ErrorMessage message={error} />}
         <div className="grid grid-cols-2 gap-3">
           <ModeButton active={mode === "curated"} onClick={() => setMode("curated")} icon={<BookOpen className="mx-auto mb-2 h-5 w-5" />} label="Prepared problem" />
           <ModeButton active={mode === "free_form"} onClick={() => setMode("free_form")} icon={<CheckCircle2 className="mx-auto mb-2 h-5 w-5" />} label="My own problem" />
         </div>
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           {catalog && catalog.topics.length > 0 ? (
             <>
               <div className={`grid gap-4 ${mode === "free_form" ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
@@ -240,9 +240,9 @@ export function SecureTaskStart() {
                 )}
               </div>
               {mode === "curated" ? (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-                  <p className="text-xs font-bold uppercase text-indigo-700">Adaptive assignment · {adaptiveRecommendation.recommendedDifficulty}</p>
-                  <p className="mt-1 text-sm text-indigo-900">{adaptiveRecommendation.reason}</p>
+                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/40">
+                  <p className="text-xs font-bold uppercase text-indigo-700 dark:text-indigo-300">Adaptive assignment · {adaptiveRecommendation.recommendedDifficulty}</p>
+                  <p className="mt-1 text-sm text-indigo-900 dark:text-indigo-200">{adaptiveRecommendation.reason}</p>
                 </div>
               ) : (
                 <label className="block text-sm font-bold">Keyboard-entered problem
@@ -254,7 +254,7 @@ export function SecureTaskStart() {
               </button>
             </>
           ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
               No topic is ready for formal evaluation. A System Administrator must complete all three faculty-validated variants at every difficulty for a topic.
             </div>
           )}

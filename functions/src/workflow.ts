@@ -27,7 +27,7 @@ export interface PrivateProblemReference {
   misconceptionPrompts?: Partial<Record<DiagnosisCategory, string>>;
 }
 
-export interface GateState {
+interface GateState {
   status: "locked" | "pending" | "needs_revision" | "accepted";
   attemptCount: number;
   correctiveCycleCount: number;

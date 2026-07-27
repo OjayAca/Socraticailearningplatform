@@ -2,7 +2,7 @@
  * Application route definitions.
  *
  * Routes are organized into two groups:
- * 1. Public routes (splash, login, signup)
+ * 1. Public routes (landing, login, signup)
  * 2. Role-protected routes (student/*, admin/*, session/*)
  *
  * @module app/routes
@@ -75,19 +75,19 @@ export const router = createBrowserRouter([
       {
         index: true,
         lazy: async () => ({
-          Component: (await import("./components/AuthScreens")).Splash,
+          Component: (await import("./components/LandingPage")).LandingPage,
         }),
       },
       {
         path: "login",
         lazy: async () => ({
-          Component: (await import("./components/AuthScreens")).Login,
+          Component: (await import("./components/auth/Login")).Login,
         }),
       },
       {
         path: "signup",
         lazy: async () => ({
-          Component: (await import("./components/AuthScreens")).SignUp,
+          Component: (await import("./components/auth/SignUp")).SignUp,
         }),
       },
 

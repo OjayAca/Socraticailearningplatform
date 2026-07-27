@@ -74,7 +74,7 @@ export async function requireAdmin(
   return actor as AuthenticatedActor & { role: "admin" };
 }
 
-export function validateRequestId(requestId: unknown): string {
+function validateRequestId(requestId: unknown): string {
   if (typeof requestId !== "string" || !REQUEST_ID.test(requestId)) {
     throw callableError(
       "invalid-argument",
@@ -85,7 +85,7 @@ export function validateRequestId(requestId: unknown): string {
   return requestId;
 }
 
-export function idempotencyRef(uid: string, operation: string, requestId: string) {
+function idempotencyRef(uid: string, operation: string, requestId: string) {
   const key = createHash("sha256")
     .update(`${uid}:${operation}:${requestId}`)
     .digest("hex");

@@ -18,7 +18,7 @@ export const bootstrapProfileSchema = z.object({
   consentVersion: z.string().trim().min(1).max(80).optional(),
 });
 
-export const academicProfileSchema = z.object({
+const academicProfileSchema = z.object({
   studentNumber: z.string().trim().min(1).max(80),
   course: z.string().trim().min(1).max(160),
   yearLevel: z.string().trim().min(1).max(80),
@@ -270,6 +270,39 @@ export function validateManagedContent(
   return parseInput(schema as z.ZodType<unknown>, value) as Record<string, unknown>;
 }
 
+const FORBIDDEN_PUBLIC_KEYS = new Set([
+  "finalAnswer",
+  "solutionSteps",
+  "referenceAnswer",
+  "solutionOutline",
+  "privateSolution",
+  "socraticPrompts",
+  "rubric",
+  "rawOutput",
+  "apiKey",
+]);
+
+export function findForbiddenPublicKeys(
+  value: unknown,
+  allowRootPrivateSolution: boolean
+): string[] {
+  const failures: string[] = [];
+  const scan = (candidate: unknown, path: string, root: boolean): void => {
+    if (Array.isArray(candidate)) {
+      candidate.forEach((item, index) => scan(item, `${path}[${index}]`, false));
+      return;
+    }
+    if (!isRecord(candidate)) return;
+    for (const [key, nested] of Object.entries(candidate)) {
+      if (root && key === "privateSolution" && allowRootPrivateSolution) continue;
+      if (FORBIDDEN_PUBLIC_KEYS.has(key)) failures.push(`${path}.${key}`);
+      scan(nested, `${path}.${key}`, false);
+    }
+  };
+  scan(value, "content", true);
+  return failures;
+}
+
 export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
   const result = schema.safeParse(input);
   if (!result.success) {
@@ -281,4 +314,8 @@ export function parseInput<T>(schema: z.ZodType<T>, input: unknown): T {
     );
   }
   return result.data;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
