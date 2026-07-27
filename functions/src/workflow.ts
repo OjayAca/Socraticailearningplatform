@@ -25,7 +25,7 @@ export interface PrivateProblemReference {
   socraticPrompts?: Partial<Record<ReasoningPhase, string>>;
 }
 
-export interface GateState {
+interface GateState {
   status: "locked" | "pending" | "needs_revision" | "accepted";
   attemptCount: number;
   correctiveCycleCount: number;

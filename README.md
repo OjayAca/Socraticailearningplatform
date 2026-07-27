@@ -37,6 +37,7 @@ Useful focused commands:
 ```bash
 npm run typecheck
 npm run lint
+npm run deadcode
 npm run test
 npm run test:rules
 npm run build

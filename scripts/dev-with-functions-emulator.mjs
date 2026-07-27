@@ -27,13 +27,6 @@ const childEnvironment = {
   VITE_USE_FUNCTIONS_EMULATOR: "true",
 };
 
-// The existing pilot configuration may still keep the Gemini credential in the
-// root .env. Pass it only to the server-side emulator process; Vite does not read
-// GEMINI_API_KEY because it has no VITE_ prefix.
-if (!childEnvironment.GEMINI_API_KEY && environment.VITE_GEMINI_API_KEY) {
-  childEnvironment.GEMINI_API_KEY = environment.VITE_GEMINI_API_KEY;
-}
-
 const child = spawn(
   process.execPath,
   [

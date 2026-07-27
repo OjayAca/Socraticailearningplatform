@@ -1,4 +1,4 @@
-import { SUBJECT_TOPICS, type MindGuideProblem } from "../types";
+import type { MindGuideProblem } from "../types";
 
 type PromptTuple = readonly [string, string, string, string, string, string, string];
 
@@ -1032,75 +1032,3 @@ export const mindGuideProblems: MindGuideProblem[] = [
       "Assuming a lowest-terms fraction forces both terms to be even, an impossibility that rejects rationality.",
   },
 ];
-
-/** Returns every structural or coverage error in a prepared problem bank. */
-export function validateMindGuideProblemBank(
-  problems: readonly MindGuideProblem[] = mindGuideProblems
-): string[] {
-  const errors: string[] = [];
-  const seenIds = new Set<string>();
-  const coverage = new Map<string, number>();
-  const difficulties = ["Basic", "Intermediate", "Advanced"] as const;
-
-  for (const [subject, topics] of Object.entries(SUBJECT_TOPICS)) {
-    for (const topic of topics) {
-      for (const difficulty of difficulties) {
-        coverage.set(`${subject}::${topic}::${difficulty}`, 0);
-      }
-    }
-  }
-
-  for (const problem of problems) {
-    const label = problem.id || "<missing-id>";
-    if (!problem.id.trim()) errors.push("A problem is missing an id.");
-    if (seenIds.has(problem.id)) errors.push(`Duplicate problem id: ${problem.id}`);
-    seenIds.add(problem.id);
-
-    const allowedTopics = SUBJECT_TOPICS[problem.subject] as readonly string[];
-    if (!allowedTopics?.includes(problem.topic)) {
-      errors.push(`${label}: topic does not belong to its subject.`);
-    }
-
-    const key = `${problem.subject}::${problem.topic}::${problem.difficulty}`;
-    coverage.set(key, (coverage.get(key) ?? 0) + 1);
-
-    if (!problem.problemText.trim()) errors.push(`${label}: missing problem text.`);
-    if (problem.expectedConcepts.length === 0) {
-      errors.push(`${label}: expectedConcepts must not be empty.`);
-    }
-    if (!problem.requiredFormula && !problem.requiredTheorem) {
-      errors.push(`${label}: a formula or theorem is required.`);
-    }
-    if (problem.solutionSteps.length < 2 || problem.solutionSteps.some((step) => !step.trim())) {
-      errors.push(`${label}: solutionSteps must contain at least two non-empty steps.`);
-    }
-    if (!problem.finalAnswer.trim()) errors.push(`${label}: missing final answer.`);
-    if (!problem.interpretation.trim()) errors.push(`${label}: missing interpretation.`);
-
-    for (const [phase, prompt] of Object.entries(problem.socraticPrompts)) {
-      if (!prompt.trim()) errors.push(`${label}: missing ${phase} prompt.`);
-    }
-  }
-
-  for (const [key, count] of coverage) {
-    if (count !== 1) errors.push(`${key}: expected exactly one problem, found ${count}.`);
-  }
-
-  if (problems.length !== 33) {
-    errors.push(`Expected 33 prepared problems, found ${problems.length}.`);
-  }
-
-  return errors;
-}
-
-/** Fails fast during app/test startup if curated learning content is incomplete. */
-export function assertValidMindGuideProblemBank(
-  problems: readonly MindGuideProblem[] = mindGuideProblems
-): void {
-  const errors = validateMindGuideProblemBank(problems);
-  if (errors.length > 0) {
-    throw new Error(`Invalid MINDGUIDE problem bank:\n${errors.join("\n")}`);
-  }
-}
-
-export default mindGuideProblems;

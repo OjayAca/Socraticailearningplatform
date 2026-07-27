@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { findForbiddenPublicKeys, toCsv } from "../admin.js";
-import { validateManagedContent } from "../validation.js";
-import { isStudentMutationAllowed } from "../sessions.js";
+import { toCsv } from "../reporting.js";
+import {
+  findForbiddenPublicKeys,
+  validateManagedContent,
+} from "../validation.js";
+import { isStudentMutationAllowed } from "../session-state.js";
 
 describe("administrator hardening helpers", () => {
   it("permits the protected problem solution envelope but rejects public instructional secrets", () => {

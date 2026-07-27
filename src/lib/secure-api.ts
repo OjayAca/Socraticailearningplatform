@@ -17,7 +17,7 @@ import type {
 import { firebaseSetupMessage, functions } from "./firebase";
 import { secureErrorMessage } from "./secure-error";
 
-export function newRequestId(): string {
+function newRequestId(): string {
   return crypto.randomUUID();
 }
 

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreDependencies": [
+    "tailwindcss",
+    "tw-animate-css"
+  ],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "scripts/**/*.{mjs,ts}",
+        "vitest.rules.config.ts",
+        "tests/rules/**/*.test.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "scripts/**/*.{mjs,ts}",
+        "tests/**/*.{mjs,ts,tsx}",
+        "*.config.{js,mjs,ts}"
+      ]
+    },
+    "functions": {
+      "project": [
+        "src/**/*.ts"
+      ]
+    },
+    "packages/contracts": {
+      "project": [
+        "src/**/*.ts"
+      ]
+    }
+  }
+}

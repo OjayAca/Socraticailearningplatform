@@ -11,10 +11,9 @@ import { initializeApp, type FirebaseApp } from "firebase/app";
 import {
   initializeAppCheck,
   ReCaptchaEnterpriseProvider,
-  type AppCheck,
 } from "firebase/app-check";
-import { getAuth, connectAuthEmulator, type Auth } from "firebase/auth";
-import { getFirestore, connectFirestoreEmulator, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator, type Functions } from "firebase/functions";
 
 const firebaseConfig = {
@@ -47,7 +46,7 @@ export const firebaseSetupMessage =
   "Firebase is not configured yet. Add your VITE_FIREBASE_* values to a .env file to enable sign-in and database features.";
 
 /** The initialized Firebase app instance. */
-export const firebaseApp: FirebaseApp | null = isFirebaseConfigured
+const firebaseApp: FirebaseApp | null = isFirebaseConfigured
   ? initializeApp(firebaseConfig)
   : null;
 
@@ -79,30 +78,9 @@ if (import.meta.env.DEV && typeof self !== "undefined") {
   (self as typeof self & { FIREBASE_APPCHECK_DEBUG_TOKEN?: boolean }).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 }
 
-/** App Check activates only when a production Enterprise site key is configured. */
-export const appCheck: AppCheck | null =
-  firebaseApp && appCheckSiteKey && !isPlaceholderValue(appCheckSiteKey)
-    ? initializeAppCheck(firebaseApp, {
-        provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-        isTokenAutoRefreshEnabled: true,
-      })
-    : null;
-
-let emulatorConnectionEstablished = false;
-
-/**
- * Connect to local Firebase Emulators for development.
- * Call this in main.tsx when running locally with `firebase emulators:start`.
- * Uncomment the lines below and call this function if you want to use emulators.
- */
-export function connectToEmulators(): void {
-  if (import.meta.env.DEV && auth && db && functions && !emulatorConnectionEstablished) {
-    emulatorConnectionEstablished = true;
-    connectAuthEmulator(auth, "http://localhost:9099");
-    connectFirestoreEmulator(db, "localhost", 8080);
-    if (!useFunctionsEmulator) {
-      connectFunctionsEmulator(functions, "localhost", 5001);
-    }
-    console.info("[Firebase] Connected to local emulators");
-  }
+if (firebaseApp && appCheckSiteKey && !isPlaceholderValue(appCheckSiteKey)) {
+  initializeAppCheck(firebaseApp, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
 }

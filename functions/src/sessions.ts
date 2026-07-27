@@ -1,25 +1,15 @@
 import { onCall } from "firebase-functions/v2/https";
 import type {
-  AdaptiveRecommendation,
-  Difficulty,
   EvaluatePhaseResponseResponse,
-  GetCurrentConsentNoticeResponse,
-  LearningProgress,
   ReasoningPhase,
   RequestSupportResponse,
-  SolverStage,
-  SolverStageProgress,
   SessionMutationResponse,
   SessionProjection,
-  SupportLevel,
 } from "@mindguide/contracts";
 import {
   REASONING_PHASES,
   SCHEMA_VERSION,
-  SOLVER_STAGES,
-  SOLVER_STAGE_PHASES,
   WORKFLOW_VERSION,
-  solverStageForPhase,
 } from "@mindguide/contracts";
 import { analyzeFreeFormProblem, evaluateAmbiguousResponse } from "./ai.js";
 import { asCallableError, callableError, correlationId } from "./errors.js";
@@ -58,7 +48,25 @@ import {
   type PrivateProblemReference,
 } from "./workflow.js";
 
-const CURRENT_CONSENT_VERSION = "privacy-2026-07-18";
+import {
+  allGatesAccepted,
+  assertSessionOwner,
+  assertSessionRevision,
+  isStudentMutationAllowed,
+  legacyScorecard,
+  mergeSupportLevels,
+  nextLearningProgress,
+  pickSessionProblem,
+  projectSession,
+  slugKey,
+  staleSessionError,
+} from "./session-state.js";
+import {
+  readCurrentConsentNotice,
+  requireCurrentConsent,
+  selectAdaptiveProblem,
+  writeAIFailure,
+} from "./session-services.js";
 
 export const getCurrentConsentNotice = onCall(callableOptions, async (request) => {
   const id = correlationId();
@@ -739,305 +747,3 @@ export const abandonLearningSession = onCall(callableOptions, async (request) =>
     throw asCallableError(error, id);
   }
 });
-
-function assertSessionOwner(snapshot: FirebaseFirestore.DocumentSnapshot, uid: string): void {
-  if (!snapshot.exists) throw callableError("not-found", "session_not_found", "The learning session was not found.");
-  if (snapshot.get("studentId") !== uid) throw callableError("permission-denied", "session_forbidden", "You cannot access this learning session.");
-}
-
-function assertSessionRevision(session: Record<string, any>, revision: number, phase: ReasoningPhase): void {
-  if (session.revision !== revision) throw staleSessionError();
-  if (session.status !== "in_progress" || session.currentPhase !== phase) {
-    throw callableError("failed-precondition", "phase_locked", "Reload the session and continue from the current approved stage.");
-  }
-}
-
-function staleSessionError() {
-  return callableError("aborted", "stale_session", "This session changed in another request. Reload it before continuing.", true);
-}
-
-function allGatesAccepted(gates: GateStateMap): boolean {
-  return REASONING_PHASES.every((phase) => gates[phase]?.status === "accepted");
-}
-
-function projectSession(id: string, session: Record<string, any>): SessionProjection {
-  const currentPhase = session.currentPhase as SessionProjection["currentPhase"];
-  const currentInternalGate = REASONING_PHASES.includes(currentPhase as ReasoningPhase)
-    ? currentPhase as ReasoningPhase
-    : null;
-  return {
-    id,
-    schemaVersion: SCHEMA_VERSION,
-    workflowVersion: WORKFLOW_VERSION,
-    revision: Number(session.revision ?? 0),
-    studentId: String(session.studentId),
-    subject: session.subject,
-    topic: String(session.topic),
-    difficulty: session.difficulty,
-    problemId: session.problemId ?? null,
-    originalQuestion: String(session.originalQuestion),
-    status: session.status,
-    currentPhase,
-    currentStage: solverStageForPhase(currentPhase),
-    currentInternalGate,
-    currentPrompt: String(session.currentPrompt ?? fallbackPrompt(currentInternalGate)),
-    stageProgress: projectStageProgress(session.gateStates ?? {}, currentPhase),
-    gates: session.gateEvaluations ?? {},
-    allowedSupport: session.allowedSupport ?? ["socratic_prompt"],
-    draft: session.draft ?? null,
-    scorecard: session.scorecard ?? null,
-    releasedSolution: session.releasedSolution ?? null,
-    adaptiveRecommendation: session.adaptiveRecommendation ?? session.difficultyRecommendation ?? null,
-    promptAdjustment: session.promptAdjustment ?? "maintain",
-    createdAt: millis(session.createdAt),
-    updatedAt: millis(session.updatedAt),
-    learningCompletedAt: session.learningCompletedAt ? millis(session.learningCompletedAt) : null,
-  };
-}
-
-function projectStageProgress(
-  gates: Partial<GateStateMap>,
-  currentPhase: SessionProjection["currentPhase"]
-): Record<SolverStage, SolverStageProgress> {
-  const activeStage = solverStageForPhase(currentPhase);
-  return Object.fromEntries(SOLVER_STAGES.map((stage) => {
-    const phases = SOLVER_STAGE_PHASES[stage];
-    const acceptedGates = phases.filter((phase) => gates[phase]?.status === "accepted").length;
-    const completed = acceptedGates === phases.length;
-    return [stage, {
-      stage,
-      acceptedGates,
-      totalGates: phases.length,
-      status: completed ? "completed" : stage === activeStage ? "active" : "locked",
-    } satisfies SolverStageProgress];
-  })) as Record<SolverStage, SolverStageProgress>;
-}
-
-function fallbackPrompt(phase: ReasoningPhase | null): string {
-  if (!phase) return "Review your completed reasoning and scorecard.";
-  return phase.replaceAll("_", " ");
-}
-
-function millis(value: unknown): number {
-  if (value && typeof value === "object" && "toMillis" in value) return (value as Timestamp).toMillis();
-  return typeof value === "number" ? value : Date.now();
-}
-
-async function requireCurrentConsent(uid: string): Promise<void> {
-  const notice = await readCurrentConsentNotice();
-  const consent = await database.doc(`users/${uid}/consents/${notice.version}`).get();
-  if (!consent.exists) throw callableError("failed-precondition", "consent_required", "Review and acknowledge the current privacy and responsible-AI notice before starting a session.");
-}
-
-async function readCurrentConsentNotice(): Promise<GetCurrentConsentNoticeResponse> {
-  const privacy = await database.doc("system_settings/privacy").get();
-  const version = String(privacy.get("currentConsentVersion") ?? CURRENT_CONSENT_VERSION);
-  const policy = await database.doc(`policy_documents/${version}`).get();
-  if (!policy.exists || policy.get("status") !== "active") {
-    throw callableError(
-      "failed-precondition",
-      "consent_policy_unavailable",
-      "The current privacy notice is not configured correctly. Contact a system administrator."
-    );
-  }
-  const strings = (value: unknown): string[] =>
-    Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-  return {
-    version,
-    title: String(policy.get("title") ?? "MINDGUIDE Privacy and Responsible AI Notice"),
-    summary: String(policy.get("summary") ?? ""),
-    collectedData: strings(policy.get("collectedData")),
-    purpose: String(policy.get("purpose") ?? ""),
-    retention: String(policy.get("retention") ?? ""),
-  };
-}
-
-function nextLearningProgress(
-  uid: string,
-  current: Record<string, unknown> | undefined,
-  score: number,
-  submittedAt: Timestamp
-): LearningProgress {
-  const sessionsCompleted = Number(current?.sessionsCompleted ?? 0) + 1;
-  const scoreTotal = Number(current?.scoreTotal ?? 0) + score;
-  const dateKey = manilaDateKey(submittedAt.toDate());
-  const previousDate = typeof current?.lastSessionDate === "string" ? current.lastSessionDate : null;
-  const previousStreak = Number(current?.currentStreak ?? 0);
-  const currentStreak = previousDate === dateKey
-    ? Math.max(previousStreak, 1)
-    : previousDate === previousDateKey(dateKey)
-      ? previousStreak + 1
-      : 1;
-  return {
-    userId: uid,
-    sessionsCompleted,
-    scoreTotal,
-    averageCTScore: Math.round(scoreTotal / sessionsCompleted),
-    currentStreak,
-    lastSessionAt: submittedAt.toMillis(),
-    lastSessionDate: dateKey,
-    topicRecommendations: (current?.topicRecommendations as Record<string, unknown> | undefined) ?? {},
-  };
-}
-
-function manilaDateKey(value: Date): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
-  return `${part("year")}-${part("month")}-${part("day")}`;
-}
-
-function previousDateKey(dateKey: string): string {
-  const date = new Date(`${dateKey}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() - 1);
-  return date.toISOString().slice(0, 10);
-}
-
-async function writeAIFailure(value: Record<string, unknown>): Promise<void> {
-  await database.collection("ai_failure_logs").add({ ...value, createdAt: FieldValue.serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 90 * 86_400_000) });
-}
-
-async function selectAdaptiveProblem(options: {
-  uid: string;
-  requestedProblemId?: string;
-  requestedSubject?: string;
-  requestedTopic?: string;
-}): Promise<{
-  problem: FirebaseFirestore.QueryDocumentSnapshot;
-  recommendation: AdaptiveRecommendation;
-}> {
-  const requested = options.requestedProblemId
-    ? await database.doc(`problems/${options.requestedProblemId}`).get()
-    : null;
-  const subject = options.requestedSubject ?? requested?.get("subject");
-  const topic = options.requestedTopic ?? requested?.get("topic");
-  if (!subject || !topic) {
-    throw callableError("invalid-argument", "problem_context_required", "Choose a prepared problem topic before starting.");
-  }
-
-  const recentSnapshot = await database
-    .collection("sessions")
-    .where("studentId", "==", options.uid)
-    .orderBy("updatedAt", "desc")
-    .limit(30)
-    .get();
-  const recentTopicSessions = recentSnapshot.docs
-    .filter((document) => document.get("topic") === topic && document.get("scorecard"))
-    .slice(0, 2);
-  const currentDifficulty = (recentTopicSessions[0]?.get("difficulty") ?? "Basic") as Difficulty;
-  const recommendation = recentTopicSessions.length === 0
-    ? {
-        recommendedDifficulty: "Basic" as const,
-        reason: "No completed session exists for this topic, so adaptive practice begins at Basic.",
-        confidence: "low" as const,
-      }
-    : recommendDifficulty({
-        currentDifficulty,
-        recentSessions: recentTopicSessions.map((document) => ({
-          score: Number(document.get("scorecard")?.total ?? 0),
-          supportUsage: Number(document.get("supportUsage") ?? document.get("hintsUsed") ?? 0),
-          diagnoses: Array.isArray(document.get("diagnosisSummary")) ? document.get("diagnosisSummary") : [],
-        })),
-      });
-
-  const exact = await database.collection("problems")
-    .where("status", "==", "approved")
-    .where("subject", "==", subject)
-    .where("topic", "==", topic)
-    .where("difficulty", "==", recommendation.recommendedDifficulty)
-    .get();
-  let candidates = exact.docs;
-  if (candidates.length === 0) {
-    const allTopicProblems = await database.collection("problems")
-      .where("status", "==", "approved")
-      .where("subject", "==", subject)
-      .where("topic", "==", topic)
-      .get();
-    const levels: Difficulty[] = ["Basic", "Intermediate", "Advanced"];
-    const target = levels.indexOf(recommendation.recommendedDifficulty);
-    candidates = allTopicProblems.docs
-      .sort((first, second) => {
-        const firstDistance = Math.abs(levels.indexOf(first.get("difficulty")) - target);
-        const secondDistance = Math.abs(levels.indexOf(second.get("difficulty")) - target);
-        return firstDistance - secondDistance || first.id.localeCompare(second.id);
-      });
-  }
-  if (candidates.length === 0) {
-    throw callableError("not-found", "problem_unavailable", "No approved prepared problem is available for this topic.");
-  }
-
-  const lastUsed = new Map<string, number>();
-  recentSnapshot.docs.forEach((document) => {
-    const problemId = document.get("problemId");
-    if (typeof problemId !== "string" || lastUsed.has(problemId)) return;
-    lastUsed.set(problemId, millis(document.get("updatedAt")));
-  });
-  candidates.sort((first, second) =>
-    (lastUsed.get(first.id) ?? 0) - (lastUsed.get(second.id) ?? 0) || first.id.localeCompare(second.id)
-  );
-  const problem = candidates[0];
-  const selectedDifficulty = problem.get("difficulty") as Difficulty;
-  return {
-    problem,
-    recommendation: selectedDifficulty === recommendation.recommendedDifficulty
-      ? recommendation
-      : {
-          ...recommendation,
-          recommendedDifficulty: selectedDifficulty,
-          reason: `${recommendation.reason} The nearest available approved tier is ${selectedDifficulty}.`,
-        },
-  };
-}
-
-function pickSessionProblem(session: Record<string, any>) {
-  return {
-    subject: session.subject,
-    topic: session.topic,
-    difficulty: session.difficulty,
-    problemId: session.problemId ?? null,
-    selectedProblemId: session.selectedProblemId ?? session.problemId ?? null,
-    problemMode: session.problemMode,
-    originalQuestion: session.originalQuestion,
-    problemContext: session.problemContext ?? {
-      mode: session.problemMode,
-      problemId: session.problemId ?? null,
-      promptSnapshot: session.originalQuestion,
-    },
-  };
-}
-
-function legacyScorecard(scorecard: import("@mindguide/contracts").ScorecardResult) {
-  return {
-    accuracy: scorecard.criteria.accuracy.score,
-    logicalValidity: scorecard.criteria.logicalValidity.score,
-    methodSelection: scorecard.criteria.methodSelection.score,
-    explanationQuality: scorecard.criteria.explanationQuality.score,
-    total: scorecard.total,
-    feedback: scorecard.feedback,
-  };
-}
-
-function slugKey(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-}
-
-function mergeSupportLevels(policy: SupportLevel[], _overrides: unknown): SupportLevel[] {
-  // Administrator exceptions are recorded for post-score review only. They do
-  // not bypass the learner-side score-before-reveal sequence.
-  return [...new Set(policy)];
-}
-
-export type StudentMutation = "reasoning" | "support" | "draft" | "finalize" | "submit" | "abandon" | "follow_up";
-
-export function isStudentMutationAllowed(status: unknown, operation: StudentMutation): boolean {
-  if (status === "in_progress") {
-    return ["reasoning", "support", "draft", "finalize", "abandon"].includes(operation);
-  }
-  if (status === "ready_for_submission") return operation === "submit" || operation === "abandon";
-  if (status === "returned") return operation === "follow_up";
-  return false;
-}
