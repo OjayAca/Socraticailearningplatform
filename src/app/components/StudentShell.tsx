@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/stores/auth-store";
+import { MindGuideLogo } from "./MindGuideLogo";
 import {
   Sheet,
   SheetClose,
@@ -158,9 +159,7 @@ function Brand() {
       to="/student/dashboard"
       className="flex w-fit items-center gap-2 rounded-lg text-lg font-extrabold tracking-tight text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-white"
     >
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20">
-        <BrainCircuit className="h-5 w-5" />
-      </span>
+      <MindGuideLogo decorative className="h-10 w-11 rounded-xl bg-white" />
       MINDGUIDE
     </Link>
   );

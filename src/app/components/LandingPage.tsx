@@ -19,6 +19,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import { Link, Navigate } from "react-router";
 import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
+import { MindGuideLogo } from "./MindGuideLogo";
 
 const benefits: {
   title: string;
@@ -26,31 +27,31 @@ const benefits: {
   Icon: LucideIcon;
   iconClassName: string;
 }[] = [
-  {
-    title: "Build the reasoning",
-    description:
-      "Work through each decision with focused questions that help you explain what you know and why it matters.",
-    Icon: Route,
-    iconClassName:
-      "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
-  },
-  {
-    title: "Get support, not spoilers",
-    description:
-      "Unlock adaptive prompts when you need them while the worked solution stays protected until your reasoning is complete.",
-    Icon: Lightbulb,
-    iconClassName:
-      "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-  },
-  {
-    title: "See evidence of your thinking",
-    description:
-      "Review a preserved reasoning record and formative scorecard grounded in the steps you actually submitted.",
-    Icon: ClipboardCheck,
-    iconClassName:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-  },
-];
+    {
+      title: "Build the reasoning",
+      description:
+        "Work through each decision with focused questions that help you explain what you know and why it matters.",
+      Icon: Route,
+      iconClassName:
+        "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300",
+    },
+    {
+      title: "Get support, not spoilers",
+      description:
+        "Unlock adaptive prompts when you need them while the worked solution stays protected until your reasoning is complete.",
+      Icon: Lightbulb,
+      iconClassName:
+        "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+    },
+    {
+      title: "See evidence of your thinking",
+      description:
+        "Review a preserved reasoning record and formative scorecard grounded in the steps you actually submitted.",
+      Icon: ClipboardCheck,
+      iconClassName:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    },
+  ];
 
 const stages = [
   {
@@ -107,17 +108,15 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-full bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0b1120]/90">
+    <div className="flex min-h-full w-full shrink-0 flex-col bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
+      <header className="sticky top-0 z-50 shrink-0 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0b1120]/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <a
             href="#top"
             aria-label="MINDGUIDE home"
             className="flex shrink-0 items-center gap-2 rounded-lg font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
-            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/25">
-              <BrainCircuit className="h-5 w-5" />
-            </span>
+            <MindGuideLogo decorative className="h-10 w-11 rounded-xl bg-white" />
             <span className="hidden sm:inline">MINDGUIDE</span>
           </a>
 
@@ -265,11 +264,10 @@ export function LandingPage() {
                     {[0, 1, 2, 3].map((stage) => (
                       <span
                         key={stage}
-                        className={`h-2 flex-1 rounded-full ${
-                          stage === 0
+                        className={`h-2 flex-1 rounded-full ${stage === 0
                             ? "bg-indigo-600"
                             : "bg-slate-100 dark:bg-slate-800"
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>
@@ -311,21 +309,19 @@ export function LandingPage() {
                     ].map(([label, state], index) => (
                       <div
                         key={label}
-                        className={`rounded-xl border p-2.5 ${
-                          index === 0
+                        className={`rounded-xl border p-2.5 ${index === 0
                             ? "border-indigo-200 bg-indigo-50 dark:border-indigo-500/30 dark:bg-indigo-500/10"
                             : "border-slate-200 dark:border-slate-800"
-                        }`}
+                          }`}
                       >
                         <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                           {label}
                         </p>
                         <p
-                          className={`mt-1 text-[0.65rem] font-semibold ${
-                            index === 0
+                          className={`mt-1 text-[0.65rem] font-semibold ${index === 0
                               ? "text-indigo-600 dark:text-indigo-400"
                               : "text-slate-400"
-                          }`}
+                            }`}
                         >
                           {state}
                         </p>
@@ -509,7 +505,7 @@ export function LandingPage() {
       <footer className="border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-[#0b1120]">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm text-slate-500 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <div className="flex items-center gap-2 font-bold text-slate-700 dark:text-slate-200">
-            <BrainCircuit className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+            <MindGuideLogo decorative className="h-7 w-8 rounded-lg bg-white" />
             MINDGUIDE
           </div>
           <p>Reason before reveal. Learn through the process.</p>

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  BrainCircuit,
   Mail,
   Lock,
   ArrowRight,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
+import { MindGuideLogo } from "../MindGuideLogo";
 
 /** Screen 2: Email/password login form with Google OAuth option. */
 export function Login() {
@@ -99,9 +99,7 @@ export function Login() {
         className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 space-y-8"
       >
         <div className="space-y-2 text-center">
-          <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BrainCircuit className="w-6 h-6" />
-          </div>
+          <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />
           <h2 className="text-2xl font-bold text-slate-900">Welcome Back</h2>
           <p className="text-slate-500 text-sm">
             {isResetMode

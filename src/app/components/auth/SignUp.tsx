@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  BrainCircuit,
   Mail,
   Lock,
   User,
@@ -13,6 +12,7 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
+import { MindGuideLogo } from "../MindGuideLogo";
 
 /** Screen 3: Account creation form. */
 export function SignUp() {
@@ -63,22 +63,17 @@ export function SignUp() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 h-full p-6">
+    <div className="flex min-h-full flex-1 flex-col items-center bg-slate-50 p-6">
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 space-y-8"
+        className="my-auto w-full max-w-md shrink-0 space-y-8 rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/50"
       >
-        <div className="space-y-2 text-center">
-          <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BrainCircuit className="w-6 h-6" />
-          </div>
+        <div className="text-center">
+          <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />
           <h2 className="text-2xl font-bold text-slate-900">
             Create an Account
           </h2>
-          <p className="text-slate-500 text-sm">
-            Join MINDGUIDE to start your learning journey.
-          </p>
         </div>
 
         {/* Error Alert */}

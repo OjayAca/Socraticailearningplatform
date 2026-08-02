@@ -23,7 +23,6 @@ import {
   LogOut,
   Save,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
@@ -42,6 +41,7 @@ import {
   ManagedContentEditor,
   type ContentCollection,
 } from "./ManagedContentEditor";
+import { MindGuideLogo } from "./MindGuideLogo";
 
 function AdminShell({ active, children }: { active: string; children: ReactNode }) {
   const signOut = useAuthStore((state) => state.signOut);
@@ -58,7 +58,7 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-slate-950 p-5 text-white md:block">
-        <div className="flex items-center gap-2 text-xl font-bold"><ShieldCheck className="h-7 w-7 text-emerald-400" />MINDGUIDE Admin</div>
+        <div className="flex items-center gap-2 text-xl font-bold"><MindGuideLogo decorative className="h-11 w-12 rounded-xl bg-white" />MINDGUIDE Admin</div>
         <nav className="mt-8 space-y-1">{nav.map(([id, href, label, Icon]) => <Link key={id} to={href} className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold ${active === id ? "bg-emerald-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}><Icon className="h-4 w-4" />{label}</Link>)}</nav>
         <button onClick={() => void signOut().then(() => navigate("/login"))} className="mt-10 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-800"><LogOut className="h-4 w-4" />Sign out</button>
       </aside>

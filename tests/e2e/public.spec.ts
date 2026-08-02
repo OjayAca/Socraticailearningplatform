@@ -78,6 +78,61 @@ test("keeps the primary public actions available on a mobile viewport", async ({
   ).toBeVisible();
 });
 
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 720 },
+  { name: "mobile", width: 390, height: 844 },
+]) {
+  test(`keeps the landing topbar visible through the end on ${viewport.name}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({
+      width: viewport.width,
+      height: viewport.height,
+    });
+    await page.goto("/");
+
+    const header = page.locator("header");
+    await header.evaluate((element) => {
+      let scrollContainer = element.parentElement;
+
+      while (
+        scrollContainer &&
+        !["auto", "scroll"].includes(
+          getComputedStyle(scrollContainer).overflowY
+        )
+      ) {
+        scrollContainer = scrollContainer.parentElement;
+      }
+
+      if (!scrollContainer) {
+        throw new Error("Landing page scroll container was not found");
+      }
+
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    });
+
+    await expect(header).toBeInViewport();
+    await expect
+      .poll(async () => header.evaluate((element) => element.getBoundingClientRect().top))
+      .toBe(0);
+    await expect(
+      header.getByRole("button", { name: /switch to (dark|light) theme/i })
+    ).toBeEnabled();
+    await expect(
+      header.getByRole("link", { name: "Log in", exact: true })
+    ).toBeVisible();
+
+    if (viewport.name === "desktop") {
+      await expect(
+        header.getByRole("link", { name: "How it works" })
+      ).toBeVisible();
+      await expect(
+        header.getByRole("link", { name: "Start learning", exact: true })
+      ).toBeVisible();
+    }
+  });
+}
+
 test("renders a useful catch-all page", async ({ page }) => {
   await page.goto("/this-route-does-not-exist");
   await expect(page.getByRole("heading", { name: /page not found/i })).toBeVisible();

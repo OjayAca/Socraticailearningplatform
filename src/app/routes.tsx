@@ -24,7 +24,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
  */
 const Layout = () => (
   <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-slate-50">
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain scroll-pt-16">
       <Outlet />
     </div>
   </div>
