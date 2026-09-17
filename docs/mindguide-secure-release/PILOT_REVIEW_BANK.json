@@ -1,0 +1,2882 @@
+{
+  "status": "draft; faculty approval pending",
+  "problems": [
+    {
+      "id": "pilot-v5-central-01",
+      "sourceProblemId": "pilot-v5-central-01",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Basic",
+      "variant": 1,
+      "problemText": "Three books have 4, 8, and 12 chapters. Find the mean number of chapters.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mean"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mean"
+        ],
+        "requiredFormula": "mean",
+        "solutionSteps": [
+          "Add 4 + 8 + 12 and divide by 3.",
+          "The mean is 8."
+        ],
+        "finalAnswer": "8",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 8,
+          "tolerance": 0.000001
+        },
+        "interpretation": "This result represents the requested mean for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mean",
+          "values": [
+            4,
+            8,
+            12
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-02",
+      "sourceProblemId": "pilot-v5-central-02",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Basic",
+      "variant": 2,
+      "problemText": "Five waiting times in minutes are 9, 3, 7, 1, and 5. Find the median.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-median"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "median"
+        ],
+        "requiredFormula": "median",
+        "solutionSteps": [
+          "Sort the values: 1, 3, 5, 7, 9. Select the middle value or average the middle pair.",
+          "The median is 5."
+        ],
+        "finalAnswer": "5",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 5,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested median for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "median",
+          "values": [
+            9,
+            3,
+            7,
+            1,
+            5
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-03",
+      "sourceProblemId": "pilot-v5-central-03",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Basic",
+      "variant": 3,
+      "problemText": "The numbers of visits are 2, 4, 4, 5, and 6. Give the set of modes.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mode"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mode"
+        ],
+        "requiredFormula": "mode",
+        "solutionSteps": [
+          "Count each value's frequency. If all appear once, the mode set is empty.",
+          "The mode is {4}."
+        ],
+        "finalAnswer": "{4}",
+        "answerSpecification": {
+          "kind": "set",
+          "values": [
+            4
+          ]
+        },
+        "interpretation": "This result represents the requested mode for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mode",
+          "values": [
+            2,
+            4,
+            4,
+            5,
+            6
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-04",
+      "sourceProblemId": "pilot-v5-central-04",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Intermediate",
+      "variant": 1,
+      "problemText": "Four daily sales counts are 12, 18, 25, and 29. Find the arithmetic mean.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mean"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mean"
+        ],
+        "requiredFormula": "mean",
+        "solutionSteps": [
+          "Add 12 + 18 + 25 + 29 and divide by 4.",
+          "The mean is 21."
+        ],
+        "finalAnswer": "21",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 21,
+          "tolerance": 0.000001
+        },
+        "interpretation": "This result represents the requested mean for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mean",
+          "values": [
+            12,
+            18,
+            25,
+            29
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-05",
+      "sourceProblemId": "pilot-v5-central-05",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Intermediate",
+      "variant": 2,
+      "problemText": "The delivery times are 18, 7, 22, 10, 15, and 12 minutes. Find the median.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-median"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "median"
+        ],
+        "requiredFormula": "median",
+        "solutionSteps": [
+          "Sort the values: 7, 10, 12, 15, 18, 22. Select the middle value or average the middle pair.",
+          "The median is 13.5."
+        ],
+        "finalAnswer": "13.5",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 13.5,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested median for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "median",
+          "values": [
+            18,
+            7,
+            22,
+            10,
+            15,
+            12
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-06",
+      "sourceProblemId": "pilot-v5-central-06",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Intermediate",
+      "variant": 3,
+      "problemText": "The survey responses are 3, 3, 5, 5, 7, and 9. Report every mode as a set.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mode"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mode"
+        ],
+        "requiredFormula": "mode",
+        "solutionSteps": [
+          "Count each value's frequency. If all appear once, the mode set is empty.",
+          "The mode is {3, 5}."
+        ],
+        "finalAnswer": "{3, 5}",
+        "answerSpecification": {
+          "kind": "set",
+          "values": [
+            3,
+            5
+          ]
+        },
+        "interpretation": "This result represents the requested mode for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mode",
+          "values": [
+            3,
+            3,
+            5,
+            5,
+            7,
+            9
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-07",
+      "sourceProblemId": "pilot-v5-central-07",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Advanced",
+      "variant": 1,
+      "problemText": "Net daily changes are -4, 2, 8, 14, and 30 units. Find their arithmetic mean and explain the effect of the negative observation.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mean"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mean"
+        ],
+        "requiredFormula": "mean",
+        "solutionSteps": [
+          "Add -4 + 2 + 8 + 14 + 30 and divide by 5.",
+          "The mean is 10."
+        ],
+        "finalAnswer": "10",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 10,
+          "tolerance": 0.000001
+        },
+        "interpretation": "This result represents the requested mean for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mean. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mean",
+          "values": [
+            -4,
+            2,
+            8,
+            14,
+            30
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-08",
+      "sourceProblemId": "pilot-v5-central-08",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Advanced",
+      "variant": 2,
+      "problemText": "Measured times are 2.5, 7.5, 4.5, 100, 5.5, and 3.5 seconds. Find the median and explain why the large value does not determine it.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-median"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "median"
+        ],
+        "requiredFormula": "median",
+        "solutionSteps": [
+          "Sort the values: 2.5, 3.5, 4.5, 5.5, 7.5, 100. Select the middle value or average the middle pair.",
+          "The median is 5."
+        ],
+        "finalAnswer": "5",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 5,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested median for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of median. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "median",
+          "values": [
+            2.5,
+            7.5,
+            4.5,
+            100,
+            5.5,
+            3.5
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-central-09",
+      "sourceProblemId": "pilot-v5-central-09",
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-measures-of-central-tendency",
+      "subject": "Quantitative Methods",
+      "topic": "Measures of Central Tendency",
+      "difficulty": "Advanced",
+      "variant": 3,
+      "problemText": "Observed categories have codes 1, 2, 3, 4, 5, and 6, each appearing once. Under the convention that all-unique data have no mode, give the set of modes and justify it.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-mode"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "mode"
+        ],
+        "requiredFormula": "mode",
+        "solutionSteps": [
+          "Count each value's frequency. If all appear once, the mode set is empty.",
+          "The mode is {}."
+        ],
+        "finalAnswer": "{}",
+        "answerSpecification": {
+          "kind": "set",
+          "values": []
+        },
+        "interpretation": "This result represents the requested mode for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of mode. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "mode",
+          "values": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-01",
+      "sourceProblemId": "pilot-v5-counting-01",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Basic",
+      "variant": 1,
+      "problemText": "A meal uses one of 3 mains and one of 4 drinks. Every pair is allowed. How many meals can be made?",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-product"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "product"
+        ],
+        "requiredFormula": "product",
+        "solutionSteps": [
+          "Multiply the independent stage counts: 3 × 4.",
+          "The product is 12."
+        ],
+        "finalAnswer": "12",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 12,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested product for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "product",
+          "values": [
+            3,
+            4
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-02",
+      "sourceProblemId": "pilot-v5-counting-02",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Basic",
+      "variant": 2,
+      "problemText": "A uniform uses one of 2 shirts and one of 5 trousers. Every pair is allowed. How many uniforms are possible?",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-product"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "product"
+        ],
+        "requiredFormula": "product",
+        "solutionSteps": [
+          "Multiply the independent stage counts: 2 × 5.",
+          "The product is 10."
+        ],
+        "finalAnswer": "10",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 10,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested product for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "product",
+          "values": [
+            2,
+            5
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-03",
+      "sourceProblemId": "pilot-v5-counting-03",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Basic",
+      "variant": 3,
+      "problemText": "Choose one of 4 notebook covers and one of 6 paper styles independently. How many combinations are possible?",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-product"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "product"
+        ],
+        "requiredFormula": "product",
+        "solutionSteps": [
+          "Multiply the independent stage counts: 4 × 6.",
+          "The product is 24."
+        ],
+        "finalAnswer": "24",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 24,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested product for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "product",
+          "values": [
+            4,
+            6
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-04",
+      "sourceProblemId": "pilot-v5-counting-04",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Intermediate",
+      "variant": 1,
+      "problemText": "Five students are eligible. Choose a president and a secretary; nobody may hold both roles. How many assignments are possible?",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-permutation"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "permutation"
+        ],
+        "requiredFormula": "permutation",
+        "solutionSteps": [
+          "Ordered selection without replacement: P(5, 2).",
+          "The permutation is 20."
+        ],
+        "finalAnswer": "20",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 20,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested permutation for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "permutation",
+          "values": [
+            5,
+            2
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-05",
+      "sourceProblemId": "pilot-v5-counting-05",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Intermediate",
+      "variant": 2,
+      "problemText": "Choose an unordered pair of representatives from six distinct students. How many pairs are possible?",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-combination"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "combination"
+        ],
+        "requiredFormula": "combination",
+        "solutionSteps": [
+          "Unordered selection without replacement: C(6, 2).",
+          "The combination is 15."
+        ],
+        "finalAnswer": "15",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 15,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested combination for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "combination",
+          "values": [
+            6,
+            2
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-06",
+      "sourceProblemId": "pilot-v5-counting-06",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Intermediate",
+      "variant": 3,
+      "problemText": "A route uses one of 2 buses, one of 3 ferries, and one of 4 trains. All stage combinations are possible. Count the routes.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-product"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "product"
+        ],
+        "requiredFormula": "product",
+        "solutionSteps": [
+          "Multiply the independent stage counts: 2 × 3 × 4.",
+          "The product is 24."
+        ],
+        "finalAnswer": "24",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 24,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested product for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "product",
+          "values": [
+            2,
+            3,
+            4
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-07",
+      "sourceProblemId": "pilot-v5-counting-07",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Advanced",
+      "variant": 1,
+      "problemText": "Eight finalists compete for distinct gold, silver, and bronze awards. There are no ties and each finalist receives at most one award. Count the outcomes and justify whether order matters.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-permutation"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "permutation"
+        ],
+        "requiredFormula": "permutation",
+        "solutionSteps": [
+          "Ordered selection without replacement: P(8, 3).",
+          "The permutation is 336."
+        ],
+        "finalAnswer": "336",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 336,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested permutation for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of permutation. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "permutation",
+          "values": [
+            8,
+            3
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-08",
+      "sourceProblemId": "pilot-v5-counting-08",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Advanced",
+      "variant": 2,
+      "problemText": "Choose a committee of four from nine distinct volunteers. There are no roles or restrictions. Count the committees and explain why rearranging members creates no new committee.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-combination"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "combination"
+        ],
+        "requiredFormula": "combination",
+        "solutionSteps": [
+          "Unordered selection without replacement: C(9, 4).",
+          "The combination is 126."
+        ],
+        "finalAnswer": "126",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 126,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested combination for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of combination. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "combination",
+          "values": [
+            9,
+            4
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    },
+    {
+      "id": "pilot-v5-counting-09",
+      "sourceProblemId": "pilot-v5-counting-09",
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-counting-principles",
+      "subject": "Discrete Mathematics",
+      "topic": "Counting Principles",
+      "difficulty": "Advanced",
+      "variant": 3,
+      "problemText": "Create a four-symbol code from five distinct symbols without repetition. Count the codes by successive choices and explain why the number of available symbols changes.",
+      "formulaTheoremReferenceIds": [
+        "pilot-ref-product"
+      ],
+      "status": "draft",
+      "privateSolution": {
+        "expectedConcepts": [
+          "product"
+        ],
+        "requiredFormula": "product",
+        "solutionSteps": [
+          "Multiply the independent stage counts: 5 × 4 × 3 × 2.",
+          "The product is 120."
+        ],
+        "finalAnswer": "120",
+        "answerSpecification": {
+          "kind": "number",
+          "value": 120,
+          "tolerance": 0
+        },
+        "interpretation": "This result represents the requested product for the confirmed givens.",
+        "safeHints": {
+          "problem_understanding": {
+            "socratic_prompt": [
+              "What quantity does the question ask you to determine?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. What quantity does the question ask you to determine?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "relevant_information_identification": {
+            "socratic_prompt": [
+              "List the given values and distinguish them from the unknown."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. List the given values and distinguish them from the unknown."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "method_selection": {
+            "socratic_prompt": [
+              "Which operation fits the requested quantity?"
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Which operation fits the requested quantity?"
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "formula_theorem_justification": {
+            "socratic_prompt": [
+              "State the conditions that make your selected method applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. State the conditions that make your selected method applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "guided_computation_or_proof": {
+            "socratic_prompt": [
+              "Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Write the next operation using the given quantities, then compute it yourself."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "verification_and_checking": {
+            "socratic_prompt": [
+              "Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Use an independent calculation or a small enumerated example to check your work."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          },
+          "result_interpretation": {
+            "socratic_prompt": [
+              "Explain what the result represents in this question, including units where applicable."
+            ],
+            "targeted_hint": [
+              "Focus on the meaning of product. Explain what the result represents in this question, including units where applicable."
+            ],
+            "stronger_hint": [
+              "Separate the setup from the calculation. Explain the relevant assumption before using the values."
+            ],
+            "partial_step": [
+              "Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."
+            ]
+          }
+        },
+        "socraticPrompts": {
+          "problem_understanding": "What quantity does the question ask you to determine?",
+          "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+          "method_selection": "Which operation fits the requested quantity?",
+          "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+          "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+          "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+          "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+        },
+        "rubricVersion": "pilot-v5-draft",
+        "verifiedGivens": {
+          "operation": "product",
+          "values": [
+            5,
+            4,
+            3,
+            2
+          ]
+        }
+      },
+      "prompts": {
+        "problem_understanding": "What quantity does the question ask you to determine?",
+        "relevant_information_identification": "List the given values and distinguish them from the unknown.",
+        "method_selection": "Which operation fits the requested quantity?",
+        "formula_theorem_justification": "State the conditions that make your selected method applicable.",
+        "guided_computation_or_proof": "Write the next operation using the given quantities, then compute it yourself.",
+        "verification_and_checking": "Use an independent calculation or a small enumerated example to check your work.",
+        "result_interpretation": "Explain what the result represents in this question, including units where applicable."
+      }
+    }
+  ]
+}

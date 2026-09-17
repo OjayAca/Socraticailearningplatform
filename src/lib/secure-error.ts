@@ -35,7 +35,7 @@ export function secureErrorMessage(
     message =
       "The secure MINDGUIDE service is not deployed for this environment. Contact the system administrator.";
   } else if (code.endsWith("/internal")) {
-    message = "MINDGUIDE could not complete the request. Please try again.";
+    message = "MINDGUIDE could not reach or complete the secure service request. Try again. If this continues, ask the system administrator to check that Firebase Cloud Functions is enabled and deployed in the configured region.";
   } else if (code.endsWith("/unavailable")) {
     message = "The secure MINDGUIDE service is temporarily unavailable. Please try again.";
   } else if (code.endsWith("/deadline-exceeded")) {

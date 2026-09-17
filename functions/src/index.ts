@@ -25,6 +25,13 @@ export {
   adminSubmitProblemValidation,
   adminRecordProblemValidation,
   adminBulkImportProblems,
+  adminDeleteUser,
+  adminDeleteContent,
+  adminPublishAnnouncement,
 } from "./admin.js";
 
-export { enforceRetention } from "./privacy.js";
+export { enforceRetention, enforceSessionLifecycle } from "./privacy.js";
+
+export { adminPilotRoster, adminSetPilot, getPilotStatus, adminReviewPilotRubric } from "./pilot.js";
+
+export { previewVerifiedProblem } from "./sessions.js";

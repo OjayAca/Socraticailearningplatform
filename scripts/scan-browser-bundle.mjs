@@ -15,6 +15,11 @@ const forbiddenMarkers = [
   "VITE_AI_PROVIDER",
   "VITE_OLLAMA",
   "GoogleGenAI",
+  "solveVerifiedProblem",
+  "verifiedGivens",
+  "PRIVATE_CANONICAL_ANSWER",
+  "answerSpecification",
+  "safeHints",
   "solutionSteps",
   "socraticPrompts",
   "referenceAnswer",
@@ -25,6 +30,17 @@ const forbiddenMarkers = [
 const knownPrivateStrings = existsSync(problemBank)
   ? extractPrivateStrings(readFileSync(problemBank, "utf8"))
   : [];
+const pilotBank = join(root, "docs", "mindguide-secure-release", "PILOT_REVIEW_BANK.json");
+if (existsSync(pilotBank)) {
+  const collect = value => {
+    if (typeof value === "string" && value.trim().length >= 16) knownPrivateStrings.push(value.trim());
+    else if (Array.isArray(value)) value.forEach(collect);
+    else if (value && typeof value === "object") Object.values(value).forEach(collect);
+  };
+  for (const problem of JSON.parse(readFileSync(pilotBank,"utf8")).problems) {
+    for (const field of ["solutionSteps", "finalAnswer", "interpretation", "requiredFormula", "requiredTheorem"]) collect(problem.privateSolution[field]);
+  }
+}
 const files = walk(dist).filter((file) => [".js", ".mjs", ".html", ".css", ".map"].includes(extname(file)));
 const failures = [];
 

@@ -1,3 +1,8 @@
+import { instructionalManifest } from "./content-manifest.js";
+import { consumeProjectBudget } from "./project-budget.js";
+import { contentHash } from "./content-hash.js";
+import { verifiedConfirmation, solveVerifiedProblem } from "./verified-problems.js";
+import { requirePilotAccess, requirePilotTransaction, aiLogExpiry } from "./pilot.js";
 import { onCall } from "firebase-functions/v2/https";
 import type {
   AcademicProfile,
@@ -17,7 +22,7 @@ import {
   WORKFLOW_VERSION,
   solverStageForPhase,
 } from "@mindguide/contracts";
-import { analyzeFreeFormProblem, evaluateAmbiguousResponse } from "./ai.js";
+import { assessFinalReasoning, evaluateAmbiguousResponse } from "./ai.js";
 import {
   buildCatalogReadiness,
   buildLearningCatalog,
@@ -82,7 +87,8 @@ export const getCurrentConsentNotice = onCall(callableOptions, async (request) =
 export const getLearningCatalog = onCall(callableOptions, async (request) => {
   const id = correlationId();
   try {
-    await requireActor(request);
+    const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: true });
     return await buildLearningCatalog();
   } catch (error) {
     throw asCallableError(error, id);
@@ -95,7 +101,7 @@ export const completeAcademicProfile = onCall(callableOptions, async (request) =
   try {
     const actor = await requireActor(request);
     const data = parseInput(completeAcademicProfileSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "completeAcademicProfile", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "completeAcademicProfile", data.requestId, data);
     if (operation.cached) return operation.cached;
     const profileRef = database.doc(`users/${actor.uid}`);
     const academicProfile: AcademicProfile = {
@@ -182,37 +188,35 @@ export const bootstrapProfile = onCall(callableOptions, async (request) => {
   }
 });
 
-export const startLearningSession = onCall(aiCallableOptions, async (request) => {
+// Prepared and verified-input starts are deterministic and need no AI secret.
+export const startLearningSession = onCall(callableOptions, async (request) => {
   const id = correlationId();
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    const logExpiresAt = await aiLogExpiry();
+    await requirePilotAccess(actor.uid, { newSession: true });
     const data = parseInput(startSessionSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "startLearningSession", data.requestId);
+    await requirePilotAccess(actor.uid, { newSession: true, topicId: data.topicId });
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "startLearningSession", data.requestId, data);
     if (operation.cached) return operation.cached;
     await enforceRateLimit(actor.uid, "session_start", 5, 3_600_000);
+    await consumeProjectBudget("sessionStarts");
     await requireCurrentConsent(actor.uid);
 
     const profile = await database.doc(`users/${actor.uid}`).get();
-    if (profile.get("role") === "student" && profile.get("academicProfileComplete") !== true) {
-      throw callableError(
-        "failed-precondition",
-        "academic_profile_required",
-        "Complete your student number, course, year level, and section before starting a learning session."
-      );
-    }
     const readiness = await buildCatalogReadiness();
     if (!readiness.ready) {
       throw callableError(
         "failed-precondition",
         "formal_evaluation_not_ready",
-        "Learning sessions are disabled until all 99 problem variants have recorded faculty approval."
+        "Learning sessions are disabled until the enabled pilot topics have complete matching faculty approvals."
       );
     }
     const topic = await readApprovedTopic(data.topicId);
     let publicProblem: Record<string, unknown>;
     let reference: PrivateProblemReference;
-    let rawAI: string | null = null;
+    const rawAI: string | null = null;
     let adaptiveRecommendation: SessionProjection["adaptiveRecommendation"] = null;
     let configurationVersions: SessionProjection["configurationVersions"] = null;
     let privateConfigurationSnapshot: Record<string, unknown> | null = null;
@@ -222,6 +226,7 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
         uid: actor.uid,
         topicId: topic.id,
         subjectId: topic.subjectId,
+        requestId: data.requestId,
       });
       const problemRef = database.doc(`problems/${selection.problem.id}`);
       const privateProblem = await problemRef.collection("private").doc("solution").get();
@@ -236,43 +241,15 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       reference = resolved.reference;
       configurationVersions = resolved.versions;
       privateConfigurationSnapshot = {
+        manifestHash: resolved.manifestHash,
         versions: resolved.versions,
         difficultyPolicy: resolved.difficultyPolicy,
       };
       adaptiveRecommendation = selection.recommendation;
     } else {
-      const analyzed = await analyzeFreeFormProblem({
-        question: data.question!,
-        subject: topic.subject,
-        topic: topic.name,
-      }).catch(async (error) => {
-        await writeAIFailure({
-          uid: actor.uid,
-          operation: "free_form_validation",
-          reason: String(error),
-          correlationId: id,
-        }).catch(() => undefined);
-        throw callableError(
-          "unavailable",
-          "problem_analysis_unavailable",
-          "MINDGUIDE could not validate this problem right now. Please try again.",
-          true,
-          id
-        );
-      });
-      if (!analyzed.analysis.supported || !analyzed.analysis.solvable) {
-        await writeAIFailure({
-          uid: actor.uid,
-          operation: "free_form_validation",
-          reason: analyzed.analysis.rejectionReason ?? "Unsupported or unsolvable problem.",
-          correlationId: id,
-        });
-        throw callableError(
-          "failed-precondition",
-          "unsupported_problem",
-          analyzed.analysis.rejectionReason || "This problem is outside MINDGUIDE's supported scope."
-        );
-      }
+      const confirmed = verifiedConfirmation(data.question, topic.name);
+      if (data.confirmationHash !== confirmed.confirmationHash) throw callableError("failed-precondition", "confirm_givens", "Review and confirm the extracted givens before starting.");
+      const verified = solveVerifiedProblem(confirmed.givens);
       publicProblem = {
         id: null,
         subjectId: topic.subjectId,
@@ -280,11 +257,11 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
         subject: topic.subject,
         topic: topic.name,
         difficulty: data.requestedDifficulty,
-        problemText: analyzed.analysis.normalizedQuestion,
+        problemText: data.question,
         supportedResponseFormats: ["text", "latex"],
       };
-      reference = analyzed.analysis;
-      rawAI = analyzed.raw;
+      const rubric = await database.doc("rubrics/pilot-v5").get();
+      reference = { ...verified, rubricCalibrationStatus: rubric.get("calibrationStatus") === "calibrated" ? "calibrated" : "pending" };
       adaptiveRecommendation = {
         recommendedDifficulty: data.requestedDifficulty,
         reason: "Free-form problems retain their intrinsic learner-selected complexity; adaptation applies to Socratic scaffolding rather than substituting the problem.",
@@ -292,7 +269,7 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
       };
     }
 
-    const sessionRef = database.collection("sessions").doc();
+    const sessionRef = database.collection("sessions").doc(contentHash({ uid: actor.uid, requestId: data.requestId }));
     const now = Date.now();
     const sessionData = {
       schemaVersion: SCHEMA_VERSION,
@@ -356,7 +333,23 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
     };
     const response = { session: projectSession(sessionRef.id, sessionData) };
     await database.runTransaction(async (transaction) => {
-      transaction.create(sessionRef, sessionData);
+      await requirePilotTransaction(transaction, actor.uid, true);
+      const existing = await transaction.get(sessionRef);
+      if (existing.exists) {
+        if (existing.get("startInputFingerprint") !== contentHash(data)) throw callableError("invalid-argument", "request_input_mismatch", "The request already created a different session.");
+        response.session = projectSession(existing.id, existing.data()!);
+        completeIdempotentRequest(transaction, operation!.ref, response);
+        return;
+      }
+      const rotationRef = database.doc(`learning_progress/${actor.uid}/assignment_state/${topic.id}`);
+      const rotation = await transaction.get(rotationRef);
+      if (data.mode === "curated") {
+        const recent = rotation.get("recentByDifficulty") ?? {};
+        const difficulty = String(publicProblem.difficulty);
+        transaction.set(rotationRef, { recentByDifficulty: { ...recent, [difficulty]: [publicProblem.id, ...(recent[difficulty] ?? [])].filter((value, index, values) => values.indexOf(value) === index).slice(0, 2) }, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        transaction.delete(database.doc(`assignment_reservations/${actor.uid}_${data.requestId}`));
+      }
+      transaction.create(sessionRef, { ...sessionData, startInputFingerprint: contentHash(data) });
       transaction.create(sessionRef.collection("private").doc("reference"), {
         ...reference,
         configurationSnapshot: privateConfigurationSnapshot,
@@ -368,9 +361,14 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
           rawOutput: rawAI,
           model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
           createdAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(Date.now() + 90 * 86_400_000),
+          expiresAt: logExpiresAt,
         });
       }
+      transaction.set(database.doc(`learning_progress/${actor.uid}`), {
+        userId: actor.uid,
+        lastActivityAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -386,8 +384,10 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
   let evaluationLock: Awaited<ReturnType<typeof acquireEvaluationLock>> | undefined;
   try {
     const actor = await requireActor(request);
+    const logExpiresAt = await aiLogExpiry();
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(evaluateResponseSchema, request.data);
-    operation = await beginIdempotentRequest<EvaluatePhaseResponseResponse>(actor.uid, "evaluatePhaseResponse", data.requestId);
+    operation = await beginIdempotentRequest<EvaluatePhaseResponseResponse>(actor.uid, "evaluatePhaseResponse", data.requestId, data);
     if (operation.cached) return operation.cached;
     await enforceRateLimit(actor.uid, "phase_evaluation", 30, 900_000);
 
@@ -415,7 +415,9 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
     let rawAI: string | null = null;
     if (result.requiresAI) {
       try {
+        const prior = await sessionRef.collection("responses").orderBy("createdAt", "desc").limit(21).get();
         const aiResult = await evaluateAmbiguousResponse({
+          priorResponses: prior.docs.reverse().map(doc => ({ id: doc.id, phase: doc.get("phase"), response: doc.get("response"), accepted: doc.get("evaluation.status") === "accepted" })),
           phase: data.expectedPhase,
           response,
           problemText: String(session.originalQuestion),
@@ -473,6 +475,7 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
       ...session,
       revision: data.revision + 1,
       currentPhase,
+      lastDiagnosis: result.diagnosis,
       gateStates: updatedGates,
       gateEvaluations: {
         ...(session.gateEvaluations ?? {}),
@@ -499,13 +502,15 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
     };
     const responseRef = sessionRef.collection("responses").doc();
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, false);
       const fresh = await transaction.get(sessionRef);
       assertSessionOwner(fresh, actor.uid);
       assertSessionRevision(fresh.data()!, data.revision, data.expectedPhase);
       transaction.update(sessionRef, {
         revision: data.revision + 1,
         currentPhase,
-        gateStates: updatedGates,
+        lastDiagnosis: result.diagnosis,
+      gateStates: updatedGates,
         gateEvaluations: updatedSession.gateEvaluations,
         diagnosisSummary: updatedSession.diagnosisSummary,
         allowedSupport,
@@ -515,6 +520,8 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
         updatedAt: FieldValue.serverTimestamp(),
         lastActivityAt: FieldValue.serverTimestamp(),
       });
+      touchLearningProgress(transaction, actor.uid);
+      transaction.update(sessionRef, { responseCount: FieldValue.increment(1) });
       transaction.create(responseRef, {
         phase: data.expectedPhase,
         response,
@@ -528,7 +535,7 @@ export const evaluatePhaseResponse = onCall(aiCallableOptions, async (request) =
           phase: data.expectedPhase,
           rawOutput: rawAI,
           createdAt: FieldValue.serverTimestamp(),
-          expiresAt: Timestamp.fromMillis(Date.now() + 90 * 86_400_000),
+          expiresAt: logExpiresAt,
         });
       }
       completeIdempotentRequest(transaction, operation!.ref, responseBody);
@@ -547,8 +554,9 @@ export const requestSessionSupport = onCall(callableOptions, async (request) => 
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<RequestSupportResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(supportRequestSchema, request.data);
-    operation = await beginIdempotentRequest<RequestSupportResponse>(actor.uid, "requestSessionSupport", data.requestId);
+    operation = await beginIdempotentRequest<RequestSupportResponse>(actor.uid, "requestSessionSupport", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     const [sessionSnapshot, referenceSnapshot] = await Promise.all([
@@ -574,13 +582,23 @@ export const requestSessionSupport = onCall(callableOptions, async (request) => 
     }
     const currentReasoningPhase = REASONING_PHASES.find((phase) => (session.gateStates as GateStateMap)[phase].status !== "accepted") ?? "result_interpretation";
     const content = supportContent(data.requestedLevel, currentReasoningPhase, referenceSnapshot.data() as PrivateProblemReference);
-    const updated = { ...session, revision: data.revision + 1, allowedSupport: allowed, supportUsage: Number(session.supportUsage ?? 0) + 1, updatedAt: Timestamp.now(), lastActivityAt: Timestamp.now() };
+    const history = session.supportHistory ?? [];
+    const existingSupport = history.find((item: { phase: string; level: string }) => item.phase === currentReasoningPhase && item.level === data.requestedLevel);
+    if (existingSupport) {
+      const replay = { session: projectSession(sessionSnapshot.id, session), ...existingSupport };
+      await database.runTransaction(async transaction => { completeIdempotentRequest(transaction, operation!.ref, replay); });
+      return replay;
+    }
+    const supportHistory = [...history, { phase: currentReasoningPhase, level: data.requestedLevel, ...content }];
+    const updated = { ...session, supportHistory, revision: data.revision + 1, allowedSupport: allowed, supportUsage: Number(session.supportUsage ?? 0) + 1, updatedAt: Timestamp.now(), lastActivityAt: Timestamp.now() };
     const response: RequestSupportResponse = { session: projectSession(sessionSnapshot.id, updated), level: data.requestedLevel, ...content };
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, false);
       const fresh = await transaction.get(sessionRef);
       assertSessionOwner(fresh, actor.uid);
       if (fresh.get("revision") !== data.revision) throw staleSessionError();
-      transaction.update(sessionRef, { revision: data.revision + 1, allowedSupport: allowed, supportUsage: updated.supportUsage, hintsUsed: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp(), lastActivityAt: FieldValue.serverTimestamp() });
+      transaction.update(sessionRef, { supportHistory, revision: data.revision + 1, allowedSupport: allowed, supportUsage: updated.supportUsage, hintsUsed: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp(), lastActivityAt: FieldValue.serverTimestamp() });
+      touchLearningProgress(transaction, actor.uid);
       transaction.create(sessionRef.collection("unlock_events").doc(), { level: data.requestedLevel, reason: "Server support policy satisfied.", content, createdAt: FieldValue.serverTimestamp() });
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
@@ -596,13 +614,15 @@ export const saveSessionDraft = onCall(callableOptions, async (request) => {
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(saveDraftSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "saveSessionDraft", data.requestId);
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "saveSessionDraft", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     const draft = { ...data.draft, answer: normalizeMathResponse(data.draft.answer) };
     let response!: SessionMutationResponse;
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, false);
       const snapshot = await transaction.get(sessionRef);
       assertSessionOwner(snapshot, actor.uid);
       if (snapshot.get("revision") !== data.revision) throw staleSessionError();
@@ -610,6 +630,7 @@ export const saveSessionDraft = onCall(callableOptions, async (request) => {
       const updated = { ...snapshot.data()!, draft, revision: data.revision + 1, updatedAt: Timestamp.now(), lastActivityAt: Timestamp.now() };
       response = { session: projectSession(snapshot.id, updated) };
       transaction.update(sessionRef, { draft, revision: data.revision + 1, updatedAt: FieldValue.serverTimestamp(), lastActivityAt: FieldValue.serverTimestamp() });
+      touchLearningProgress(transaction, actor.uid);
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -619,20 +640,27 @@ export const saveSessionDraft = onCall(callableOptions, async (request) => {
   }
 });
 
-export const finalizeScorecard = onCall(callableOptions, async (request) => {
+export const finalizeScorecard = onCall(aiCallableOptions, async (request) => {
   const id = correlationId();
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(revisionedSessionMutationSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "finalizeScorecard", data.requestId);
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "finalizeScorecard", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
+    const [assessmentSession, assessmentReference, assessmentResponses] = await Promise.all([sessionRef.get(), sessionRef.collection("private").doc("reference").get(), sessionRef.collection("responses").orderBy("createdAt").get()]);
+    assertSessionOwner(assessmentSession, actor.uid);
+    if (assessmentSession.get("revision") !== data.revision || !assessmentSession.get("draft")) throw staleSessionError();
+    const assessment = await assessFinalReasoning({ draft: assessmentSession.get("draft"), reference: assessmentReference.data() as PrivateProblemReference, responses: assessmentResponses.docs.map(doc => ({ id: doc.id, phase: doc.get("phase"), text: [doc.get("response.plainText"), doc.get("response.latex")].filter(Boolean).join(" "), accepted: doc.get("evaluation.status") === "accepted" })) });
     let response!: SessionMutationResponse;
     await database.runTransaction(async (transaction) => {
-      const [snapshot, reference] = await Promise.all([
+      await requirePilotTransaction(transaction, actor.uid, false);
+      const [snapshot, reference, reasoning] = await Promise.all([
         transaction.get(sessionRef),
         transaction.get(sessionRef.collection("private").doc("reference")),
+        transaction.get(sessionRef.collection("responses").orderBy("createdAt", "asc")),
       ]);
       assertSessionOwner(snapshot, actor.uid);
       const session = snapshot.data()!;
@@ -647,7 +675,7 @@ export const finalizeScorecard = onCall(callableOptions, async (request) => {
       if (!reference.exists || !session.draft) throw callableError("failed-precondition", "draft_or_reference_missing", "Complete and save the draft before generating the scorecard.");
       if (!allGatesAccepted(session.gateStates as GateStateMap)) throw callableError("failed-precondition", "reasoning_incomplete", "All seven reasoning gates must be accepted first.");
       const privateReference = reference.data() as PrivateProblemReference;
-      const scorecard = buildScorecard({ draft: session.draft, gates: session.gateStates, reference: privateReference });
+      const scorecard = buildScorecard({ assessment, draft: session.draft, gates: session.gateStates, reference: privateReference, assistanceCount: Number(session.supportUsage ?? 0), responses: reasoning.docs.map(doc => ({ id: doc.id, phase: doc.get("phase"), text: [doc.get("response.plainText"), doc.get("response.latex")].filter(Boolean).join(" "), accepted: doc.get("evaluation.status") === "accepted" })) });
       const releasedSolution = buildReleasedSolution(privateReference);
       const updated = { ...session, revision: Number(session.revision) + 1, status: "ready_for_submission", currentPhase: "critical_thinking_scorecard", currentStep: "review", currentPrompt: "Review your scorecard and compare your work with the released solution before submitting the learning record.", scorecard, releasedSolution, mindGuideScorecard: legacyScorecard(scorecard), ctScore: scorecard.total, learningCompletedAt: Timestamp.now(), updatedAt: Timestamp.now() };
       response = {
@@ -655,7 +683,19 @@ export const finalizeScorecard = onCall(callableOptions, async (request) => {
         completion: { scorecard, releasedSolution },
       };
       transaction.update(sessionRef, { revision: updated.revision, status: updated.status, currentPhase: updated.currentPhase, currentStep: updated.currentStep, currentPrompt: updated.currentPrompt, scorecard, releasedSolution, mindGuideScorecard: updated.mindGuideScorecard, ctScore: scorecard.total, learningCompletedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
+      touchLearningProgress(transaction, actor.uid);
       transaction.set(sessionRef.collection("scorecards").doc("final"), { ...scorecard, createdAt: FieldValue.serverTimestamp() });
+      transaction.set(database.doc(`notifications/scorecard_ready__${snapshot.id}__${actor.uid}`), {
+        eventType: "scorecard_ready",
+        senderId: "system",
+        recipientId: actor.uid,
+        sessionId: snapshot.id,
+        title: "Scorecard ready",
+        message: `Your ${session.topic} critical-thinking scorecard is ready.`,
+        actionUrl: `/session/${snapshot.id}/learn`,
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -670,38 +710,25 @@ export const submitLearningSession = onCall(callableOptions, async (request) => 
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(revisionedSessionMutationSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "submitLearningSession", data.requestId);
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "submitLearningSession", data.requestId, data);
     if (operation.cached) return operation.cached;
     const adminSnapshots = await database.collection("users").where("role", "==", "admin").where("status", "==", "active").get();
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     const currentSnapshot = await sessionRef.get();
     assertSessionOwner(currentSnapshot, actor.uid);
     const currentData = currentSnapshot.data()!;
-    const recentSnapshot = await database
-      .collection("sessions")
-      .where("studentId", "==", actor.uid)
-      .orderBy("updatedAt", "desc")
-      .limit(10)
-      .get();
-    const recentTopicSessions = [
-      currentData,
-      ...recentSnapshot.docs
-        .filter((document) => document.id !== data.sessionId)
-        .map((document) => document.data())
-        .filter((candidate) => candidate.topic === currentData.topic && candidate.scorecard),
-    ].slice(0, 2);
-    const difficultyRecommendation = recommendDifficulty({
-      currentDifficulty: currentData.difficulty,
-      recentSessions: recentTopicSessions.map((candidate) => ({
-        score: Number(candidate.scorecard?.total ?? 0),
-        supportUsage: Number(candidate.supportUsage ?? candidate.hintsUsed ?? 0),
-        diagnoses: candidate.diagnosisSummary ?? [],
-      })),
-    });
+    const pinnedReference = await sessionRef.collection("private").doc("reference").get();
+    const policy = pinnedReference.get("configurationSnapshot.difficultyPolicy") ?? await resolveDifficultyPolicy(String(currentData.subjectId), String(currentData.topicId));
+    const recent = await committedTopicEvidence(actor.uid, String(currentData.topicId), policy.minimumCompletedSessions);
+    const recentTopicSessions = [currentData, ...recent.filter(candidate => candidate.id !== data.sessionId)].slice(0, policy.minimumCompletedSessions);
+    const difficultyRecommendation = recommendDifficulty({ currentDifficulty: currentData.difficulty, policy,
+      recentSessions: recentTopicSessions.filter(candidate => !candidate.parentSessionId && candidate.scorecard?.calibrationStatus === "calibrated").map(candidate => ({ score: Number(candidate.scorecard?.total ?? 0), supportUsage: Number(candidate.supportUsage ?? 0), diagnoses: candidate.diagnosisSummary ?? [] })) });
     const progressRef = database.doc(`learning_progress/${actor.uid}`);
     let response!: SessionMutationResponse;
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, false);
       const [snapshot, progressSnapshot] = await Promise.all([
         transaction.get(sessionRef),
         transaction.get(progressRef),
@@ -716,7 +743,19 @@ export const submitLearningSession = onCall(callableOptions, async (request) => 
       const updated = { ...session, revision: Number(session.revision) + 1, status: "submitted", currentStep: "confirmation", difficultyRecommendation, submittedAt: Timestamp.now(), statsCommittedAt: Timestamp.now(), updatedAt: Timestamp.now() };
       response = { session: projectSession(snapshot.id, updated) };
       transaction.update(sessionRef, { revision: updated.revision, status: "submitted", currentStep: "confirmation", difficultyRecommendation, submittedAt: FieldValue.serverTimestamp(), statsCommittedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() });
-      const progress = nextLearningProgress(actor.uid, progressSnapshot.data(), Number(session.scorecard.total), Timestamp.now());
+      const submittedAt = Timestamp.now();
+      const progress = nextLearningProgress(actor.uid, progressSnapshot.data(), Number(session.scorecard.total), submittedAt, {
+        id: snapshot.id,
+        subject: session.subject,
+        topic: String(session.topic),
+        scorecardSummary: String(session.scorecard.feedback ?? "Your critical-thinking scorecard is ready."),
+        scorecardGeneratedAt: Number(session.scorecard.generatedAt ?? submittedAt.toMillis()),
+        recommendation: difficultyRecommendation,
+      });
+      const previousAchievements = progressSnapshot.get("achievements") as Record<string, unknown> | undefined;
+      const newlyAwarded = Object.values(progress.achievements).filter((award) =>
+        award && !previousAchievements?.[award.id]
+      );
       transaction.set(progressRef, {
         userId: actor.uid,
         sessionsCompleted: progress.sessionsCompleted,
@@ -724,6 +763,10 @@ export const submitLearningSession = onCall(callableOptions, async (request) => 
         averageCTScore: progress.averageCTScore,
         currentStreak: progress.currentStreak,
         lastSessionDate: progress.lastSessionDate,
+        lastActivityAt: FieldValue.serverTimestamp(),
+        achievements: progress.achievements,
+        latestScorecard: progress.latestScorecard,
+        subjectProgress: progress.subjectProgress,
         topicRecommendations: {
           ...progress.topicRecommendations,
           [slugKey(String(session.topic))]: difficultyRecommendation,
@@ -731,6 +774,20 @@ export const submitLearningSession = onCall(callableOptions, async (request) => 
         lastSessionAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
+      for (const award of newlyAwarded) {
+        transaction.set(database.doc(`notifications/achievement_awarded__${award.id}__${actor.uid}`), {
+          eventType: "achievement_awarded",
+          senderId: "system",
+          recipientId: actor.uid,
+          sessionId: snapshot.id,
+          achievementId: award.id,
+          title: `Achievement unlocked: ${award.title}`,
+          message: award.description,
+          actionUrl: "/student/profile",
+          read: false,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
       for (const admin of adminSnapshots.docs) {
         transaction.set(database.doc(`notifications/session_submitted__${snapshot.id}__${admin.id}`), {
           eventType: "session_submitted", senderId: actor.uid, recipientId: admin.id, sessionId: snapshot.id,
@@ -752,19 +809,40 @@ export const createFollowUpSession = onCall(callableOptions, async (request) => 
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: true });
+    await requireCurrentConsent(actor.uid);
     const data = parseInput(sessionMutationSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "createFollowUpSession", data.requestId);
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "createFollowUpSession", data.requestId, data);
     if (operation.cached) return operation.cached;
     const parentRef = database.doc(`sessions/${data.sessionId}`);
+    const parentForEligibility = await parentRef.get();
+    await requirePilotAccess(actor.uid, { newSession: true, topicId: String(parentForEligibility.get("topicId") ?? "") });
+    if (parentForEligibility.get("workflowVersion") !== WORKFLOW_VERSION) throw callableError("failed-precondition", "legacy_followup", "Start a new approved problem for legacy history.");
     const childRef = database.collection("sessions").doc();
     let response!: SessionMutationResponse;
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, true);
       const [parent, reference] = await Promise.all([
         transaction.get(parentRef),
         transaction.get(parentRef.collection("private").doc("reference")),
       ]);
       assertSessionOwner(parent, actor.uid);
       if (!isStudentMutationAllowed(parent.get("status"), "follow_up") || parent.get("followUpSessionId")) throw callableError("failed-precondition", "follow_up_unavailable", "This returned session already has a follow-up or is not eligible.");
+      if (!reference.exists) throw callableError("failed-precondition", "reference_missing", "The original reference is unavailable. Start a new approved problem.");
+      const problemId = parent.get("problemId");
+      if (problemId) {
+        const currentProblem = await transaction.get(database.doc(`problems/${problemId}`));
+        const approvalId = currentProblem.get("validationRecordId");
+        if (currentProblem.get("status") !== "approved" || typeof approvalId !== "string" || !approvalId || approvalId.includes("/")) {
+          throw callableError("failed-precondition", "follow_up_content_unavailable", "The original problem is no longer approved. Start a new approved problem.");
+        }
+        const manifest = await instructionalManifest(currentProblem, transaction);
+        const approval = await transaction.get(database.doc(`content_validation_records/${approvalId}`));
+        if (!manifest.complete || approval.get("decision") !== "approved" || approval.get("problemId") !== problemId
+          || approval.get("manifestHash") !== manifest.hash || reference.get("configurationSnapshot.manifestHash") !== manifest.hash) {
+          throw callableError("failed-precondition", "follow_up_content_changed", "The instructional content changed since this session. Start a new approved problem.");
+        }
+      }
       const now = Timestamp.now();
       const child = {
         ...pickSessionProblem(parent.data()!), schemaVersion: SCHEMA_VERSION, workflowVersion: WORKFLOW_VERSION, revision: 0,
@@ -782,6 +860,7 @@ export const createFollowUpSession = onCall(callableOptions, async (request) => 
       transaction.create(childRef, child);
       transaction.create(childRef.collection("private").doc("reference"), reference.data()!);
       transaction.update(parentRef, { followUpSessionId: childRef.id, updatedAt: FieldValue.serverTimestamp() });
+      touchLearningProgress(transaction, actor.uid);
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -796,12 +875,14 @@ export const abandonLearningSession = onCall(callableOptions, async (request) =>
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<SessionMutationResponse>>> | undefined;
   try {
     const actor = await requireActor(request);
+    await requirePilotAccess(actor.uid, { newSession: false });
     const data = parseInput(sessionMutationSchema, request.data);
-    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "abandonLearningSession", data.requestId);
+    operation = await beginIdempotentRequest<SessionMutationResponse>(actor.uid, "abandonLearningSession", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     let response!: SessionMutationResponse;
     await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, actor.uid, false);
       const snapshot = await transaction.get(sessionRef);
       assertSessionOwner(snapshot, actor.uid);
       if (!isStudentMutationAllowed(snapshot.get("status"), "abandon")) {
@@ -821,6 +902,7 @@ export const abandonLearningSession = onCall(callableOptions, async (request) =>
         abandonedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
+      touchLearningProgress(transaction, actor.uid);
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -831,6 +913,7 @@ export const abandonLearningSession = onCall(callableOptions, async (request) =>
 });
 function assertSessionOwner(snapshot: FirebaseFirestore.DocumentSnapshot, uid: string): void {
   if (!snapshot.exists) throw callableError("not-found", "session_not_found", "The learning session was not found.");
+  if (snapshot.get("workflowVersion") !== WORKFLOW_VERSION || snapshot.get("schemaVersion") !== SCHEMA_VERSION) throw callableError("failed-precondition", "legacy_read_only", "Legacy sessions are read-only. Start a current approved problem.");
   if (snapshot.get("studentId") !== uid) throw callableError("permission-denied", "session_forbidden", "You cannot access this learning session.");
 }
 
@@ -859,6 +942,9 @@ function projectSession(id: string, session: Record<string, any>): SessionProjec
     schemaVersion: SCHEMA_VERSION,
     workflowVersion: WORKFLOW_VERSION,
     revision: Number(session.revision ?? 0),
+    lastDiagnosis: session.lastDiagnosis ?? null,
+    supportHistory: session.supportHistory ?? [],
+    responseCount: Number(session.responseCount ?? 0),
     studentId: String(session.studentId),
     subjectId: String(session.subjectId ?? ""),
     topicId: String(session.topicId ?? ""),
@@ -927,10 +1013,11 @@ async function readCurrentConsentNotice(): Promise<GetCurrentConsentNoticeRespon
 }
 
 async function writeAIFailure(value: Record<string, unknown>): Promise<void> {
-  await database.collection("ai_failure_logs").add({ ...value, createdAt: FieldValue.serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + 90 * 86_400_000) });
+  await database.collection("ai_failure_logs").add({ ...value, createdAt: FieldValue.serverTimestamp(), expiresAt: await aiLogExpiry() });
 }
 
 async function selectAdaptiveProblem(options: {
+  requestId: string;
   uid: string;
   topicId: string;
   subjectId: string;
@@ -938,38 +1025,25 @@ async function selectAdaptiveProblem(options: {
   problem: FirebaseFirestore.QueryDocumentSnapshot;
   recommendation: AdaptiveRecommendation;
 }> {
-  const recentSnapshot = await database
-    .collection("sessions")
-    .where("studentId", "==", options.uid)
-    .orderBy("updatedAt", "desc")
-    .limit(30)
-    .get();
-  const recentTopicSessions = recentSnapshot.docs
-    .filter((document) => document.get("topicId") === options.topicId && document.get("scorecard"));
-  const currentDifficulty = (recentTopicSessions[0]?.get("difficulty") ?? "Basic") as Difficulty;
   const policy = await resolveDifficultyPolicy(options.subjectId, options.topicId);
-  const recommendation = recentTopicSessions.length === 0
-    ? {
-        recommendedDifficulty: "Basic" as const,
-        reason: "No completed session exists for this topic, so adaptive practice begins at Basic.",
-        confidence: "low" as const,
-      }
-    : recommendDifficulty({
-        currentDifficulty,
-        recentSessions: recentTopicSessions.map((document) => ({
-          score: Number(document.get("scorecard")?.total ?? 0),
-          supportUsage: Number(document.get("supportUsage") ?? document.get("hintsUsed") ?? 0),
-          diagnoses: Array.isArray(document.get("diagnosisSummary")) ? document.get("diagnosisSummary") : [],
-        })),
-        policy,
-      });
+  const recent = await committedTopicEvidence(options.uid, options.topicId, policy.minimumCompletedSessions);
+  const currentDifficulty = (recent[0]?.difficulty ?? "Basic") as Difficulty;
+  const recommendation = recommendDifficulty({ currentDifficulty, policy,
+    recentSessions: recent.map(candidate => ({ score: Number(candidate.scorecard?.total ?? 0), supportUsage: Number(candidate.supportUsage ?? 0), diagnoses: candidate.diagnosisSummary ?? [] })) });
 
   const candidateQuery = database.collection("problems")
     .where("status", "==", "approved")
     .where("topicId", "==", options.topicId)
     .where("difficulty", "==", recommendation.recommendedDifficulty);
   const stateRef = database.doc(`learning_progress/${options.uid}/assignment_state/${options.topicId}`);
+  const reservationRef = database.doc(`assignment_reservations/${options.uid}_${options.requestId}`);
   const problem = await database.runTransaction(async (transaction) => {
+      await requirePilotTransaction(transaction, options.uid, true);
+    const reserved = await transaction.get(reservationRef);
+    if (reserved.exists) {
+      const previous = await transaction.get(database.doc(`problems/${reserved.get("problemId")}`));
+      if (previous.exists) return previous as FirebaseFirestore.QueryDocumentSnapshot;
+    }
     const [candidateSnapshot, state] = await Promise.all([
       transaction.get(candidateQuery),
       transaction.get(stateRef),
@@ -995,15 +1069,7 @@ async function selectAdaptiveProblem(options: {
         .filter((value): value is string => typeof value === "string")
       : [];
     const selected = candidates.find((candidate) => !recentIds.includes(candidate.id)) ?? candidates[0];
-    transaction.set(stateRef, {
-      recentByDifficulty: {
-        ...recentByDifficulty,
-        [recommendation.recommendedDifficulty]: [selected.id, ...recentIds]
-          .filter((value, index, values) => values.indexOf(value) === index)
-          .slice(0, 2),
-      },
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
+    transaction.set(reservationRef, { problemId: selected.id, uid: options.uid, topicId: options.topicId, difficulty: recommendation.recommendedDifficulty, createdAt: FieldValue.serverTimestamp() });
     return selected;
   });
   return { problem, recommendation };
@@ -1011,6 +1077,9 @@ async function selectAdaptiveProblem(options: {
 
 function pickSessionProblem(session: Record<string, any>) {
   return {
+    subjectId: session.subjectId,
+    topicId: session.topicId,
+    configurationVersions: session.configurationVersions ?? null,
     subject: session.subject,
     topic: session.topic,
     difficulty: session.difficulty,
@@ -1041,8 +1110,39 @@ function slugKey(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
 }
 
+function touchLearningProgress(transaction: FirebaseFirestore.Transaction, uid: string): void {
+  transaction.set(database.doc(`learning_progress/${uid}`), {
+    userId: uid,
+    lastActivityAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+}
+
 function mergeSupportLevels(policy: SupportLevel[], _overrides: unknown): SupportLevel[] {
   // Administrator exceptions are recorded for post-score review only. They do
   // not bypass the learner-side score-before-reveal sequence.
   return [...new Set(policy)];
+}
+
+export const previewVerifiedProblem = onCall(callableOptions, async request => {
+  const actor = await requireActor(request);
+  const data = parseInput(startSessionSchema, { ...request.data, mode: "free_form", requestId: request.data?.requestId });
+  if (data.mode !== "free_form") throw callableError("invalid-argument", "invalid_mode", "Enter a problem to preview.");
+  await requirePilotAccess(actor.uid, { newSession: true, topicId: data.topicId });
+  const topic = await readApprovedTopic(data.topicId);
+  return verifiedConfirmation(data.question, topic.name);
+});
+
+async function committedTopicEvidence(uid: string, topicId: string, count: number): Promise<Array<Record<string, any>>> {
+  const result: Array<Record<string, any>> = [];
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  while (result.length < count) {
+    let query = database.collection("sessions").where("studentId", "==", uid).where("topicId", "==", topicId).orderBy("submittedAt", "desc").orderBy("__name__", "desc").limit(Math.min(100, count));
+    if (cursor) query = query.startAfter(cursor);
+    const page = await query.get();
+    if (page.empty) break;
+    for (const doc of page.docs) if (doc.get("statsCommittedAt") && !doc.get("parentSessionId") && doc.get("scorecard.calibrationStatus") === "calibrated") result.push({ id: doc.id, ...doc.data() });
+    cursor = page.docs.at(-1);
+  }
+  return result.slice(0, count);
 }

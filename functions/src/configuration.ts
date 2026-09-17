@@ -1,3 +1,4 @@
+import { requireMatchingApproval } from "./content-manifest.js";
 import type {
   CatalogReadinessResponse,
   CatalogSubject,
@@ -22,6 +23,7 @@ export interface DifficultyPolicy {
 }
 
 export interface ResolvedProblemConfiguration {
+  manifestHash: string;
   reference: PrivateProblemReference;
   versions: SessionConfigurationVersions;
   difficultyPolicy: DifficultyPolicy;
@@ -88,6 +90,7 @@ export async function buildLearningCatalog(): Promise<LearningCatalog> {
     .map((document) => ({
       id: document.id,
       name: document.get("name"),
+      description: String(document.get("description") ?? ""),
       status: "approved",
       version: Number(document.get("version") ?? 1),
     } satisfies CatalogSubject))
@@ -112,6 +115,8 @@ export async function buildLearningCatalog(): Promise<LearningCatalog> {
 }
 
 export async function buildCatalogReadiness(): Promise<CatalogReadinessResponse> {
+  const pilot = await database.doc("system_settings/pilot").get();
+  const enabled: string[] = Array.isArray(pilot.get("enabledTopicIds")) ? pilot.get("enabledTopicIds") : [];
   const [topicSnapshot, problemSnapshot, referenceSnapshot, promptSnapshot, policySnapshot, misconceptionSnapshot] = await Promise.all([
     database.collection("topics").where("status", "==", "approved").get(),
     database.collection("problems").where("status", "==", "approved").get(),
@@ -127,15 +132,19 @@ export async function buildCatalogReadiness(): Promise<CatalogReadinessResponse>
     phases.add(String(prompt.get("phase")));
     promptPhases.set(String(prompt.get("problemId")), phases);
   }
+  const approvedManifestIds = new Set<string>();
+  for (const problem of problemSnapshot.docs.filter(doc => enabled.includes(String(doc.get("topicId"))))) {
+    try { await requireMatchingApproval(problem); approvedManifestIds.add(problem.id); } catch { /* reported as an unready cell */ }
+  }
   const configuredProblems = problemSnapshot.docs.filter((problem) => {
     const references = stringArray(problem.get("formulaTheoremReferenceIds"));
-    return Boolean(problem.get("validationRecordId"))
+    return approvedManifestIds.has(problem.id) && Boolean(problem.get("validationRecordId"))
       && references.length > 0
       && references.every((referenceId) => referenceIds.has(referenceId))
       && promptPhases.get(problem.id)?.size === REASONING_PHASES.length;
   });
   const difficulties: Difficulty[] = ["Basic", "Intermediate", "Advanced"];
-  const cells = topicSnapshot.docs.flatMap((topic) =>
+  const cells = topicSnapshot.docs.filter(topic => enabled.includes(topic.id)).flatMap((topic) =>
     difficulties.map((difficulty) => {
       const variants = new Set(
         configuredProblems
@@ -150,27 +159,28 @@ export async function buildCatalogReadiness(): Promise<CatalogReadinessResponse>
         topicId: topic.id,
         difficulty,
         approvedVariants: variants.size,
-        ready: variants.size === 3,
+        ready: variants.size === 3 && [1, 2, 3].every(value => variants.has(value))
+          && new Set(configuredProblems.filter(p => p.get("topicId") === topic.id && p.get("difficulty") === difficulty).map(p => String(p.get("problemText")).trim().toLowerCase())).size === 3,
       };
     })
   );
-  const approvedProblemCount = problemSnapshot.docs.filter((problem) =>
-    problem.get("validationRecordId")
-  ).length;
+  const approvedProblemCount = configuredProblems.length;
   const issues = cells
     .filter((cell) => !cell.ready)
     .map((cell) =>
       `${cell.topicId}/${cell.difficulty} has ${cell.approvedVariants} of 3 validated variants.`
     );
+  if (!enabled.length) issues.push("No pilot topics are enabled; participant access remains closed.");
+  if (enabled.some(id => !topicSnapshot.docs.some(doc => doc.id === id))) issues.push("An enabled topic is not approved.");
   if (policySnapshot.size === 0) issues.push("No approved adaptive-difficulty policy is configured.");
   if (misconceptionSnapshot.size < 12) issues.push("The approved misconception policy set is incomplete.");
   return {
     ready:
-      topicSnapshot.size === 11
-      && cells.length === 33
+      enabled.length > 0
+      && cells.length === enabled.length * 3
       && issues.length === 0
-      && approvedProblemCount === 99,
-    expectedProblemCount: 99,
+      && approvedProblemCount === enabled.length * 9,
+    expectedProblemCount: enabled.length * 9,
     approvedProblemCount,
     cells,
     issues,
@@ -185,6 +195,7 @@ export async function resolveProblemConfiguration(
   if (!problem.exists || problem.get("status") !== "approved" || !problem.get("validationRecordId")) {
     throw callableError("failed-precondition", "problem_not_validated", "This problem has not completed faculty validation.");
   }
+  const manifestHash = await requireMatchingApproval(problem);
   const topic = await readApprovedTopic(String(problem.get("topicId")));
   if (topic.subjectId !== problem.get("subjectId") || topic.name !== problem.get("topic")) {
     throw callableError("failed-precondition", "problem_topic_mismatch", "The problem and approved topic metadata do not match.");
@@ -238,11 +249,14 @@ export async function resolveProblemConfiguration(
   const requiredFormula = referenceDocuments.find((document) => document.get("kind") === "formula")?.get("statement");
   const requiredTheorem = referenceDocuments.find((document) => document.get("kind") === "theorem")?.get("statement");
 
+  const rubric = await database.doc("rubrics/pilot-v5").get();
   return {
+    manifestHash,
     reference: {
+      rubricCalibrationStatus: rubric.get("calibrationStatus") === "calibrated" ? "calibrated" : "pending",
       ...privateReference,
-      requiredFormula: requiredFormula ? String(requiredFormula) : privateReference.requiredFormula,
-      requiredTheorem: requiredTheorem ? String(requiredTheorem) : privateReference.requiredTheorem,
+      ...(requiredFormula ? { requiredFormula: String(requiredFormula) } : {}),
+      ...(requiredTheorem ? { requiredTheorem: String(requiredTheorem) } : {}),
       formulaTheoremConditions: referenceDocuments.flatMap((document) => stringArray(document.get("conditions"))),
       socraticPrompts: prompts,
       misconceptionPrompts,

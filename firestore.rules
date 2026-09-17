@@ -18,6 +18,26 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
+    function admitted() {
+      return activeAccount() && request.auth.token.email_verified == true
+        && exists(/databases/$(database)/documents/pilot_roster/$(request.auth.uid))
+        && get(/databases/$(database)/documents/pilot_roster/$(request.auth.uid)).data.status == "admitted";
+    }
+    function pilotContent() {
+      return admitted() && exists(/databases/$(database)/documents/system_settings/pilot)
+        && get(/databases/$(database)/documents/system_settings/pilot).data.state in ["open", "drain"];
+    }
+    function clientWritesAllowed() {
+      return !exists(/databases/$(database)/documents/system_settings/pilot)
+        || get(/databases/$(database)/documents/system_settings/pilot).data.state != "write-freeze";
+    }
+    match /pilot_roster/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+    match /rubrics/{id} { allow read: if isAdmin(); allow write: if false; }
+
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
@@ -49,7 +69,7 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
       allow create, delete: if false;
-      allow update: if isOwner(userId) && activeAccount() && validOwnProfileUpdate();
+      allow update: if isOwner(userId) && activeAccount() && clientWritesAllowed() && validOwnProfileUpdate();
 
       match /consents/{version} {
         allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
@@ -58,17 +78,17 @@ service cloud.firestore {
     }
 
     match /subjects/{subjectId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow get, list: if isAdmin() || (pilotContent() && resource.data.status == "approved");
       allow write: if false;
     }
 
     match /topics/{topicId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow get, list: if isAdmin() || (pilotContent() && topicId in get(/databases/$(database)/documents/system_settings/pilot).data.enabledTopicIds && resource.data.status == "approved");
       allow write: if false;
     }
 
     match /problems/{problemId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
+      allow get, list: if isAdmin() || (pilotContent() && resource.data.topicId in get(/databases/$(database)/documents/system_settings/pilot).data.enabledTopicIds && resource.data.status == "approved");
       allow write: if false;
 
       match /private/{documentId} {
@@ -159,6 +179,15 @@ service cloud.firestore {
         && request.resource.data.recipientId == resource.data.recipientId
         && request.resource.data.read == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    match /deletion_jobs/{jobId} {
+      allow read, write: if false;
     }
 
     match /audit_logs/{logId} {

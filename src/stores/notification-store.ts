@@ -320,6 +320,16 @@ export function getNotificationActionUrl(
       : "/student/history";
   }
 
+  if (eventType === "scorecard_ready" && encodedSessionId && role === "student") {
+    return `/session/${encodedSessionId}/learn`;
+  }
+  if (eventType === "session_inactivity_reminder" && encodedSessionId && role === "student") {
+    return `/session/${encodedSessionId}/learn`;
+  }
+  if (eventType === "achievement_awarded" && role === "student") {
+    return "/student/profile#achievements";
+  }
+
   // Keep migrated legacy notifications useful, but only allow local routes.
   return isSafeInternalRoute(record.actionUrl) ? record.actionUrl : undefined;
 }
@@ -349,6 +359,14 @@ export function getNotificationText(notification: AppNotification): {
         title: "Session returned",
         message: "Your administrator left guidance for a follow-up attempt.",
       };
+    case "scorecard_ready":
+      return { title: "Scorecard ready", message: "Your critical-thinking scorecard is ready to review." };
+    case "achievement_awarded":
+      return { title: "Achievement unlocked", message: "A new achievement has been added to your profile." };
+    case "session_inactivity_reminder":
+      return { title: "Session expiring soon", message: "Resume your session before its inactivity window closes." };
+    case "announcement":
+      return { title: "MINDGUIDE announcement", message: "A new administrator announcement is available." };
     default:
       return {
         title: record.title || "MINDGUIDE update",

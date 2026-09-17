@@ -11,7 +11,7 @@ describe("secure Firebase error messages", () => {
   it("does not expose Firebase's raw internal label", () => {
     expect(
       secureErrorMessage({ code: "functions/internal", message: "internal" })
-    ).toBe("MINDGUIDE could not complete the request. Please try again.");
+    ).toMatch(/check that Firebase Cloud Functions is enabled and deployed/i);
   });
 
   it("preserves typed callable details and their correlation reference", () => {

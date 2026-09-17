@@ -39,6 +39,7 @@ export const startSessionSchema = z.discriminatedUnion("mode", [
     topicId: z.string().trim().min(1).max(160),
     question: z.string().trim().min(8).max(2_000),
     requestedDifficulty: difficulty,
+    confirmationHash: z.string().length(64).optional(),
   }),
 ]);
 
@@ -118,6 +119,38 @@ export const adminUserSchema = z.object({
   reason: z.string().trim().min(4).max(1_000),
 });
 
+const auditReason = z.string().trim().min(8).max(1_000);
+const deletableContentCollection = z.enum([
+  "subjects",
+  "topics",
+  "problems",
+  "formula_theorem_references",
+  "socratic_prompt_bank",
+  "misconception_categories",
+  "difficulty_policies",
+]);
+
+export const adminDeleteUserSchema = z.object({
+  requestId,
+  userId: z.string().trim().min(1).max(160),
+  confirmationEmail: z.string().trim().email().max(320),
+  reason: auditReason,
+});
+
+export const adminDeleteContentSchema = z.object({
+  requestId,
+  collection: deletableContentCollection,
+  id: z.string().trim().min(1).max(160).regex(/^[A-Za-z0-9_-]+$/),
+  reason: auditReason,
+});
+
+export const adminPublishAnnouncementSchema = z.object({
+  requestId,
+  title: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(2_000),
+  reason: auditReason,
+});
+
 export const reportQuerySchema = z.object({
   requestId: requestId.optional(),
   kind: z.enum(["learning_progress", "scorecards", "misconceptions", "activity", "usage"]),
@@ -128,10 +161,27 @@ export const reportQuerySchema = z.object({
   includeIdentity: z.boolean().default(false),
   exportReason: z.string().trim().min(4).max(1_000).optional(),
   limit: z.number().int().min(1).max(1_000).default(100),
+  cursor: z.string().max(2000).optional(),
+});
+
+export const reportExportSchema = reportQuerySchema.extend({
+  requestId,
+  output: z.enum(["csv", "print"]),
+  exportReason: auditReason,
 });
 
 const managedStatus = z.enum(["draft", "pending_validation", "approved", "rejected", "archived"]);
+const scalarAnswer = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("number"), value: z.number().finite(), tolerance: z.number().finite().nonnegative().optional(), unit: z.string().max(40).optional() }),
+  z.object({ kind: z.literal("expression"), expression: z.string().min(1).max(1000) }),
+  z.object({ kind: z.literal("truth"), value: z.boolean() }),
+  z.object({ kind: z.literal("set"), values: z.array(z.number().finite()).max(100) }),
+]);
+const answerSpecification = z.union([scalarAnswer, z.object({ kind: z.literal("parts"), parts: z.record(z.string().min(1).max(40), scalarAnswer) })]);
 const privateProblemSolution = z.object({
+  answerSpecification: answerSpecification.optional(),
+  rubricVersion: z.string().max(80).optional(),
+  safeHints: z.record(z.enum(REASONING_PHASES), z.record(z.enum(["socratic_prompt", "targeted_hint", "stronger_hint", "partial_step"]), z.array(z.string().min(1).max(1000)).min(1).max(4))).optional(),
   expectedConcepts: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
   requiredFormula: z.string().max(1_000).nullable().optional(),
   requiredTheorem: z.string().max(1_000).nullable().optional(),
@@ -150,7 +200,11 @@ const privateProblemSolution = z.object({
 });
 
 const managedSchemas = {
-  subjects: z.object({ name: z.string().trim().min(1).max(160), status: managedStatus }),
+  subjects: z.object({
+    name: z.string().trim().min(1).max(160),
+    description: z.string().trim().min(1).max(1_000),
+    status: managedStatus,
+  }),
   topics: z.object({
     subjectId: z.string().trim().min(1).max(160),
     subject: subject.optional(),
@@ -254,8 +308,10 @@ export function validateManagedContent(
   value: Record<string, unknown>
 ): Record<string, unknown> {
   if (collection === "system_settings") {
+    if (id === "pilot" || id === "maintenance") throw callableError("invalid-argument", "use_pilot_controls", "Use the typed pilot release controls for maintenance and participant access.");
     const schema = id === "privacy"
       ? z.object({
+          policyEvidenceReference: z.string().min(1).max(1000).optional(),
           currentConsentVersion: z.string().trim().min(1).max(80),
           aiLogRetentionDays: z.number().int().min(1).max(3650).optional(),
           identifiableRetentionMonths: z.number().min(0).max(120).optional(),
@@ -271,6 +327,7 @@ export function validateManagedContent(
 }
 
 const FORBIDDEN_PUBLIC_KEYS = new Set([
+  "answerSpecification", "safeHints", "verifiedGivens", "configurationSnapshot",
   "finalAnswer",
   "solutionSteps",
   "referenceAnswer",

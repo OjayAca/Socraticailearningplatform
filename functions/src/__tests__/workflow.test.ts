@@ -17,6 +17,7 @@ const reference: PrivateProblemReference = {
   requiredFormula: "mean = sum / n",
   solutionSteps: ["Add the values.", "Divide by the count."],
   finalAnswer: "10",
+  answerSpecification: { kind: "number", value: 10 },
   interpretation: "The mean score is 10.",
 };
 

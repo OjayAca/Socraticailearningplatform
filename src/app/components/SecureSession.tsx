@@ -1,3 +1,4 @@
+import { MathText } from "./MathText";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { Link, Navigate, useParams } from "react-router";
@@ -21,6 +22,7 @@ import type {
 } from "@mindguide/contracts";
 import {
   PHASE_LABELS,
+  SCHEMA_VERSION,
   SOLVER_STAGES,
   SOLVER_STAGE_LABELS,
   SOLVER_STAGE_PHASES,
@@ -29,6 +31,7 @@ import {
   solverStageForPhase,
 } from "@mindguide/contracts";
 import { db } from "@/lib/firebase";
+import { isCurrentLearningSession } from "@/lib/session-compatibility";
 import {
   abandonLearningSession,
   evaluatePhaseResponse,
@@ -39,6 +42,7 @@ import {
 } from "@/lib/secure-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MathInput } from "./MathInput";
+import { ScorecardDetails } from "./ScorecardDetails";
 
 const EMPTY_RESPONSE: MathResponse = { plainText: "", latex: "" };
 
@@ -66,12 +70,19 @@ export function SecureSession() {
       const snapshot = await getDoc(doc(db, "sessions", sessionId));
       if (!snapshot.exists()) throw new Error("The learning session was not found.");
       const data = snapshot.data();
-      if (data.schemaVersion !== 3 || data.workflowVersion !== WORKFLOW_VERSION) {
-        throw new Error("This is a preserved legacy session. View it from your learning history or start a current-workflow follow-up.");
+      if (!isCurrentLearningSession(data)) {
+        throw new Error("This session uses an incompatible legacy workflow. View it from your learning history or start a current-workflow follow-up.");
       }
       const projected = firestoreProjection(snapshot.id, data);
       setSession(projected);
       if (projected.draft) setDraft(projected.draft);
+      setDiagnosis(projected.lastDiagnosis ?? null);
+      setSupport(projected.supportHistory?.at(-1) ?? null);
+      const local = sessionStorage.getItem(`mindguide.draft.${firebaseUser.uid}.${sessionId}`);
+      if (local && projected.status === "in_progress") {
+        const saved = JSON.parse(local);
+        if (saved.revision === projected.revision) { setDraft(saved.draft); setResponse(saved.response); }
+      }
       setPrompt(projected.currentPrompt || promptFor(projected.currentPhase));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be loaded.");
@@ -81,6 +92,13 @@ export function SecureSession() {
   }, [firebaseUser, sessionId]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  useEffect(() => {
+    if (!firebaseUser || !sessionId || !session || loading) return;
+    const key = `mindguide.draft.${firebaseUser.uid}.${sessionId}`;
+    if (session.status !== "in_progress") { sessionStorage.removeItem(key); return; }
+    sessionStorage.setItem(key, JSON.stringify({ revision: session.revision, draft, response }));
+  }, [draft, response, session, sessionId, firebaseUser, loading]);
 
   const progress = useMemo(() => {
     if (!session) return 0;
@@ -131,6 +149,7 @@ export function SecureSession() {
     setError(null);
     try {
       const saved = await saveSessionDraft({ sessionId: session.id, revision: session.revision, draft });
+      setSession(saved.session);
       const scored = await finalizeScorecard(saved.session.id, saved.session.revision);
       setSession(scored.session);
     } catch (cause) {
@@ -215,10 +234,9 @@ export function SecureSession() {
               </>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Critical Thinking Scorecard</h2><span className="text-3xl font-bold text-indigo-600">{session.scorecard.total}/100</span></div>
-                {Object.values(session.scorecard.criteria).map((criterion) => <div key={criterion.category} className="rounded-xl border border-indigo-100 bg-indigo-50 p-4"><div className="flex justify-between font-bold"><span>{criterion.category.replace(/([A-Z])/g, " $1")}</span><span>{criterion.score}/25</span></div><p className="mt-2 text-sm text-slate-700">{criterion.reason}</p><ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{criterion.evidence.map((item) => <li key={item}>{item}</li>)}</ul><p className="mt-2 text-xs font-semibold text-indigo-700">Improve: {criterion.improvementAdvice}</p></div>)}
-                <p className="rounded-xl bg-slate-50 p-4 text-sm">{session.scorecard.feedback}</p>
-                {session.releasedSolution && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold uppercase text-emerald-700">Unlocked worked solution</p><h3 className="mt-2 font-bold text-emerald-950">Method</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.method}</p><h3 className="mt-4 font-bold text-emerald-950">Why it applies</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.justification}</p><h3 className="mt-4 font-bold text-emerald-950">Steps</h3><ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-emerald-950">{session.releasedSolution.steps.map((step) => <li key={step}>{step}</li>)}</ol><h3 className="mt-4 font-bold text-emerald-950">Final answer</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.answer}</p><h3 className="mt-4 font-bold text-emerald-950">Verification</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.verification}</p><h3 className="mt-4 font-bold text-emerald-950">Interpretation</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.interpretation}</p></div>}
+                <h2 className="text-xl font-bold">Critical Thinking Scorecard</h2>
+                <ScorecardDetails scorecard={session.scorecard} />
+                {session.releasedSolution && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold uppercase text-emerald-700">Unlocked worked solution</p><h3 className="mt-2 font-bold text-emerald-950">Method</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.method}</p><h3 className="mt-4 font-bold text-emerald-950">Why it applies</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.justification}</p><h3 className="mt-4 font-bold text-emerald-950">Steps</h3><ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-emerald-950">{session.releasedSolution.steps.map((step) => <li key={step}><MathText text={step} /></li>)}</ol><h3 className="mt-4 font-bold text-emerald-950">Final answer</h3><p className="mt-1 text-sm text-emerald-900"><MathText text={session.releasedSolution.answer} /></p><h3 className="mt-4 font-bold text-emerald-950">Verification</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.verification}</p><h3 className="mt-4 font-bold text-emerald-950">Interpretation</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.interpretation}</p></div>}
                 <p className="text-xs font-semibold text-slate-500">Formative AI-supported feedback only — not an official grade.</p>
                 <button disabled={loading} onClick={() => void submitForReview()} className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">Submit immutable record for administrator review</button>
               </div>
@@ -226,6 +244,7 @@ export function SecureSession() {
           </div>
         )}
 
+        {(session.supportHistory?.length ?? 0) > 0 && <section className="rounded-2xl border p-5"><h2 className="font-bold">Support history</h2>{(session.supportHistory ?? []).map((entry, index) => <div key={index} className="mt-3 rounded border p-3"><p>{entry.phase.replace(/_/g, " ")} — {entry.title}</p>{entry.content.map((line, i) => <p key={i}><MathText text={line} /></p>)}</div>)}</section>}
         {session.status === "in_progress" && session.allowedSupport.length > 0 && <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /><h2 className="font-bold">Available support</h2></div><div className="mt-3 flex flex-wrap gap-2">{session.allowedSupport.map((level) => <button key={level} onClick={() => void requestSupport(level)} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">{level.replace(/_/g, " ")}</button>)}</div>{support && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p className="font-bold text-amber-900">{support.title}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">{support.content.map((item) => <li key={item}>{item}</li>)}</ol></div>}</div>}
         <button onClick={() => void abandonSession()} disabled={loading} className="mx-auto flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-red-700 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
       </div>
@@ -250,9 +269,11 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
   })) as SessionProjection["stageProgress"];
   return {
     id,
-    schemaVersion: 4,
+    schemaVersion: SCHEMA_VERSION,
     workflowVersion: WORKFLOW_VERSION,
     revision: Number(data.revision ?? 0),
+    lastDiagnosis: data.lastDiagnosis ?? null,
+    supportHistory: data.supportHistory ?? [],
     studentId: data.studentId,
     subjectId: data.subjectId ?? "",
     topicId: data.topicId ?? "",

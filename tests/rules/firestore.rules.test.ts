@@ -45,6 +45,8 @@ beforeEach(async () => {
   await environment.withSecurityRulesDisabled(async (context) => {
     const database = context.firestore();
     await Promise.all([
+      setDoc(doc(database, "system_settings", "pilot"), { state: "open", enabledTopicIds: ["pilot-topic"] }),
+      setDoc(doc(database, "pilot_roster", STUDENT), { uid: STUDENT, status: "admitted" }),
       setDoc(doc(database, "users", STUDENT), profile("student", "Student One")),
       setDoc(doc(database, "users", OTHER_STUDENT), profile("student", "Student Two")),
       setDoc(doc(database, "users", ADMIN), profile("admin", "System Admin")),
@@ -64,6 +66,7 @@ beforeEach(async () => {
       setDoc(doc(database, "problems", "approved-problem"), {
         status: "approved",
         problemText: "Public prompt",
+        topicId: "pilot-topic",
       }),
       setDoc(doc(database, "problems", "approved-problem", "private", "solution"), {
         finalAnswer: "42",
@@ -75,6 +78,13 @@ beforeEach(async () => {
       setDoc(doc(database, "notifications", "notice"), {
         recipientId: STUDENT,
         read: false,
+      }),
+      setDoc(doc(database, "announcements", "announcement-one"), {
+        title: "System notice",
+        message: "For active learners",
+      }),
+      setDoc(doc(database, "deletion_jobs", "job-one"), {
+        status: "processing",
       }),
       setDoc(doc(database, "audit_logs", "audit"), {
         actorId: ADMIN,
@@ -93,12 +103,37 @@ beforeEach(async () => {
 afterAll(async () => environment.cleanup());
 
 describe("schema-v4 authority boundary", () => {
+  it("denies non-cohort and closed-pilot catalog reads without blocking historical viewing", async () => {
+    const outsider = environment.authenticatedContext(OTHER_STUDENT, { role: "student", email_verified: true }).firestore();
+    await assertFails(getDoc(doc(outsider,"problems","approved-problem")));
+    await environment.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(),"system_settings","pilot"), { state: "closed" }); });
+    await assertFails(getDoc(doc(studentDb(),"problems","approved-problem")));
+    await assertSucceeds(getDoc(doc(studentDb(),"sessions",SESSION)));
+  });
+  it("freezes direct preference writes and protects roster and release artifacts", async () => {
+    await assertFails(setDoc(doc(studentDb(),"pilot_roster",STUDENT), { status:"admitted" }));
+    await assertFails(setDoc(doc(studentDb(),"release_artifacts","forged"), { status:"approved" }));
+    await environment.withSecurityRulesDisabled(async context => { await updateDoc(doc(context.firestore(),"system_settings","pilot"), { state:"write-freeze" }); });
+    await assertFails(updateDoc(doc(studentDb(),"users",STUDENT), { preferences:{theme:"dark"}, updatedAt:serverTimestamp() }));
+  });
   it("denies client profile creation and role escalation but permits bounded preference changes", async () => {
     const database = studentDb();
     await assertFails(setDoc(doc(database, "users", "new-user"), profile("student", "New User")));
     await assertFails(updateDoc(doc(database, "users", STUDENT), { role: "admin", updatedAt: serverTimestamp() }));
     await assertSucceeds(updateDoc(doc(database, "users", STUDENT), {
       preferences: { liveAlertPopups: false, theme: "system", reducedMotion: false },
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(updateDoc(doc(database, "users", STUDENT), {
+      displayName: "Updated Student Name",
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(doc(database, "users", STUDENT), {
+      displayName: "",
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(updateDoc(doc(database, "users", STUDENT), {
+      preferences: { liveAlertPopups: true, privilegedMode: true },
       updatedAt: serverTimestamp(),
     }));
     await assertFails(updateDoc(doc(database, "users", STUDENT), {
@@ -166,14 +201,14 @@ describe("schema-v4 authority boundary", () => {
     const database = studentDb();
     await assertSucceeds(getDoc(doc(database, "users", STUDENT)));
     await assertFails(getDoc(doc(database, "sessions", SESSION)));
-    await assertFails(getDocs(query(collection(database, "problems"), where("status", "==", "approved"))));
+    await assertFails(getDocs(query(collection(database, "problems"), where("status", "==", "approved"), where("topicId", "==", "pilot-topic"))));
   });
 
   it("exposes only approved public content to students", async () => {
     const database = studentDb();
     await assertSucceeds(getDoc(doc(database, "problems", "approved-problem")));
     await assertFails(getDoc(doc(database, "problems", "draft-problem")));
-    await assertSucceeds(getDocs(query(collection(database, "problems"), where("status", "==", "approved"))));
+    await assertSucceeds(getDocs(query(collection(database, "problems"), where("status", "==", "approved"), where("topicId", "==", "pilot-topic"))));
   });
 
   it("allows recipients to mark notifications read but forbids notification creation", async () => {
@@ -181,10 +216,18 @@ describe("schema-v4 authority boundary", () => {
     await assertSucceeds(updateDoc(doc(database, "notifications", "notice"), { read: true }));
     await assertFails(setDoc(doc(database, "notifications", "forged"), { recipientId: STUDENT, read: false }));
   });
+
+  it("keeps announcement publishing and deletion jobs behind the server boundary", async () => {
+    await assertSucceeds(getDoc(doc(adminDb(), "announcements", "announcement-one")));
+    await assertFails(getDoc(doc(studentDb(), "announcements", "announcement-one")));
+    await assertFails(setDoc(doc(adminDb(), "announcements", "forged"), { title: "Forged" }));
+    await assertFails(getDoc(doc(adminDb(), "deletion_jobs", "job-one")));
+    await assertFails(getDoc(doc(studentDb(), "deletion_jobs", "job-one")));
+  });
 });
 
 function studentDb() {
-  return environment.authenticatedContext(STUDENT).firestore();
+  return environment.authenticatedContext(STUDENT, { role: "student", email_verified: true }).firestore();
 }
 
 function adminDb() {

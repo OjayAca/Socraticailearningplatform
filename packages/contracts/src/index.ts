@@ -1,5 +1,5 @@
-export const SCHEMA_VERSION = 4 as const;
-export const WORKFLOW_VERSION = 4 as const;
+export const SCHEMA_VERSION = 5 as const;
+export const WORKFLOW_VERSION = 5 as const;
 
 export type UserRole = "student" | "admin";
 export type AccountStatus = "active" | "suspended" | "deactivated" | "anonymized";
@@ -24,6 +24,7 @@ export interface AcademicProfile {
 export interface CatalogSubject {
   id: string;
   name: Subject;
+  description: string;
   status: "approved";
   version: number;
 }
@@ -211,6 +212,9 @@ export interface ScorecardCriterionResult {
 }
 
 export interface ScorecardResult {
+  rubricVersion?: string;
+  calibrationStatus?: "pending" | "calibrated";
+  assistanceCount?: number;
   criteria: Record<ScorecardCategory, ScorecardCriterionResult>;
   total: number;
   feedback: string;
@@ -263,6 +267,9 @@ export interface PublicProblem {
 }
 
 export interface SessionProjection {
+  lastDiagnosis?: DiagnosisResult | null;
+  supportHistory?: Array<{ phase: ReasoningPhase; level: SupportLevel; title: string; content: string[] }>;
+  responseCount?: number;
   id: string;
   schemaVersion: typeof SCHEMA_VERSION;
   workflowVersion: typeof WORKFLOW_VERSION;
@@ -328,6 +335,7 @@ export interface FreeFormLearningSessionInput {
   topicId: string;
   question: string;
   requestedDifficulty: Difficulty;
+  confirmationHash?: string;
 }
 
 export type StartLearningSessionInput =
@@ -401,8 +409,57 @@ export interface LearningProgress {
   currentStreak: number;
   lastSessionAt: number | null;
   lastSessionDate: string | null;
+  lastActivityAt: number | null;
+  achievements: Partial<Record<AchievementId, AchievementAward>>;
+  latestScorecard: LatestScorecardMetadata | null;
+  subjectProgress: Partial<Record<Subject, SubjectProgress>>;
   topicRecommendations: Record<string, unknown>;
 }
+
+export const ACHIEVEMENT_IDS = [
+  "first_step",
+  "dedicated_learner",
+  "three_day_streak",
+  "strong_reasoner",
+] as const;
+
+export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
+
+export interface AchievementAward {
+  id: AchievementId;
+  title: string;
+  description: string;
+  sourceSessionId: string;
+  awardedAt: number;
+}
+
+export interface LatestScorecardMetadata {
+  sessionId: string;
+  total: number;
+  subject: Subject;
+  topic: string;
+  summary: string;
+  generatedAt: number;
+}
+
+export interface SubjectProgress {
+  sessionsCompleted: number;
+  scoreTotal: number;
+  averageCTScore: number;
+  lastActivityAt: number;
+  recommendedDifficulty: Difficulty;
+  recommendationReason: string;
+}
+
+export type NotificationEventType =
+  | "session_submitted"
+  | "session_reviewed"
+  | "session_returned"
+  | "follow_up_started"
+  | "scorecard_ready"
+  | "achievement_awarded"
+  | "session_inactivity_reminder"
+  | "announcement";
 
 export type ReportKind =
   | "learning_progress"
@@ -412,6 +469,7 @@ export type ReportKind =
   | "usage";
 
 export interface ReportQueryRequest {
+  cursor?: string;
   kind: ReportKind;
   subject?: Subject;
   topic?: string;
@@ -427,12 +485,45 @@ export interface ReportRow {
   [key: string]: unknown;
 }
 
-export interface ReportQueryResponse {
+export interface ReportPageMetadata {
+  nextCursor?: string | null;
+  complete?: boolean;
+  totalRows?: number;
+  populationCount?: number;
+  eventField?: string;
+  asOf?: number;
+}
+
+export interface ReportQueryResponse extends ReportPageMetadata {
   kind: ReportKind;
   rows: ReportRow[];
   generatedAt: number;
   pseudonymized: boolean;
 }
+
+export type ReportOutputFormat = "csv" | "print";
+
+export interface ReportExportRequest extends ReportQueryRequest, MutationRequest {
+  output: ReportOutputFormat;
+  exportReason: string;
+}
+
+export type ReportExportResponse = ReportPageMetadata & (
+  | {
+      output: "csv";
+      kind: ReportKind;
+      csv: string;
+      filename: string;
+      generatedAt: number;
+      pseudonymized: boolean;
+    }
+  | {
+      output: "print";
+      kind: ReportKind;
+      rows: ReportRow[];
+      generatedAt: number;
+      pseudonymized: boolean;
+    });
 
 export interface AdminReviewSessionRequest extends MutationRequest {
   sessionId: string;
@@ -453,6 +544,29 @@ export interface ContentMutationRequest extends MutationRequest {
     | "policy_documents";
   id: string;
   value?: Record<string, unknown>;
+}
+
+export type DeletableContentCollection = Exclude<
+  ContentMutationRequest["collection"],
+  "system_settings" | "policy_documents"
+>;
+
+export interface AdminDeleteUserRequest extends MutationRequest {
+  userId: string;
+  confirmationEmail: string;
+  reason: string;
+}
+
+export interface AdminDeleteContentRequest extends MutationRequest {
+  collection: DeletableContentCollection;
+  id: string;
+  reason: string;
+}
+
+export interface AdminPublishAnnouncementRequest extends MutationRequest {
+  title: string;
+  message: string;
+  reason: string;
 }
 
 export interface AdminSubmitProblemValidationRequest extends MutationRequest {

@@ -1,3 +1,4 @@
+import { contentHash } from "./content-hash.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { CallableRequest } from "firebase-functions/v2/https";
 import type { Transaction } from "firebase-admin/firestore";
@@ -92,18 +93,26 @@ function idempotencyRef(uid: string, operation: string, requestId: string) {
   return database.doc(`idempotency/${key}`);
 }
 
+const operationLeases = new WeakMap<FirebaseFirestore.DocumentReference, string>();
+const operationVersions = new WeakMap<FirebaseFirestore.DocumentReference, Timestamp>();
+
 export async function beginIdempotentRequest<T>(
   uid: string,
   operation: string,
-  requestId: string
+  requestId: string,
+  input?: unknown
 ): Promise<{ ref: FirebaseFirestore.DocumentReference; cached?: T }> {
   const ref = idempotencyRef(uid, operation, validateRequestId(requestId));
+  const leaseToken = randomUUID();
+  operationLeases.set(ref, leaseToken);
   const now = Timestamp.now();
   const leaseExpiresAt = Timestamp.fromMillis(now.toMillis() + 120_000);
   let cached: T | undefined;
 
   await database.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(ref);
+    const fingerprint = contentHash(input ?? null);
+    if (snapshot.exists && snapshot.get("inputFingerprint") !== fingerprint) throw callableError("invalid-argument", "request_input_mismatch", "This request identifier is already bound to different input.");
     if (snapshot.exists && snapshot.get("status") === "completed") {
       cached = snapshot.get("result") as T;
       return;
@@ -126,13 +135,22 @@ export async function beginIdempotentRequest<T>(
       uid,
       operation,
       requestId,
+      inputFingerprint: fingerprint,
       status: "processing",
+      leaseToken,
       leaseExpiresAt,
       createdAt: snapshot.get("createdAt") ?? now,
       updatedAt: now,
       expiresAt: Timestamp.fromMillis(now.toMillis() + 86_400_000),
     });
   });
+  if (cached === undefined) {
+    const acquired = await ref.get();
+    if (acquired.get("status") !== "processing" || acquired.get("leaseToken") !== leaseToken || !acquired.updateTime) {
+      throw callableError("aborted", "operation_lease_changed", "Another request recovered this operation. Reconcile its result before retrying.", true);
+    }
+    operationVersions.set(ref, acquired.updateTime);
+  }
   return { ref, cached };
 }
 
@@ -141,23 +159,26 @@ export function completeIdempotentRequest(
   ref: FirebaseFirestore.DocumentReference,
   result: unknown
 ): void {
-  transaction.set(
-    ref,
-    {
-      status: "completed",
-      result,
-      leaseExpiresAt: null,
-      completedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+  const acquiredVersion = operationVersions.get(ref);
+  if (!acquiredVersion) throw callableError("aborted", "operation_lease_missing", "Recover this operation before completing it.", true);
+  // The update-time precondition is checked atomically with every business write.
+  // An expired worker cannot commit after another worker takes over its lease.
+  transaction.update(ref, {
+    status: "completed",
+    result,
+    leaseExpiresAt: null,
+    completedAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { lastUpdateTime: acquiredVersion });
 }
 
 export async function releaseIdempotentRequest(
   ref: FirebaseFirestore.DocumentReference
 ): Promise<void> {
-  await ref.delete().catch(() => undefined);
+  await database.runTransaction(async transaction => {
+    const current = await transaction.get(ref);
+    if (current.get("status") === "processing" && current.get("leaseToken") === operationLeases.get(ref)) transaction.update(ref, { status: "retryable", leaseExpiresAt: null, updatedAt: FieldValue.serverTimestamp() });
+  });
 }
 
 export async function enforceRateLimit(

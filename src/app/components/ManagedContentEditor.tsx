@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
-import { Archive, CheckCircle2, FileCheck2, Save } from "lucide-react";
+import { Archive, CheckCircle2, FileCheck2, Save, Trash2 } from "lucide-react";
 import type { AdminImportProblemDraft, CatalogReadinessResponse } from "@mindguide/contracts";
 import { REASONING_PHASES } from "@mindguide/contracts";
 import { db } from "@/lib/firebase";
 import {
   adminArchiveContent,
+  adminDeleteContent,
   adminBulkImportProblems,
   adminCatalogReadiness,
   adminRecordProblemValidation,
@@ -38,6 +39,7 @@ const COMMON_STATUS: FieldDefinition = { path: "status", label: "Lifecycle statu
 const FIELDS: Record<ContentCollection, FieldDefinition[]> = {
   subjects: [
     { path: "name", label: "Subject name", type: "subject", required: true },
+    { path: "description", label: "Subject description", type: "textarea", required: true },
     COMMON_STATUS,
   ],
   topics: [
@@ -100,7 +102,7 @@ const FIELDS: Record<ContentCollection, FieldDefinition[]> = {
 };
 
 const DEFAULTS: Record<ContentCollection, Record<string, unknown>> = {
-  subjects: { name: "Quantitative Methods", status: "draft" },
+  subjects: { name: "Quantitative Methods", description: "", status: "draft" },
   topics: { subjectId: "quantitative-methods", subject: "Quantitative Methods", name: "", status: "draft" },
   problems: {
     subjectId: "quantitative-methods",
@@ -144,6 +146,9 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
   const [recordId, setRecordId] = useState("");
   const [value, setValue] = useState<Record<string, any>>({ ...DEFAULTS[collectionName] });
   const [message, setMessage] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Record<string, any> | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deleteReason, setDeleteReason] = useState("Remove unused draft learning content");
   const [readiness, setReadiness] = useState<CatalogReadinessResponse | null>(null);
   const [importProblems, setImportProblems] = useState<AdminImportProblemDraft[]>([]);
   const [validation, setValidation] = useState({
@@ -245,6 +250,19 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
     }
   }
 
+  async function permanentlyDelete() {
+    if (!deleteTarget) return;
+    try {
+      await adminDeleteContent({ collection: collectionName, id: deleteTarget.id, reason: deleteReason });
+      setMessage(`Permanently deleted ${deleteTarget.id}.`);
+      setDeleteTarget(null);
+      setDeleteConfirmation("");
+      await load();
+    } catch (cause) {
+      showError(cause);
+    }
+  }
+
   function showError(cause: unknown) {
     setMessage(cause instanceof Error ? cause.message : "Managed content operation failed.");
   }
@@ -258,6 +276,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
         </div>
       )}
       {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800">{message}</div>}
+      {deleteTarget && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><h2 className="font-bold text-red-950">Permanently delete {deleteTarget.id}</h2><p className="mt-1 text-sm text-red-800">Deletion succeeds only when no managed record or historical session references this draft/rejected record.</p><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`Type ${deleteTarget.id}`} className="mt-3 w-full rounded-lg border border-red-300 p-3" /><input value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Required audit reason" className="mt-3 w-full rounded-lg border border-red-300 p-3" /><div className="mt-3 flex gap-2"><button onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }} className="rounded-lg border px-3 py-2 font-bold">Cancel</button><button disabled={deleteConfirmation !== deleteTarget.id || deleteReason.trim().length < 8} onClick={() => void permanentlyDelete()} className="rounded-lg bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50">Permanently delete</button></div></div>}
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <div className="rounded-2xl border bg-white p-5">
           <h2 className="font-bold">Typed content editor</h2>
@@ -325,9 +344,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
                   <p className="truncate font-semibold">{item.name ?? item.problemText ?? item.id}</p>
                   <p className="text-xs text-slate-500">{item.id} · v{item.version ?? 0} · {item.status}</p>
                 </button>
-                <button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}>
-                  <Archive className="h-4 w-4" />
-                </button>
+                <div className="flex gap-1"><button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button>{["draft", "rejected"].includes(item.status) && <button onClick={() => { setDeleteTarget(item); setDeleteConfirmation(""); }} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Permanently delete ${item.id}`}><Trash2 className="h-4 w-4" /></button>}</div>
               </div>
             ))}
           </div>

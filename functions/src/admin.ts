@@ -1,3 +1,7 @@
+import { purgeParticipantIdentity } from "./privacy.js";
+import { observedWriter } from "./observed-writer.js";
+import { instructionalManifest } from "./content-manifest.js";
+import { requireContentWrites } from "./pilot.js";
 import { createHash, randomUUID } from "node:crypto";
 import { onCall } from "firebase-functions/v2/https";
 import { asCallableError, callableError, correlationId } from "./errors.js";
@@ -13,10 +17,14 @@ import {
   bulkImportProblemsSchema,
   adminSupportOverrideSchema,
   adminReviewSchema,
+  adminDeleteContentSchema,
+  adminDeleteUserSchema,
+  adminPublishAnnouncementSchema,
   adminUserSchema,
   contentMutationSchema,
   parseInput,
   recordProblemValidationSchema,
+  reportExportSchema,
   reportQuerySchema,
   submitProblemValidationSchema,
   validateManagedContent,
@@ -24,7 +32,7 @@ import {
 } from "./validation.js";
 import { REASONING_PHASES, type ReasoningPhase, type SupportLevel } from "@mindguide/contracts";
 import { buildCatalogReadiness } from "./configuration.js";
-import { queryReportRows, toCsv } from "./reporting.js";
+import { queryReportPage, toCsv } from "./reporting.js";
 import { supportContent, type GateStateMap, type PrivateProblemReference } from "./workflow.js";
 
 export const adminReviewSession = onCall(callableOptions, async (request) => {
@@ -33,7 +41,7 @@ export const adminReviewSession = onCall(callableOptions, async (request) => {
   try {
     const actor = await requireAdmin(request);
     const data = parseInput(adminReviewSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminReviewSession", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminReviewSession", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     let response!: Record<string, unknown>;
@@ -77,7 +85,7 @@ export const adminOverrideSessionSupport = onCall(callableOptions, async (reques
   try {
     const actor = await requireAdmin(request);
     const data = parseInput(adminSupportOverrideSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminOverrideSessionSupport", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminOverrideSessionSupport", data.requestId, data);
     if (operation.cached) return operation.cached;
     const sessionRef = database.doc(`sessions/${data.sessionId}`);
     let response!: Record<string, unknown>;
@@ -135,6 +143,7 @@ export const adminUpsertContent = onCall(callableOptions, async (request) => {
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
+    await requireContentWrites();
     const data = parseInput(contentMutationSchema, request.data);
     if (!data.value) throw callableError("invalid-argument", "content_missing", "Content data is required.");
     const forbidden = findForbiddenPublicKeys(data.value, data.collection === "problems");
@@ -156,7 +165,7 @@ export const adminUpsertContent = onCall(callableOptions, async (request) => {
     if (data.collection === "system_settings" && data.id === "privacy" && "studyClosedAt" in validatedValue) {
       validatedValue.studyClosedAt = normalizeOptionalTimestamp(validatedValue.studyClosedAt);
     }
-    operation = await beginIdempotentRequest(actor.uid, "adminUpsertContent", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminUpsertContent", data.requestId, data);
     if (operation.cached) return operation.cached;
     const ref = database.doc(`${data.collection}/${data.id}`);
     const privateSolution = data.collection === "problems" && isRecord(validatedValue.privateSolution)
@@ -224,8 +233,9 @@ export const adminSubmitProblemValidation = onCall(callableOptions, async (reque
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
+    await requireContentWrites();
     const data = parseInput(submitProblemValidationSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminSubmitProblemValidation", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminSubmitProblemValidation", data.requestId, data);
     if (operation.cached) return operation.cached;
     const problemRef = database.doc(`problems/${data.problemId}`);
     await assertProblemReadyForValidation(problemRef);
@@ -259,8 +269,9 @@ export const adminRecordProblemValidation = onCall(callableOptions, async (reque
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
+    await requireContentWrites();
     const data = parseInput(recordProblemValidationSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminRecordProblemValidation", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminRecordProblemValidation", data.requestId, data);
     if (operation.cached) return operation.cached;
     const problemRef = database.doc(`problems/${data.problemId}`);
     const validationRef = database.doc(`content_validation_records/${data.requestId}`);
@@ -280,7 +291,11 @@ export const adminRecordProblemValidation = onCall(callableOptions, async (reque
       if (existingValidation.exists) {
         throw callableError("already-exists", "validation_record_exists", "This validation decision has already been recorded.");
       }
+      const manifest = await instructionalManifest(problem, transaction);
+      if (data.decision === "approved" && !manifest.complete) throw callableError("failed-precondition", "instructional_content_incomplete", "Complete the typed answer, hints, prompts, references, policy and approved rubric before approval.");
       transaction.create(validationRef, {
+        manifestHash: manifest.hash,
+        manifest: manifest.manifest,
         problemId: data.problemId,
         problemVersion: Number(problem.get("version") ?? 1),
         syllabusReference: data.syllabusReference,
@@ -319,8 +334,9 @@ export const adminBulkImportProblems = onCall(callableOptions, async (request) =
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
+    await requireContentWrites();
     const data = parseInput(bulkImportProblemsSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminBulkImportProblems", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminBulkImportProblems", data.requestId, data);
     if (operation.cached) return operation.cached;
     const ids = data.problems.map((problem) => problem.id);
     if (new Set(ids).size !== ids.length) {
@@ -405,8 +421,9 @@ export const adminArchiveContent = onCall(callableOptions, async (request) => {
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
+    await requireContentWrites();
     const data = parseInput(contentMutationSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminArchiveContent", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminArchiveContent", data.requestId, data);
     if (operation.cached) return operation.cached;
     const ref = database.doc(`${data.collection}/${data.id}`);
     const response = { id: data.id, collection: data.collection, status: "archived" };
@@ -431,7 +448,7 @@ export const adminManageUser = onCall(callableOptions, async (request) => {
   try {
     const actor = await requireAdmin(request);
     const data = parseInput(adminUserSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "adminManageUser", data.requestId);
+    operation = await beginIdempotentRequest(actor.uid, "adminManageUser", data.requestId, data);
     if (operation.cached) return operation.cached;
     const targetRef = database.doc(`users/${data.userId}`);
     const target = await targetRef.get();
@@ -459,7 +476,7 @@ export const adminManageUser = onCall(callableOptions, async (request) => {
         updatedBy: actor.uid,
       });
       const sessions = await database.collection("sessions").where("studentId", "==", data.userId).get();
-      const writer = database.bulkWriter();
+      const writer = observedWriter(database.bulkWriter());
       sessions.docs.forEach((session) => writer.update(session.ref, {
         studentName: alias,
         studentEmail: null,
@@ -552,12 +569,155 @@ export const adminManageUser = onCall(callableOptions, async (request) => {
   }
 });
 
+export const adminPublishAnnouncement = onCall(callableOptions, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    const data = parseInput(adminPublishAnnouncementSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminPublishAnnouncement", data.requestId, data);
+    if (operation.cached) return operation.cached;
+    const announcementRef = database.doc(`announcements/${data.requestId}`);
+    let announcement = await announcementRef.get();
+    if (!announcement.exists) {
+      const recipients = await database.collection("users").where("role", "==", "student").where("status", "==", "active").get();
+      await announcementRef.create({ title: data.title, message: data.message, audience: "active_students", publisherId: actor.uid, recipientIds: recipients.docs.map(doc => doc.id), deliveryCount: 0, status: "processing", createdAt: FieldValue.serverTimestamp() });
+      announcement = await announcementRef.get();
+    }
+    const recipientIds: string[] = announcement.get("recipientIds") ?? [];
+
+    const writer = observedWriter(database.bulkWriter());
+    recipientIds.forEach((recipientId) => {
+      writer.set(database.doc(`notifications/announcement__${data.requestId}__${recipientId}`), {
+        eventType: "announcement",
+        senderId: actor.uid,
+        recipientId,
+        announcementId: data.requestId,
+        title: data.title,
+        message: data.message,
+        read: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    });
+    await writer.close();
+    await announcementRef.update({ status: "published", deliveryCount: recipientIds.length });
+    const response = { announcementId: data.requestId, delivered: recipientIds.length };
+    await database.runTransaction(async (transaction) => {
+      writeAudit(transaction, actor.uid, "announcement_publish", announcementRef.path, {
+        reason: data.reason,
+        audience: "active_students",
+        delivered: recipientIds.length,
+      });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminDeleteContent = onCall({ ...callableOptions, timeoutSeconds: 120 }, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    await requireContentWrites();
+    const data = parseInput(adminDeleteContentSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminDeleteContent", data.requestId, data);
+    if (operation.cached) return operation.cached;
+    const ref = database.doc(`${data.collection}/${data.id}`);
+    const jobRef = database.doc(`content_deletion_jobs/${data.requestId}`);
+    const job = await jobRef.get();
+    if (job.exists && job.get("target") !== ref.path) throw callableError("invalid-argument", "deletion_target_mismatch", "The job belongs to different content.");
+    const snapshot = await ref.get();
+    if (!snapshot.exists && !job.exists) throw callableError("not-found", "content_not_found", "The managed content record was not found.");
+    if (snapshot.exists && !["draft", "rejected", "deleting"].includes(String(snapshot.get("status")))) {
+      throw callableError("failed-precondition", "content_archive_required", "Only unreferenced draft or rejected content can be permanently deleted. Archive this record instead.");
+    }
+    const dependency = await findContentDependency(data.collection, data.id);
+    if (dependency) {
+      throw callableError("failed-precondition", "content_is_referenced", `Permanent deletion is blocked by ${dependency}. Archive this record instead.`);
+    }
+    await database.runTransaction(async transaction => {
+      const fresh = await transaction.get(ref);
+      if (fresh.exists && !["draft", "rejected", "deleting"].includes(String(fresh.get("status")))) throw callableError("failed-precondition", "content_changed", "Content status changed before deletion.");
+      transaction.set(jobRef, { target: ref.path, status: "processing", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      if (fresh.exists) transaction.update(ref, { status: "deleting" });
+    });
+    await database.recursiveDelete(ref);
+    const response = { collection: data.collection, id: data.id, deleted: true };
+    await database.runTransaction(async (transaction) => {
+      transaction.set(jobRef, { status: "complete", completedAt: FieldValue.serverTimestamp() }, { merge: true });
+      writeAudit(transaction, actor.uid, "content_delete", ref.path, { reason: data.reason });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
+export const adminDeleteUser = onCall({ ...callableOptions, timeoutSeconds: 300, memory: "1GiB" }, async (request) => {
+  const id = correlationId();
+  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
+  try {
+    const actor = await requireAdmin(request);
+    const data = parseInput(adminDeleteUserSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminDeleteUser", data.requestId, data);
+    if (operation.cached) return operation.cached;
+    const jobRef = database.doc(`deletion_jobs/${data.requestId}`);
+    const targetRef = database.doc(`users/${data.userId}`);
+    const [job, target] = await Promise.all([jobRef.get(), targetRef.get()]);
+    if (!target.exists && !job.exists) throw callableError("not-found", "user_not_found", "The user account was not found.");
+    if (job.exists && (job.get("userId") !== data.userId || job.get("actorId") !== actor.uid)) throw callableError("invalid-argument", "deletion_target_mismatch", "This deletion job belongs to another target or administrator.");
+    if (target.exists && !job.exists) {
+      if (target.get("role") === "admin") throw callableError("failed-precondition", "administrator_delete_forbidden", "Administrator accounts cannot be permanently deleted.");
+      if (target.get("status") !== "deactivated") throw callableError("failed-precondition", "deactivation_required", "Deactivate this learner before permanent deletion.");
+      const authUser = await adminAuth.getUser(data.userId);
+      if ((authUser.email ?? "").trim().toLowerCase() !== data.confirmationEmail.trim().toLowerCase()) {
+        throw callableError("failed-precondition", "email_confirmation_mismatch", "The confirmation email does not match this learner account.");
+      }
+      await jobRef.set({
+        userId: data.userId,
+        actorId: actor.uid,
+        status: "processing",
+        startedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    const alias = `Learner-${createHash("sha256").update(data.userId).digest("hex").slice(0, 12)}`;
+    const retainedCount = await purgeParticipantIdentity(data.userId);
+    try {
+      await adminAuth.deleteUser(data.userId);
+    } catch (error) {
+      const code = isRecord(error) && typeof error.code === "string" ? error.code : "";
+      if (code !== "auth/user-not-found") throw error;
+    }
+    if (target.exists) await database.recursiveDelete(targetRef);
+    const response = { userId: alias, deleted: true, retainedLearningRecords: retainedCount };
+    await database.runTransaction(async (transaction) => {
+      transaction.set(jobRef, { status: "complete", pseudonym: alias, completedAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      writeAudit(transaction, actor.uid, "user_permanently_deleted", `deleted_users/${alias}`, {
+        reason: data.reason,
+        retainedLearningRecords: retainedCount,
+      });
+      completeIdempotentRequest(transaction, operation!.ref, response);
+    });
+    return response;
+  } catch (error) {
+    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
+    throw asCallableError(error, id);
+  }
+});
+
 export const adminQueryReport = onCall(callableOptions, async (request) => {
   const id = correlationId();
   try {
     await requireAdmin(request);
     const data = parseInput(reportQuerySchema, request.data);
-    return { kind: data.kind, rows: await queryReportRows(data), generatedAt: Date.now(), pseudonymized: !data.includeIdentity };
+    return { kind: data.kind, ...await queryReportPage(data), generatedAt: Date.now(), pseudonymized: !data.includeIdentity };
   } catch (error) {
     throw asCallableError(error, id);
   }
@@ -568,16 +728,17 @@ export const adminExportReport = onCall(callableOptions, async (request) => {
   let operation: Awaited<ReturnType<typeof beginIdempotentRequest<Record<string, unknown>>>> | undefined;
   try {
     const actor = await requireAdmin(request);
-    const data = parseInput(reportQuerySchema, request.data);
-    if (!data.requestId || !data.exportReason) throw callableError("invalid-argument", "export_reason_required", "A request ID and export reason are required.");
-    operation = await beginIdempotentRequest(actor.uid, "adminExportReport", data.requestId);
+    const data = parseInput(reportExportSchema, request.data);
+    operation = await beginIdempotentRequest(actor.uid, "adminExportReport", data.requestId, data);
     if (operation.cached) return operation.cached;
-    await enforceRateLimit(actor.uid, "report_export", 5, 3_600_000);
-    const rows = await queryReportRows(data);
-    const csv = toCsv(rows);
-    const response = { kind: data.kind, csv, filename: `mindguide-${data.kind}-${new Date().toISOString().slice(0, 10)}.csv`, generatedAt: Date.now() };
+    if (!data.cursor) await enforceRateLimit(actor.uid, "report_export", 5, 3_600_000);
+    const page = await queryReportPage(data);
+    const rows = page.rows;
+    const response = data.output === "csv"
+      ? { ...page, output: "csv", kind: data.kind, csv: toCsv(rows), filename: `mindguide-${data.kind}-${new Date().toISOString().slice(0, 10)}.csv`, generatedAt: Date.now(), pseudonymized: !data.includeIdentity }
+      : { ...page, output: "print", kind: data.kind, rows, generatedAt: Date.now(), pseudonymized: !data.includeIdentity };
     await database.runTransaction(async (transaction) => {
-      writeAudit(transaction, actor.uid, "report_export", `reports/${data.kind}`, { reason: data.exportReason, rowCount: rows.length, includeIdentity: data.includeIdentity });
+      writeAudit(transaction, actor.uid, "report_export", `reports/${data.kind}`, { reason: data.exportReason, output: data.output, rowCount: rows.length, includeIdentity: data.includeIdentity });
       completeIdempotentRequest(transaction, operation!.ref, response);
     });
     return response;
@@ -652,6 +813,59 @@ async function assertProblemReadyForValidation(
   if (missing.length > 0) {
     throw callableError("failed-precondition", "prompt_set_incomplete", `Approved prompts are missing for: ${missing.join(", ")}.`);
   }
+}
+
+async function findContentDependency(collection: string, contentId: string): Promise<string | null> {
+  const queries: Array<{ label: string; query: FirebaseFirestore.Query }> = [];
+  if (collection === "subjects") {
+    queries.push(
+      { label: "a topic", query: database.collection("topics").where("subjectId", "==", contentId).limit(1) },
+      { label: "a problem", query: database.collection("problems").where("subjectId", "==", contentId).limit(1) },
+      { label: "a difficulty policy", query: database.collection("difficulty_policies").where("subjectId", "==", contentId).limit(1) },
+    );
+  } else if (collection === "topics") {
+    queries.push(
+      { label: "a problem", query: database.collection("problems").where("topicId", "==", contentId).limit(1) },
+      { label: "a difficulty policy", query: database.collection("difficulty_policies").where("topicId", "==", contentId).limit(1) },
+    );
+  } else if (collection === "problems") {
+    queries.push({ label: "a Socratic prompt", query: database.collection("socratic_prompt_bank").where("problemId", "==", contentId).limit(1) });
+  } else if (collection === "formula_theorem_references") {
+    queries.push({ label: "a problem", query: database.collection("problems").where("formulaTheoremReferenceIds", "array-contains", contentId).limit(1) });
+  }
+  for (const candidate of queries) {
+    if (!(await candidate.query.get()).empty) return candidate.label;
+  }
+
+  const sessions = await database.collection("sessions").select(
+    "subjectId",
+    "topicId",
+    "problemId",
+    "configurationVersions"
+  ).get();
+  const singularKey: Record<string, string | undefined> = {
+    topics: "topic",
+    problems: "problem",
+    difficulty_policies: "difficultyPolicy",
+  };
+  const arrayKey: Record<string, string | undefined> = {
+    formula_theorem_references: "formulaTheoremReferences",
+    socratic_prompt_bank: "prompts",
+    misconception_categories: "misconceptionPolicies",
+  };
+  for (const session of sessions.docs) {
+    if (collection === "subjects" && session.get("subjectId") === contentId) return `historical session ${session.id}`;
+    if (collection === "topics" && session.get("topicId") === contentId) return `historical session ${session.id}`;
+    if (collection === "problems" && session.get("problemId") === contentId) return `historical session ${session.id}`;
+    const versions = session.get("configurationVersions") as Record<string, unknown> | undefined;
+    const single = singularKey[collection] && versions?.[singularKey[collection]!];
+    if (isRecord(single) && single.id === contentId) return `historical session ${session.id}`;
+    const values = arrayKey[collection] ? versions?.[arrayKey[collection]!] : undefined;
+    if (Array.isArray(values) && values.some((value) => isRecord(value) && value.id === contentId)) {
+      return `historical session ${session.id}`;
+    }
+  }
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

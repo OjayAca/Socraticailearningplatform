@@ -73,6 +73,13 @@ describe("StudentShell", () => {
     }
   });
 
+  it("keeps desktop navigation separate from the scrolling content pane", () => {
+    renderShell();
+
+    expect(screen.getByRole("complementary")).toHaveClass("h-full", "overflow-y-auto");
+    expect(screen.getByRole("main")).toHaveClass("flex-1", "overflow-y-auto");
+  });
+
   it("switches from the resolved dark theme to light", () => {
     renderShell();
 

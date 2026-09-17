@@ -53,8 +53,8 @@ export function StudentShell({ active, children }: { active: string; children: R
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white px-4 py-5 dark:border-slate-800/80 dark:bg-[#0b1120] md:flex">
+    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
+      <aside className="hidden h-full min-h-0 w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 dark:border-slate-800/80 dark:bg-[#0b1120] md:flex">
         <Brand />
         <nav className="mt-9 space-y-1" aria-label="Primary student navigation">
           <NavLinks active={active} items={primaryNav} />
@@ -67,8 +67,8 @@ export function StudentShell({ active, children }: { active: string; children: R
         </div>
       </aside>
 
-      <div className="min-w-0 flex-1">
-        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
           <div className="mr-3 md:hidden">
             <Sheet>
               <SheetTrigger asChild>
@@ -140,7 +140,9 @@ export function StudentShell({ active, children }: { active: string; children: R
           </Link>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
+          <div className="mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
+        </main>
       </div>
     </div>
   );

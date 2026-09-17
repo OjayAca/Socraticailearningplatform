@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   completeAcademicProfileSchema,
+  adminDeleteContentSchema,
+  adminDeleteUserSchema,
+  adminPublishAnnouncementSchema,
+  reportExportSchema,
   recordProblemValidationSchema,
   startSessionSchema,
 } from "../validation.js";
@@ -51,5 +55,14 @@ describe("schema-v4 callable validation", () => {
       evidenceHash: "0123456789abcdef0123456789abcdef",
       decision: "approved",
     }).success).toBe(true);
+  });
+
+  it("requires confirmation and audit context for P1 administrative operations", () => {
+    expect(adminDeleteUserSchema.safeParse({ requestId, userId: "student-1", confirmationEmail: "student@example.com", reason: "Approved capstone deletion" }).success).toBe(true);
+    expect(adminDeleteUserSchema.safeParse({ requestId, userId: "student-1", confirmationEmail: "not-an-email", reason: "Approved capstone deletion" }).success).toBe(false);
+    expect(adminDeleteContentSchema.safeParse({ requestId, collection: "problems", id: "draft-problem", reason: "Unused rejected draft" }).success).toBe(true);
+    expect(adminDeleteContentSchema.safeParse({ requestId, collection: "system_settings", id: "privacy", reason: "Not permitted here" }).success).toBe(false);
+    expect(adminPublishAnnouncementSchema.safeParse({ requestId, title: "Reminder", message: "Review your active learning sessions.", reason: "Capstone learner notice" }).success).toBe(true);
+    expect(reportExportSchema.safeParse({ requestId, kind: "learning_progress", includeIdentity: false, output: "print", exportReason: "Faculty evaluation report" }).success).toBe(true);
   });
 });

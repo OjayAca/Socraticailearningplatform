@@ -17,6 +17,9 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  reload,
+  getIdToken,
   type User,
 } from "firebase/auth";
 import {
@@ -66,6 +69,8 @@ interface AuthState {
   signInWithGoogle: () => Promise<UserProfile>;
   /** Sends a password reset email without revealing whether the account exists. */
   resetPassword: (email: string) => Promise<void>;
+  sendVerification: () => Promise<void>;
+  refreshVerification: () => Promise<boolean>;
   /** Signs out the current user. */
   signOut: () => Promise<void>;
   /** Updates the user's display name. */
@@ -252,7 +257,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  sendVerification: async () => {
+    const user = requireAuth().currentUser;
+    if (!user) throw new Error("Sign in again to verify your email.");
+    if (!user.emailVerified) await sendEmailVerification(user);
+  },
+
+  refreshVerification: async () => {
+    const user = requireAuth().currentUser;
+    if (!user) throw new Error("Sign in again to verify your email.");
+    await reload(user);
+    await getIdToken(user, true);
+    if (auth?.currentUser?.uid !== user.uid) throw new Error("The signed-in account changed. Try again.");
+    set({ firebaseUser: user });
+    return user.emailVerified;
+  },
+
   signOut: async () => {
+    for (let index = sessionStorage.length - 1; index >= 0; index--) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith("mindguide.pending.") || key?.startsWith("mindguide.draft.")) sessionStorage.removeItem(key);
+    }
     set({ error: null });
     try {
       await firebaseSignOut(requireAuth());

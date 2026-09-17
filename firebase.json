@@ -3,9 +3,9 @@
     "source": "functions",
     "runtime": "nodejs22",
     "predeploy": [
-      "npm run build:contracts",
-      "npm run prepare:functions-contracts",
-      "npm --prefix functions run build"
+      "npm run build",
+      "npm run scan:bundle",
+      "node scripts/verify-deploy-gate.mjs"
     ]
   },
   "firestore": {
@@ -16,7 +16,8 @@
     "public": "dist",
     "predeploy": [
       "npm run build",
-      "npm run scan:bundle"
+      "npm run scan:bundle",
+      "node scripts/verify-deploy-gate.mjs"
     ],
     "ignore": [
       "firebase.json",

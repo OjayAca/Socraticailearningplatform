@@ -127,7 +127,7 @@ export function Login() {
           <>
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-700 block">
+                <label htmlFor="reset-email" className="text-sm font-medium text-slate-700 block">
                   Email
                 </label>
                 <div className="relative">
@@ -135,6 +135,7 @@ export function Login() {
                     <Mail className="h-5 w-5" />
                   </div>
                   <input
+                    id="reset-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -175,7 +176,7 @@ export function Login() {
           <>
         <form onSubmit={handleLogin} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 block">
+            <label htmlFor="login-email" className="text-sm font-medium text-slate-700 block">
               Email
             </label>
             <div className="relative">
@@ -183,6 +184,7 @@ export function Login() {
                 <Mail className="h-5 w-5" />
               </div>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -195,7 +197,7 @@ export function Login() {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium text-slate-700 block">
+              <label htmlFor="login-password" className="text-sm font-medium text-slate-700 block">
                 Password
               </label>
             </div>
@@ -204,6 +206,7 @@ export function Login() {
                 <Lock className="h-5 w-5" />
               </div>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

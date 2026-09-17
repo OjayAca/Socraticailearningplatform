@@ -6,7 +6,7 @@
 2. Firebase App Check attests the production web client.
 3. React submits a typed callable request. Every mutation carries a UUID request ID.
 4. Before a first session, a Gen 2 Function validates and stores the learner's required academic profile.
-5. The catalog callable exposes topics only after all 99 problem variants have immutable faculty-validation evidence.
+5. The catalog callable exposes topics only for explicitly enabled pilot topics with matching immutable faculty-validation manifests.
 6. Session start resolves the approved topic, adaptive policy, least-recently-used variant, formula/theorem references, seven prompts, and misconception policies.
 7. Resolved content is version-pinned in the session; deterministic scope/math/rule checks take precedence and structured AI is used only for supported ambiguous gates.
 8. A Firestore transaction commits the public projection, private evidence, statistics, notifications, audit event, and idempotent result.
@@ -50,3 +50,9 @@ Gemini does not generate the final scorecard. It is used only to evaluate otherw
 ## Failure contract
 
 Callable failures expose a stable code, safe message, retryable flag, and correlation ID. Stack traces, raw model output, prompts, answer material, internal rubrics, and keys stay inside the trusted boundary.
+
+## v5 pilot boundaries
+
+Server transactions recheck cohort/profile and maintenance state before committing learning mutations. New sessions additionally require current consent; stale workflows are read-only. Private typed answers and safe hints live only under protected references. Final scoring uses deterministic answer checks plus response-linked AI rubric assessment before solution release; assistance and calibration status remain explicit.
+
+Own-problem parsing is a bounded grammar with learner-confirmed givens and independently computed reference answers. It does not rely on AI-generated solvability flags. Report populations use stable creation/submission dates and explicit cursors/completeness; changing a population during export forces a restart rather than silently skipping records.

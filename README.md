@@ -15,10 +15,10 @@ Learners see four stages: Problem Understanding, Method Selection, Computation, 
 
 ## Workspaces
 
-- `packages/contracts`: canonical schema-v4 types and workflow order.
+- `packages/contracts`: canonical schema-v5 types and workflow order.
 - `functions`: trusted Gen 2 callables and scheduled retention.
 - `src`: React learner and System Administrator interfaces.
-- `scripts/migrate-v4.ts`: faculty-gated 99-problem schema-v4 dry-run/apply/verify/rollback migration.
+- `scripts/migrate-v4.ts`: legacy schema-v4 migration; `scripts/migrate-v5.ts` prepares the two-topic pilot.
 - `tests`: unit, migration, rules, and Playwright coverage.
 - `docs/mindguide-secure-release`: architecture, data dictionary, deployment, verification, and progress evidence.
 
@@ -45,11 +45,24 @@ npm run scan:bundle
 npm run test:e2e
 ```
 
-For interactive localhost development, `npm run dev` starts the callable Functions
-emulator and Vite together. Auth and Firestore still use the Firebase project from
-`.env`; only callable Functions are routed to `localhost:5001`. Use `npm run dev:web`
-only when the callable Functions are already deployed and configured for the target
-project.
+Authenticated supporting-feature checks run only against a dedicated staging
+deployment. Supply `MINDGUIDE_E2E_BASE_URL` plus separate student and administrator
+credential variables shown in `.env.example`, then run:
+
+```bash
+npm run test:e2e:staging
+```
+
+The staging preflight rejects missing credentials, duplicate role accounts, invalid
+URLs, and the known `socratic-ai-a7765` host. It does not deploy or seed data. The
+live suite restores its reversible account-status change; permanent deletion,
+retention, and anonymization stay in isolated automated tests. Google OAuth and
+password-reset inbox delivery remain documented manual staging checks.
+
+For interactive localhost development, `npm run dev` starts Vite and connects
+directly to the Firebase project configured in `.env`, including its deployed
+Auth, Firestore, and Functions services. No demo database is created or restored.
+Do not replace the configured project with a demo project or seed sample data.
 
 Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
 
@@ -73,6 +86,10 @@ npm run migrate:v4:rollback -- --backup=".local-backups/<backup>.json" --project
 
 Do not run apply in production before a managed Firestore export and verified staging rehearsal. See [Deployment and rollback](docs/mindguide-secure-release/DEPLOYMENT.md).
 
-## Release status
+## Controlled pilot and release status
 
-Schema-v4 repository implementation is complete. The learner catalog remains intentionally closed until all 99 problem variants have recorded external faculty-validation evidence. Production also remains closed until a Firebase project owner completes billing/API enablement, dedicated service-account IAM, App Check registration, Secret Manager configuration, credential rotation, staging migration/smoke testing, privacy-date configuration, and the controlled deployment checklist.
+The v5 repair adds typed private answers, verified own-problem formats, response-linked formative scoring, safe hints, topic manifests, cohort admission, maintenance enforcement, recovery, and complete report pagination. The initial review bank has 18 distinct draft problems across Measures of Central Tendency and Counting Principles. Drafts are not faculty approvals.
+
+Use `npm run migrate:v5 -- --project=<staging-id>` for a dry run, then `--apply` only in closed staging. Legacy data must complete the v3 security conversion before v4/v5. Historical scores are not silently rescored; incompatible unfinished sessions become read-only.
+
+The application is **not approved for participant release**. Faculty content/rubric approval, research protocol and privacy decisions, authenticated staging, cloud configuration, measured load/cost, and managed backup restoration remain required. See [v5 repair evidence](docs/mindguide-secure-release/PILOT_V5_REPAIR.md) and [deployment procedure](docs/mindguide-secure-release/DEPLOYMENT.md).

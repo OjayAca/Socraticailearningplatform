@@ -1,95 +1,84 @@
+import { contentHash } from "./content-hash.js";
 import { createHash } from "node:crypto";
 import type { ReportKind } from "@mindguide/contracts";
 import { database, Timestamp } from "./runtime.js";
 
-export async function queryReportRows(data: {
-  kind: ReportKind;
-  subject?: string;
-  topic?: string;
-  from?: number;
-  to?: number;
-  includeIdentity: boolean;
-  limit: number;
-}): Promise<Record<string, unknown>[]> {
-  if (data.kind === "learning_progress") {
-    const snapshot = await database.collection("learning_progress").limit(data.limit).get();
-    const profiles = data.includeIdentity && snapshot.size
-      ? await database.getAll(...snapshot.docs.map((document) => database.doc(`users/${document.id}`)))
-      : [];
-    const names = new Map(profiles.map((profile) => [profile.id, profile.get("displayName")]));
-    return snapshot.docs.map((document) => {
-      const progress = document.data();
-      return {
-        kind: data.kind,
-        learner: data.includeIdentity ? names.get(document.id) ?? "Learner" : pseudonymFor(document.id),
-        sessionsCompleted: Number(progress.sessionsCompleted ?? 0),
-        averageCTScore: Number(progress.averageCTScore ?? 0),
-        currentStreak: Number(progress.currentStreak ?? 0),
-        lastSessionAt: isoTimestamp(progress.lastSessionAt),
-      };
-    });
+export interface ReportInput {
+  kind: ReportKind; subject?: string; topic?: string; from?: number; to?: number; includeIdentity: boolean; limit: number; cursor?: string;
+}
+export async function queryReportPage(data: ReportInput) {
+  const fingerprint = createHash("sha256").update(JSON.stringify([data.kind, data.subject, data.topic, data.from, data.to, data.includeIdentity])).digest("hex");
+  let offset = 0, asOf = Date.now();
+  let expectedPopulationHash: string | undefined;
+  if (data.cursor) {
+    const cursor = JSON.parse(Buffer.from(data.cursor, "base64url").toString("utf8"));
+    if (cursor.fingerprint !== fingerprint || !Number.isSafeInteger(cursor.offset) || cursor.offset < 0 || !Number.isSafeInteger(cursor.asOf) || cursor.asOf > asOf) throw new Error("Invalid report cursor or changed filters");
+    offset = cursor.offset; asOf = cursor.asOf; expectedPopulationHash = cursor.populationHash;
   }
-
-  let query: FirebaseFirestore.Query = database.collection("sessions").orderBy("updatedAt", "desc");
-  if (data.subject) query = query.where("subject", "==", data.subject);
-  if (data.topic) query = query.where("topic", "==", data.topic);
-  if (data.from) query = query.where("updatedAt", ">=", Timestamp.fromMillis(data.from));
-  if (data.to) query = query.where("updatedAt", "<=", Timestamp.fromMillis(data.to));
-  const snapshot = await query.limit(data.limit).get();
-  if (data.kind === "misconceptions") {
-    const counts = new Map<string, { category: string; subject: string; topic: string; count: number }>();
-    snapshot.docs.forEach((document) => {
+  if (data.from !== undefined && data.to !== undefined && data.from > data.to) throw new Error("The report start date must not follow its end date");
+  const eventField = ["activity", "usage"].includes(data.kind) ? "createdAt" : "submittedAt";
+  let source: FirebaseFirestore.Query = database.collection("sessions").orderBy(eventField).orderBy("__name__");
+  if (data.subject) source = source.where("subject", "==", data.subject);
+  if (data.topic) source = source.where("topic", "==", data.topic);
+  if (data.from !== undefined) source = source.where(eventField, ">=", Timestamp.fromMillis(data.from));
+  source = source.where(eventField, "<=", Timestamp.fromMillis(Math.min(data.to ?? asOf, asOf)));
+  const records: Array<Record<string, any>> = [];
+  let last: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+  while (true) {
+    const page = await (last ? source.startAfter(last) : source).limit(250).get();
+    for (const document of page.docs) {
       const session = document.data();
-      const categories = Array.isArray(session.diagnosisSummary) ? session.diagnosisSummary : [];
-      categories.forEach((category) => {
-        if (typeof category !== "string" || category === "none") return;
-        const key = `${session.subject}\u0000${session.topic}\u0000${category}`;
-        const existing = counts.get(key);
-        counts.set(key, {
-          category,
-          subject: String(session.subject ?? ""),
-          topic: String(session.topic ?? ""),
-          count: (existing?.count ?? 0) + 1,
-        });
-      });
-    });
-    return [...counts.values()].map((row) => ({ kind: data.kind, ...row }));
+      if (eventField === "submittedAt" && !session.statsCommittedAt) continue;
+      records.push({ id: document.id, ...session });
+    }
+    if (page.size < 250) break;
+    last = page.docs.at(-1);
   }
+  const rows = aggregateReport(records, data);
+  const populationHash = contentHash(rows);
+  if (data.cursor && expectedPopulationHash !== populationHash) throw new Error("The report population changed during export. Restart the export to obtain a complete consistent result.");
+  const selected = rows.slice(offset, offset + data.limit);
+  const next = offset + selected.length;
+  return { rows: selected, totalRows: rows.length, populationCount: records.length, eventField, asOf,
+    complete: next >= rows.length, nextCursor: next < rows.length ? Buffer.from(JSON.stringify({ fingerprint, populationHash, offset: next, asOf })).toString("base64url") : null };
+}
 
-  return snapshot.docs.map((document) => {
-    const session = document.data();
-    const common = {
-      kind: data.kind,
-      sessionId: document.id,
-      learner: data.includeIdentity ? session.studentName : pseudonymFor(String(session.studentId)),
-      subject: session.subject,
-      topic: session.topic,
-      difficulty: session.difficulty,
-      status: session.status,
-      updatedAt: isoTimestamp(session.updatedAt),
-    };
-    if (data.kind === "scorecards") {
-      const criteria = session.scorecard?.criteria ?? {};
-      return {
-        ...common,
-        score: session.scorecard?.total ?? null,
-        accuracy: criteria.accuracy?.score ?? null,
-        logicalValidity: criteria.logicalValidity?.score ?? null,
-        methodSelection: criteria.methodSelection?.score ?? null,
-        explanationQuality: criteria.explanationQuality?.score
-          ?? Math.round((Number(criteria.justificationQuality?.score ?? 0) + Number(criteria.interpretationQuality?.score ?? 0)) / 2),
-      };
+function aggregateReport(records: Array<Record<string, any>>, data: Pick<ReportInput, "kind" | "includeIdentity">): Record<string, unknown>[] {
+  const learner = (session: Record<string, any>) => data.includeIdentity ? session.studentName ?? "Learner" : pseudonymFor(String(session.studentId));
+  if (data.kind === "learning_progress") {
+    const groups = new Map<string, { kind: string; learner: string; sessionsCompleted: number; scoreTotal: number; averageCTScore: number | null; calibratedSessions: number; excludedUncalibratedSessions: number }>();
+    for (const session of records) {
+      const key = String(session.studentId);
+      const row = groups.get(key) ?? { kind: data.kind, learner: learner(session), sessionsCompleted: 0, scoreTotal: 0, averageCTScore: null, calibratedSessions: 0, excludedUncalibratedSessions: 0 };
+      row.sessionsCompleted++;
+      if (session.scorecard?.calibrationStatus === "calibrated" && Number.isFinite(session.scorecard?.total)) {
+        row.calibratedSessions++;
+        row.scoreTotal += session.scorecard.total;
+        row.averageCTScore = row.scoreTotal / row.calibratedSessions;
+      } else {
+        row.excludedUncalibratedSessions++;
+      }
+      groups.set(key, row);
     }
-    if (data.kind === "usage") {
-      return {
-        ...common,
-        supportRequests: Number(session.supportUsage ?? 0),
-        hintsUsed: Number(session.hintsUsed ?? 0),
-        aiFallbackEvents: Array.isArray(session.aiFallbackEvents) ? session.aiFallbackEvents.length : 0,
-        responses: Array.isArray(session.phaseResponses) ? session.phaseResponses.length : 0,
-      };
+    return [...groups.values()].sort((a,b) => a.learner.localeCompare(b.learner));
+  }
+  if (data.kind === "misconceptions") {
+    const counts = new Map<string, Record<string, any>>();
+    for (const session of records) for (const category of new Set<string>(session.diagnosisSummary ?? [])) {
+      if (category === "none") continue;
+      const key = JSON.stringify([session.subject, session.topic, category]);
+      const row = counts.get(key) ?? { kind: data.kind, subject: session.subject ?? null, topic: session.topic ?? null, category, affectedSessions: 0 };
+      row.affectedSessions++; counts.set(key,row);
     }
-    return { ...common, currentPhase: session.currentPhase, submittedAt: isoTimestamp(session.submittedAt), reviewedAt: isoTimestamp(session.reviewedAt) };
+    return [...counts.entries()].sort(([a],[b])=>a.localeCompare(b)).map(([,row])=>row);
+  }
+  return records.map(session => {
+    const common = { kind: data.kind, sessionId: session.id, learner: learner(session), subject: session.subject ?? null, topic: session.topic ?? null, difficulty: session.difficulty ?? null,
+      status: session.status ?? null, createdAt: isoTimestamp(session.createdAt), submittedAt: isoTimestamp(session.submittedAt), reviewedAt: isoTimestamp(session.reviewedAt), assistedFollowUp: Boolean(session.parentSessionId) };
+    if (data.kind === "usage") return { ...common, responses: Number(session.responseCount ?? 0), supportRequests: Number(session.supportUsage ?? 0), aiFallbackEvents: session.aiFallbackEvents?.length ?? 0 };
+    if (data.kind === "scorecards") return { ...common, score: session.scorecard?.total ?? null, rubricVersion: session.scorecard?.rubricVersion ?? "legacy", calibrationStatus: session.scorecard?.calibrationStatus ?? "uncalibrated",
+      accuracy: session.scorecard?.criteria?.accuracy?.score ?? null, logicalValidity: session.scorecard?.criteria?.logicalValidity?.score ?? null, methodSelection: session.scorecard?.criteria?.methodSelection?.score ?? null, explanationQuality: session.scorecard?.criteria?.explanationQuality?.score ?? null };
+    return { ...common, currentPhase: session.currentPhase ?? null };
   });
 }
 

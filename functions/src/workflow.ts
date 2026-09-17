@@ -1,3 +1,4 @@
+import type { RubricAssessment } from "./ai.js";
 import type {
   Difficulty,
   DiagnosisCategory,
@@ -13,9 +14,13 @@ import type {
   SupportLevel,
 } from "@mindguide/contracts";
 import { REASONING_PHASES } from "@mindguide/contracts";
-import { mathematicalEquivalent } from "./math.js";
+import { checkAnswer, hasMathematicalStructure, type AnswerSpecification } from "./answers.js";
 
 export interface PrivateProblemReference {
+  answerSpecification?: AnswerSpecification;
+  safeHints?: Partial<Record<ReasoningPhase, Partial<Record<SupportLevel, string[]>>>>;
+  rubricVersion?: string;
+  rubricCalibrationStatus?: "pending" | "calibrated";
   expectedConcepts: string[];
   requiredFormula?: string | null;
   requiredTheorem?: string | null;
@@ -113,7 +118,9 @@ export function evaluateDeterministically(options: {
   let evidence = "The response provides phase-appropriate reasoning.";
   let correctivePrompt = promptForPhase(phase, reference);
 
-  if (combined.length < 8 || significant.length < 2) {
+  const symbolicWork = ["guided_computation_or_proof", "verification_and_checking"].includes(phase)
+    && hasMathematicalStructure(response.normalizedLatex || response.latex || response.plainText);
+  if (!symbolicWork && (combined.length < 8 || significant.length < 2)) {
     confidence = "low";
     category = "unsupported_response";
     evidence = "The response is too short to show assessable reasoning.";
@@ -263,12 +270,13 @@ export function supportContent(
   phase: ReasoningPhase,
   reference: PrivateProblemReference
 ): { title: string; content: string[] } {
-  const step = reference.solutionSteps[Math.min(REASONING_PHASES.indexOf(phase), Math.max(reference.solutionSteps.length - 1, 0))];
+  const reviewed = reference.safeHints?.[phase]?.[level];
+  if (reviewed?.length && !["worked_explanation", "full_solution"].includes(level)) return { title: "Reasoning support", content: reviewed };
   const map: Record<SupportLevel, { title: string; content: string[] }> = {
     socratic_prompt: { title: "Socratic Prompt", content: [promptForPhase(phase, reference)] },
     targeted_hint: { title: "Targeted Hint", content: [`Focus on ${reference.expectedConcepts[0] ?? "the requested quantity"}.`] },
     stronger_hint: { title: "Stronger Hint", content: [reference.requiredFormula || reference.requiredTheorem || "Write the next operation or logical implication explicitly."] },
-    partial_step: { title: "Partial Step", content: [step || "Set up the first justified step, then complete it using the given values."] },
+    partial_step: { title: "Partial Step", content: ["Set up the next operation using the givens, leaving the result for you to calculate. Explain why this operation applies."] },
     worked_explanation: { title: "Worked Explanation", content: reference.solutionSteps },
     full_solution: { title: "Full Solution and Interpretation", content: [...reference.solutionSteps, reference.finalAnswer, reference.interpretation] },
   };
@@ -279,89 +287,42 @@ export function buildScorecard(options: {
   draft: SessionDraft;
   gates: GateStateMap;
   reference: PrivateProblemReference;
+  responses?: Array<{ id: string; phase: ReasoningPhase; text: string; accepted: boolean }>;
+  assistanceCount?: number;
+  assessment?: RubricAssessment;
 }): ScorecardResult {
-  const gateEvidence = REASONING_PHASES.map((phase) => `${phaseLabel(phase)} was accepted.`);
-  const answerText = options.draft.answer.normalizedLatex || options.draft.answer.latex || options.draft.answer.plainText;
-  const accuracyPass =
-    mathematicalEquivalent(answerText, options.reference.finalAnswer) ||
-    normalize(answerText).includes(normalize(options.reference.finalAnswer));
-  const make = (
-    category: ScorecardCategory,
-    score: number,
-    evidence: string[],
-    reason: string,
-    advice: string
-  ): ScorecardCriterionResult => ({
-    category,
-    score,
-    evidence,
-    reason,
-    improvementAdvice: advice,
-    confidence: category === "accuracy" && !accuracyPass ? "medium" : "high",
-    source: "deterministic",
+  const accuracyPass = checkAnswer(options.draft.answer, options.reference.answerSpecification);
+  const responses = options.responses ?? [];
+  const accepted = (phases: ReasoningPhase[]) => responses.filter(item => phases.includes(item.phase) && item.accepted);
+  const make = (category: ScorecardCategory, score: number, evidence: string[]): ScorecardCriterionResult => ({
+    category, score, evidence,
+    reason: evidence.length ? "Draft formative indicators grounded in recorded learner work; faculty calibration is pending." : "Insufficient assessed evidence; no credit inferred from gate completion.",
+    improvementAdvice: "Explain the selected method, its conditions, each operation, and how the result was checked.",
+    confidence: "low", source: "deterministic",
   });
-
-  const qualityScore = (phases: ReasoningPhase[]): number => {
-    const corrections = phases.reduce(
-      (sum, phase) => sum + Number(options.gates[phase]?.correctiveCycleCount ?? 0),
-      0
-    );
-    return Math.max(12, 25 - Math.min(corrections * 2, 13));
-  };
-  const logicalScore = qualityScore([
-    "guided_computation_or_proof",
-    "verification_and_checking",
-  ]);
-  const methodScore = qualityScore([
-    "method_selection",
-    "formula_theorem_justification",
-  ]);
-  const explanationScore = qualityScore([
-    "problem_understanding",
-    "relevant_information_identification",
-    "formula_theorem_justification",
-    "result_interpretation",
-  ]);
-
+  const evidence = (items: typeof responses) => items.map(item => `Response ${item.id}: ${item.text.slice(0, 300)}`);
+  const logic = accepted(["guided_computation_or_proof", "verification_and_checking"]);
+  const method = accepted(["method_selection", "formula_theorem_justification"]);
+  const explanation = accepted(["problem_understanding", "result_interpretation"]);
+  const relevant = (text: string) => text.trim().length >= 30 && options.reference.expectedConcepts.some(concept => text.toLowerCase().includes(concept.toLowerCase()));
+  const methodologySupported = relevant(options.draft.methodology);
+  const reflectionSupported = relevant(options.draft.reflection);
   const criteria = {
-    accuracy: make(
-      "accuracy",
-      accuracyPass ? 25 : 10,
-      [accuracyPass ? "The final response is mathematically equivalent to the validated reference." : "The final response could not be verified as equivalent to the validated reference."],
-      accuracyPass ? "The final result matches the validated answer." : "The submitted final result needs correction or clearer notation.",
-      accuracyPass ? "Keep the checking step visible." : "Recheck the final calculation and submit an equivalent simplified result."
-    ),
-    logicalValidity: make(
-      "logicalValidity",
-      logicalScore,
-      gateEvidence.filter((item) => /computation|verification/.test(item)),
-      logicalScore >= 22 ? "Strong reasoning: the computation or proof and its verification were logically connected." : "The reasoning became valid after corrective cycles.",
-      logicalScore >= 22 ? "Keep each implication or calculation step explicit." : "State why each calculation or proof step follows from the previous one."
-    ),
-    methodSelection: make(
-      "methodSelection",
-      methodScore,
-      ["Method selection and formula/theorem justification were accepted.", "The saved methodology is supported by the accepted reasoning record."],
-      methodScore >= 22 ? "The selected method is appropriate and well connected to the problem." : "The appropriate method was reached after revision.",
-      methodScore >= 22 ? "Continue checking a method's conditions before computing." : "Name the method earlier and connect it directly to the given conditions."
-    ),
-    explanationQuality: make(
-      "explanationQuality",
-      explanationScore,
-      ["Problem understanding, justification, and interpretation were accepted.", "The saved reflection is supported by the reasoning record."],
-      explanationScore >= 22 ? "Strong explanation: the justification and interpretation are connected to the problem context." : "The explanation was accepted but needed stronger justification or interpretation during the session.",
-      explanationScore >= 22 ? "Keep explaining both why the method applies and what the result means." : "Strengthen the justification by naming the required conditions, then interpret the verified result in context."
-    ),
-  } satisfies Record<ScorecardCategory, ScorecardCriterionResult>;
-  const total = Object.values(criteria).reduce((sum, criterion) => sum + criterion.score, 0);
-  return {
-    criteria,
-    total,
-    feedback: accuracyPass
-      ? "Your reasoning gates are complete and your final result matches the validated reference. Use the evidence above to strengthen future explanations."
-      : "Your reasoning gates are complete, but the final result needs another verification pass before it matches the validated reference.",
-    generatedAt: Date.now(),
+    accuracy: make("accuracy", accuracyPass ? 25 : 0, [accuracyPass ? "Final draft answer matches the typed canonical reference." : "Final draft answer could not be verified against the canonical reference."]),
+    logicalValidity: make("logicalValidity", new Set(logic.map(item => item.phase)).size * 6, evidence(logic)),
+    methodSelection: make("methodSelection", methodologySupported ? Math.min(12, method.length * 6) : 0, [...evidence(method), `Final methodology: ${options.draft.methodology.slice(0, 300)}`]),
+    explanationQuality: make("explanationQuality", reflectionSupported && methodologySupported ? Math.min(12, explanation.length * 6) : 0, [...evidence(explanation), `Final reflection: ${options.draft.reflection.slice(0, 300)}`]),
   };
+  if (options.assessment) {
+    for (const category of ["logicalValidity", "methodSelection", "explanationQuality"] as const) {
+      const assessed = options.assessment[category];
+      criteria[category] = { ...make(category, assessed.score, assessed.evidenceIds.map(id => `Assessed evidence: ${id}`)), reason: "Assessment of the referenced learner work using the versioned formative rubric.", source: "ai", confidence: "medium" };
+    }
+  }
+  return { criteria, total: Object.values(criteria).reduce((sum, item) => sum + item.score, 0),
+    rubricVersion: options.reference.rubricVersion ?? "pilot-v5-draft",
+    calibrationStatus: options.reference.rubricCalibrationStatus ?? "pending", assistanceCount: options.assistanceCount ?? 0,
+    feedback: options.reference.rubricCalibrationStatus === "calibrated" ? "Formative assessment using the reviewed rubric. Assistance is recorded separately." : "Formative indicators only; faculty calibration is pending. Assistance is recorded separately.", generatedAt: Date.now() };
 }
 
 export function buildReleasedSolution(reference: PrivateProblemReference): ReleasedSolution {
@@ -406,6 +367,7 @@ export function recommendDifficulty(options: {
     maxHintsForIncrease: 1,
     arithmeticErrorAloneLowersDifficulty: false,
   };
+  if (!Number.isInteger(policy.minimumCompletedSessions) || policy.minimumCompletedSessions < 1 || policy.minimumCompletedSessions > 100 || policy.decreaseScoreThreshold >= policy.increaseScoreThreshold || policy.increaseScoreThreshold > 100 || policy.decreaseScoreThreshold < 0) throw new Error("Invalid adaptive-difficulty policy thresholds");
   if (options.recentSessions.length < policy.minimumCompletedSessions) {
     return {
       recommendedDifficulty: options.currentDifficulty,
@@ -415,7 +377,8 @@ export function recommendDifficulty(options: {
   }
   const recent = options.recentSessions.slice(0, policy.minimumCompletedSessions);
   const major = new Set(["conceptual_error", "theorem_condition_violation", "invalid_logic", "skipped_reasoning"]);
-  const majorDiagnoses = recent.flatMap((session) => session.diagnoses.filter((item) => major.has(item)));
+  if (policy.arithmeticErrorAloneLowersDifficulty) major.add("computational_error");
+  const majorDiagnoses = recent.flatMap((session) => [...new Set(session.diagnoses.filter((item) => major.has(item)))]);
   if (recent.every((session) =>
     session.score >= policy.increaseScoreThreshold
     && session.supportUsage <= policy.maxHintsForIncrease
@@ -431,7 +394,7 @@ export function recommendDifficulty(options: {
     return {
       recommendedDifficulty: levels[Math.max(currentIndex - 1, 0)],
       reason: repeatedMajor
-        ? "A major conceptual or logical diagnosis repeated across the two most recent topic sessions."
+        ? `A major diagnosis repeated across distinct sessions in the latest ${policy.minimumCompletedSessions} topic submissions.`
         : `The recent topic scorecards were below the configured threshold of ${policy.decreaseScoreThreshold}.`,
       confidence: "high",
     };

@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+import { observedWriter } from "../functions/src/observed-writer.ts";
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -43,6 +43,11 @@ const [users, sessions, notifications, existingProblems, existingPrompts, existi
   database.collection("socratic_prompt_bank").get(),
   database.collection("formula_theorem_references").get(),
 ]);
+for (const session of sessions.docs) {
+  if (Number(session.get("schemaVersion") ?? 0) < 3) throw new Error(`Run and verify the v3 security conversion before v4: ${session.id}`);
+  const exposed = findForbiddenPublicKeys(session.data());
+  if (exposed.length) throw new Error(`Private fields remain in session ${session.id}: ${exposed.join(", ")}`);
+}
 const operations = buildOperations(
   users.docs,
   sessions.docs,
@@ -63,7 +68,7 @@ if (!APPLY) {
   process.exit(0);
 }
 
-const writer = database.bulkWriter();
+const writer = observedWriter(database.bulkWriter());
 writer.onWriteError((error) => {
   console.error(`Write failed for ${error.documentRef.path}: ${error.message}`);
   return error.failedAttempts < 3;
@@ -111,6 +116,9 @@ function buildOperations(
       data: {
         schemaVersion: 4,
         name: subject,
+        description: subject === "Quantitative Methods"
+          ? "Practice interpreting data, probability, correlation, and descriptive statistics through justified calculations."
+          : "Practice logic, counting, proof, and combinatorial reasoning through explicit, verifiable steps.",
         status: "approved",
         version: 2,
         updatedAt: now,
@@ -421,7 +429,7 @@ async function rollback(requestedFile?: string): Promise<void> {
   if (backup.projectId !== projectId) {
     throw new Error(`Backup project ${backup.projectId} does not match ${projectId}.`);
   }
-  const writer = database.bulkWriter();
+  const writer = observedWriter(database.bulkWriter());
   for (const record of backup.records) {
     const ref = database.doc(record.path);
     if (record.exists) writer.set(ref, decode(record.data));

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { ReasoningPhase } from "@mindguide/contracts";
 import { Timestamp } from "../runtime.js";
 import {
+  awardEligibleAchievements,
+  effectiveCurrentStreak,
   isStudentMutationAllowed,
   nextLearningProgress,
   projectStageProgress,
@@ -85,5 +87,31 @@ describe("session state helpers", () => {
     expect(isStudentMutationAllowed("ready_for_submission", "submit")).toBe(true);
     expect(isStudentMutationAllowed("submitted", "support")).toBe(false);
     expect(isStudentMutationAllowed("returned", "follow_up")).toBe(true);
+  });
+
+  it("awards all deterministic achievements exactly once", () => {
+    const first = awardEligibleAchievements({}, {
+      sessionId: "session-5",
+      sessionsCompleted: 5,
+      currentStreak: 3,
+      score: 88,
+      awardedAt: 123,
+    });
+    expect(Object.keys(first.achievements)).toEqual([
+      "first_step", "dedicated_learner", "three_day_streak", "strong_reasoner",
+    ]);
+    expect(first.newlyAwarded).toHaveLength(4);
+    expect(awardEligibleAchievements(first.achievements, {
+      sessionId: "session-6",
+      sessionsCompleted: 6,
+      currentStreak: 4,
+      score: 91,
+      awardedAt: 456,
+    }).newlyAwarded).toHaveLength(0);
+  });
+
+  it("treats a streak as current only through the day after the latest submission", () => {
+    expect(effectiveCurrentStreak(3, "2026-08-01", new Date("2026-08-02T04:00:00Z"))).toBe(3);
+    expect(effectiveCurrentStreak(3, "2026-07-30", new Date("2026-08-02T04:00:00Z"))).toBe(0);
   });
 });
