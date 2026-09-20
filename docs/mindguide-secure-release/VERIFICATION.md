@@ -1,3 +1,5 @@
+> Historical server-architecture document. Current implementation and deployment: [Spark operations](../SPARK_DEPLOYMENT.md). Functions-specific requirements below no longer apply to the Spark application.
+
 # Current controlled-pilot verification
 
 The v5 repair and release blockers are tracked in [PILOT_V5_REPAIR.md](PILOT_V5_REPAIR.md). Earlier entries below are historical evidence, not current readiness claims. The 99-record gate and profile-renaming anonymization claims are superseded by v5.

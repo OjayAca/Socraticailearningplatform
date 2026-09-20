@@ -225,6 +225,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null, isLoading: true });
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       const credential = await signInWithPopup(requireAuth(), provider);
       const profile = await loadUserProfile(credential.user);
       set({

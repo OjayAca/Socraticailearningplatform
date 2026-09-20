@@ -36,7 +36,6 @@
     "tests",
     "vite.config.ts",
     "vitest.config.ts",
-    "vitest.rules.config.ts",
     "playwright.config.ts"
   ]
 }

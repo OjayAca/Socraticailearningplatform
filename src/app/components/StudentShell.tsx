@@ -107,7 +107,6 @@ export function StudentShell({ active, children }: { active: string; children: R
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold text-slate-950 dark:text-white sm:text-lg">
               Welcome, {displayName}
-              <span aria-hidden="true" className="ml-1.5">👋</span>
             </h1>
           </div>
 
@@ -210,11 +209,10 @@ function SignOutButton({ onSignOut }: { onSignOut: () => Promise<void> }) {
 }
 
 function navLinkClass(isActive: boolean) {
-  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-    isActive
-      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
-      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-100"
-  }`;
+  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isActive
+    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
+    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-100"
+    }`;
 }
 
 function getInitials(displayName: string) {

@@ -54,7 +54,7 @@ describe("P1 subject-first task start", () => {
     mocks.getLearningCatalog.mockRejectedValueOnce(new Error("The secure service is unavailable."));
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
     expect(await screen.findByRole("alert")).toHaveTextContent("The secure service is unavailable.");
-    expect(screen.queryByText(/No topic is ready/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No approved topics are available yet/)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Prepared problem" })).not.toBeInTheDocument();
 
     mocks.getDoc.mockReset();
@@ -69,7 +69,7 @@ describe("P1 subject-first task start", () => {
   it("shows the empty catalog notice only after a successful load", async () => {
     mocks.getLearningCatalog.mockResolvedValueOnce({ subjects: [], topics: [], generatedAt: 1 });
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    expect(await screen.findByText(/No topic is ready/)).toBeVisible();
+    expect(await screen.findByText(/No approved topics are available yet/)).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

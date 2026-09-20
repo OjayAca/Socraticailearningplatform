@@ -1,3 +1,5 @@
+> Historical server-architecture document. Current implementation and deployment: [Spark operations](../SPARK_DEPLOYMENT.md). Functions-specific requirements below no longer apply to the Spark application.
+
 # Schema-v4 Data Dictionary
 
 ## Public or learner-readable

@@ -5,6 +5,7 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
   const presentation = presentScorecard(scorecard);
   return (
     <section className="mt-4 space-y-4" aria-label="Critical Thinking Scorecard">
+      {scorecard.rubricVersion === "spark-practice-v1" && <p className="text-sm text-slate-600 dark:text-slate-300">Calculated in your browser for practice; this is not an official assessment.</p>}
       <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{scorecard.total}/100</p>
       <p className="text-sm">Rubric: {scorecard.rubricVersion ?? "legacy"} · {scorecard.calibrationStatus ?? "uncalibrated"} · Assistance: {scorecard.assistanceCount ?? "not recorded"}</p>
       <div className="grid gap-2 sm:grid-cols-2">

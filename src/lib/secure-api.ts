@@ -1,8 +1,7 @@
-import { httpsCallable } from "firebase/functions";
+import { validateOperation } from "./learning/validation";
 import type {
   AdminBulkImportProblemsRequest,
   AdminDeleteContentRequest,
-  AdminDeleteUserRequest,
   AdminPublishAnnouncementRequest,
   AdminRecordProblemValidationRequest,
   AdminReviewSessionRequest,
@@ -23,11 +22,15 @@ import type {
   SessionMutationResponse,
   StartLearningSessionInput,
 } from "@mindguide/contracts";
-import { auth, firebaseSetupMessage, functions } from "./firebase";
+import { auth } from "./firebase";
 import { secureErrorMessage } from "./secure-error";
 
 function newRequestId(): string {
   return crypto.randomUUID();
+}
+
+export async function checkLearningSessionActivity(sessionId: string): Promise<void> {
+  await call("checkLearningSessionActivity", { sessionId });
 }
 
 export async function bootstrapProfile(
@@ -138,12 +141,6 @@ export async function adminManageUser(input: {
   return call("adminManageUser", { ...input, requestId: newRequestId() });
 }
 
-export async function adminDeleteUser(
-  input: Omit<AdminDeleteUserRequest, "requestId">
-): Promise<{ userId: string; deleted: boolean; retainedLearningRecords: number }> {
-  return call("adminDeleteUser", { ...input, requestId: newRequestId() });
-}
-
 export async function adminDeleteContent(
   input: Omit<AdminDeleteContentRequest, "requestId">
 ): Promise<Record<string, unknown>> {
@@ -177,7 +174,6 @@ export async function adminExportReport(
 }
 
 async function call<TRequest, TResponse>(name: string, input: TRequest): Promise<TResponse> {
-  if (!functions) throw new Error(firebaseSetupMessage);
   const payload = input && typeof input === "object" ? { ...input } as Record<string, unknown> : null;
   let pendingKey: string | null = null;
   if (payload && typeof payload.requestId === "string") {
@@ -189,11 +185,17 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
     else sessionStorage.setItem(pendingKey, JSON.stringify({ requestId: payload.requestId, input: values }));
   }
   try {
-    const callable = httpsCallable<TRequest, TResponse>(functions, name);
-    const result = await callable((payload ?? input) as TRequest);
+    const operation = name.startsWith("admin") || name === "getPilotStatus"
+      ? (await import("./admin-service")).adminOperation
+      : (await import("./learning-service")).learningOperation;
+    const result = await operation(name, validateOperation(name, payload ?? input));
     if (pendingKey) sessionStorage.removeItem(pendingKey);
-    return result.data;
+    return result as TResponse;
   } catch (error) {
+    const code = (error as { code?: string })?.code?.split("/").at(-1);
+    if (["unavailable", "deadline-exceeded", "resource-exhausted"].includes(code ?? "") && !/^(get|preview|adminQuery|adminCatalog|check)/.test(name)) {
+      throw new Error("Unable to save your changes. Check your connection and try again; your last saved progress is preserved.");
+    }
     throw new Error(secureErrorMessage(error));
   }
 }

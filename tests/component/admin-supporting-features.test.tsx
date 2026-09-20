@@ -135,21 +135,12 @@ describe("administrator account safeguards", () => {
     );
   });
 
-  it("keeps permanent deletion disabled until exact confirmation is supplied", async () => {
-    mocks.getDocs.mockResolvedValue(
-      snapshot([
-        { id: "student-3", displayName: "Deleted Learner", email: "deleted@example.com", role: "student", status: "deactivated" },
-      ]),
-    );
+  it("directs privileged Auth operations to Firebase Console", async () => {
+    mocks.getDocs.mockResolvedValue(snapshot([{ id: "student-3", displayName: "Deleted Learner", email: "deleted@example.com", role: "student", status: "deactivated" }]));
     renderRoute(<SecureAdminUsers />);
-
     await screen.findByText("Deleted Learner");
-    fireEvent.click(screen.getByRole("button", { name: "delete" }));
-    const deleteButton = screen.getByRole("button", { name: "Permanently delete" });
-    expect(deleteButton).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText("Confirmation email"), { target: { value: "deleted@example.com" } });
-    expect(deleteButton).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "delete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Firebase Console" })).toHaveAttribute("target", "_blank");
     expect(mocks.adminDeleteUser).not.toHaveBeenCalled();
   });
 

@@ -10,22 +10,7 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
-const forbiddenMarkers = [
-  "VITE_GEMINI_API_KEY",
-  "VITE_AI_PROVIDER",
-  "VITE_OLLAMA",
-  "GoogleGenAI",
-  "solveVerifiedProblem",
-  "verifiedGivens",
-  "PRIVATE_CANONICAL_ANSWER",
-  "answerSpecification",
-  "safeHints",
-  "solutionSteps",
-  "socraticPrompts",
-  "referenceAnswer",
-  "PRIVATE_PROBLEM_REFERENCE",
-  "INTERNAL_RUBRIC",
-];
+const forbiddenMarkers = ["VITE_GEMINI_API_KEY", "VITE_AI_PROVIDER", "VITE_OLLAMA", "GoogleGenAI", "firebase-admin", "httpsCallable", "cloudfunctions.net", "BEGIN PRIVATE KEY", "PRIVATE_CANONICAL_ANSWER"];
 
 const knownPrivateStrings = existsSync(problemBank)
   ? extractPrivateStrings(readFileSync(problemBank, "utf8"))

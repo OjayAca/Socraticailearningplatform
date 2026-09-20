@@ -23,7 +23,7 @@ test("loads the public landing page and its authentication routes", async ({
     })
   ).toBeVisible();
   await expect(
-    page.getByText(/AI-supported feedback is not an official grade/i)
+    page.getByText(/Automated practice feedback is not an official grade/i)
   ).toBeVisible();
 
   await expect(

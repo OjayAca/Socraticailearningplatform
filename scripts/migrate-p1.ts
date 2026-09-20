@@ -1,4 +1,4 @@
-import { observedWriter } from "../functions/src/observed-writer.ts";
+import { observedWriter } from "./lib/observed-writer.ts";
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";

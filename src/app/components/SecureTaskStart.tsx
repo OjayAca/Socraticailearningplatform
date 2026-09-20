@@ -44,6 +44,7 @@ export function SecureTaskStart() {
     if (!db || !userId) return;
     const database = db;
     let active = true;
+    const timer = window.setTimeout(() => {
     setLoading(true);
     setError(null);
     setConsented(null);
@@ -70,10 +71,12 @@ export function SecureTaskStart() {
         );
         setSubjectProgress(progressSnapshot.exists() ? progressSnapshot.data().subjectProgress ?? {} : {});
       })
-      .catch((cause) => active && setError(secureErrorMessage(cause, "Learning catalog could not be loaded.")))
+      .catch((cause) => active && setError(secureErrorMessage(cause, "Unable to load learning materials.")))
       .finally(() => active && setLoading(false));
+    }, 0);
     return () => {
       active = false;
+      window.clearTimeout(timer);
     };
   }, [userId, loadAttempt]);
 
@@ -149,11 +152,11 @@ export function SecureTaskStart() {
           <h1 className="mt-4 text-2xl font-bold text-slate-950 dark:text-white">Privacy and Responsible AI Notice</h1>
           <p className="mt-3 text-slate-600 dark:text-slate-300">{notice?.summary}</p>
           <div className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-            Raw AI service logs are retained for 90 days. Identifiable learning records follow the configured capstone retention period.
+            Practice feedback is calculated in your browser. Learning records follow the retention policy described in the notice.
           </div>
           <label className="mt-6 flex items-start gap-3 text-sm font-medium text-slate-700 dark:text-slate-300">
             <input type="checkbox" checked={acknowledge} onChange={(event) => setAcknowledge(event.target.checked)} className="mt-1" />
-            I have read the notice, understand that AI feedback can be inaccurate, and consent to the described capstone data use.
+            I have read the notice, understand that automated practice feedback can be inaccurate, and consent to the described capstone data use.
           </label>
           {error && <p className="mt-4 text-sm font-semibold text-red-600 dark:text-red-400">{error}</p>}
           <button type="button" disabled={!acknowledge || loading} onClick={() => void acceptNotice()} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">
@@ -169,7 +172,7 @@ export function SecureTaskStart() {
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-950 dark:text-white">Start a secure MINDGUIDE session</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">Choose an approved topic. For prepared practice, the server assigns an adaptive, non-repeating validated variant.</p>
+          <p className="mt-2 text-slate-600 dark:text-slate-400">Choose an approved topic. For prepared practice, MINDGUIDE selects an adaptive, non-repeating validated question.</p>
         </div>
         {error && <ErrorMessage message={error} />}
         {catalog && catalog.subjects.length > 0 && (
@@ -235,7 +238,7 @@ export function SecureTaskStart() {
             </>
           ) : (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              No topic is ready for formal evaluation. A System Administrator must complete all three faculty-validated variants at every difficulty for a topic.
+              No approved topics are available yet.
             </div>
           )}
         </div>

@@ -1,13 +1,4 @@
 {
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs22",
-    "predeploy": [
-      "npm run build",
-      "npm run scan:bundle",
-      "node scripts/verify-deploy-gate.mjs"
-    ]
-  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -30,21 +21,5 @@
         "destination": "/index.html"
       }
     ]
-  },
-  "emulators": {
-    "auth": {
-      "port": 9099
-    },
-    "firestore": {
-      "port": 8080
-    },
-    "functions": {
-      "port": 5001
-    },
-    "ui": {
-      "enabled": true,
-      "port": 4000
-    },
-    "singleProjectMode": true
   }
 }

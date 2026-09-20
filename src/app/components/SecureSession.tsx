@@ -34,6 +34,7 @@ import { db } from "@/lib/firebase";
 import { isCurrentLearningSession } from "@/lib/session-compatibility";
 import {
   abandonLearningSession,
+  checkLearningSessionActivity,
   evaluatePhaseResponse,
   finalizeScorecard,
   requestSessionSupport,
@@ -67,6 +68,7 @@ export function SecureSession() {
     setLoading(true);
     setError(null);
     try {
+      await checkLearningSessionActivity(sessionId);
       const snapshot = await getDoc(doc(db, "sessions", sessionId));
       if (!snapshot.exists()) throw new Error("The learning session was not found.");
       const data = snapshot.data();
@@ -199,7 +201,7 @@ export function SecureSession() {
 
   if (["submitted", "reviewed", "returned", "abandoned", "expired"].includes(session.status)) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6"><div className="max-w-xl rounded-3xl border bg-white p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600">Your authoritative reasoning record and scorecard are saved. Administrator feedback appears in your history.</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
+      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6"><div className="max-w-xl rounded-3xl border bg-white p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600">Your practice reasoning record and scorecard are saved. Administrator feedback appears in your history.</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
     );
   }
 

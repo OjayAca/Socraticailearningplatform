@@ -464,7 +464,7 @@ export function LandingPage() {
                 </p>
                 <p className="mt-3 text-lg font-bold leading-7 text-white">
                   MINDGUIDE supports practice and critical-thinking reflection.
-                  Its AI-supported feedback is not an official grade.
+                  Its automated practice feedback is not an official grade.
                 </p>
               </div>
             </div>

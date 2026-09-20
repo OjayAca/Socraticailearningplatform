@@ -18,6 +18,7 @@ vi.mock("@/lib/firebase", () => ({
 }));
 
 vi.mock("@/lib/secure-api", () => ({
+  checkLearningSessionActivity: vi.fn().mockResolvedValue(undefined),
   abandonLearningSession: vi.fn(),
   evaluatePhaseResponse: vi.fn(),
   finalizeScorecard: vi.fn(),

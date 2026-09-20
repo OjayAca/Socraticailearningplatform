@@ -7,20 +7,13 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/**/*.{mjs,ts}",
-        "vitest.rules.config.ts",
-        "tests/rules/**/*.test.ts"
+        "scripts/**/*.{mjs,ts}"
       ],
       "project": [
         "src/**/*.{ts,tsx}",
         "scripts/**/*.{mjs,ts}",
         "tests/**/*.{mjs,ts,tsx}",
         "*.config.{js,mjs,ts}"
-      ]
-    },
-    "functions": {
-      "project": [
-        "src/**/*.ts"
       ]
     },
     "packages/contracts": {

@@ -241,7 +241,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
     try {
       const result = await adminBulkImportProblems({ problems: importProblems, dryRun });
       setMessage(dryRun
-        ? `${String(result.checked)} problem drafts passed server validation.`
+        ? `${String(result.checked)} problem drafts passed validation.`
         : `${String(result.imported)} problem drafts imported.`);
       if (!dryRun) setImportProblems([]);
       await load();
@@ -270,18 +270,18 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
   return (
     <div>
       {readiness && (
-        <div className={`mt-5 rounded-2xl border p-4 ${readiness.ready ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
+        <div className={`mt-5 rounded-2xl border p-4 ${readiness.ready ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950" : "border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"}`}>
           <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5" />Formal-evaluation readiness</div>
-          <p className="mt-1 text-sm">{readiness.approvedProblemCount} / {readiness.expectedProblemCount} faculty-approved problems · {readiness.cells.filter((cell) => cell.ready).length} / 33 complete cells</p>
+          <p className="mt-1 text-sm dark:text-slate-300">{readiness.approvedProblemCount} / {readiness.expectedProblemCount} faculty-approved problems · {readiness.cells.filter((cell) => cell.ready).length} / 33 complete cells</p>
         </div>
       )}
-      {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800">{message}</div>}
+      {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">{message}</div>}
       {deleteTarget && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><h2 className="font-bold text-red-950">Permanently delete {deleteTarget.id}</h2><p className="mt-1 text-sm text-red-800">Deletion succeeds only when no managed record or historical session references this draft/rejected record.</p><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`Type ${deleteTarget.id}`} className="mt-3 w-full rounded-lg border border-red-300 p-3" /><input value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Required audit reason" className="mt-3 w-full rounded-lg border border-red-300 p-3" /><div className="mt-3 flex gap-2"><button onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }} className="rounded-lg border px-3 py-2 font-bold">Cancel</button><button disabled={deleteConfirmation !== deleteTarget.id || deleteReason.trim().length < 8} onClick={() => void permanentlyDelete()} className="rounded-lg bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50">Permanently delete</button></div></div>}
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-5">
-          <h2 className="font-bold">Typed content editor</h2>
-          <label className="mt-4 block text-sm font-bold">Stable record ID
-            <input value={recordId} onChange={(event) => setRecordId(event.target.value)} className="mt-2 w-full rounded-lg border p-3 font-normal" />
+        <div className="rounded-2xl border bg-white p-5 dark:bg-slate-900 dark:border-slate-700">
+          <h2 className="font-bold dark:text-slate-100">Typed content editor</h2>
+          <label className="mt-4 block text-sm font-bold dark:text-slate-200">Stable record ID
+            <input value={recordId} onChange={(event) => setRecordId(event.target.value)} className="mt-2 w-full rounded-lg border p-3 font-normal dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400" />
           </label>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             {FIELDS[collectionName].map((field) => (
@@ -292,9 +292,9 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
             <Save className="h-4 w-4" />Save version
           </button>
           {collectionName === "problems" && (
-            <div className="mt-6 rounded-xl border border-slate-200 p-4">
-              <h3 className="font-bold">Bulk draft import</h3>
-              <p className="mt-1 text-xs text-slate-500">Select a JSON array matching the typed problem-draft contract. Every topic and reference is validated by the server.</p>
+            <div className="mt-6 rounded-xl border border-slate-200 p-4 dark:border-slate-600">
+              <h3 className="font-bold dark:text-slate-100">Bulk draft import</h3>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Select a JSON array matching the typed problem-draft contract. Every topic and reference is checked against Firestore.</p>
               <input type="file" accept="application/json,.json" onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
@@ -316,8 +316,8 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
             </button>
           )}
           {collectionName === "problems" && current?.status === "pending_validation" && (
-            <div className="mt-6 rounded-xl border border-indigo-200 p-4">
-              <h3 className="font-bold">Record external validation evidence</h3>
+            <div className="mt-6 rounded-xl border border-indigo-200 p-4 dark:border-indigo-700">
+              <h3 className="font-bold dark:text-slate-100">Record external validation evidence</h3>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {Object.entries(validation).map(([field, fieldValue]) => field === "decision" ? (
                   <label key={field} className="text-sm font-bold">Decision
@@ -335,14 +335,14 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
             </div>
           )}
         </div>
-        <div className="rounded-2xl border bg-white p-5">
-          <h2 className="font-bold">Existing records ({items.length})</h2>
-          <div className="mt-3 max-h-[48rem] divide-y overflow-auto">
+        <div className="rounded-2xl border bg-white p-5 dark:bg-slate-900 dark:border-slate-700">
+          <h2 className="font-bold dark:text-slate-100">Existing records ({items.length})</h2>
+          <div className="mt-3 max-h-[48rem] divide-y overflow-auto dark:divide-slate-700">
             {items.map((item) => (
               <div key={item.id} className="flex items-start justify-between gap-3 py-3">
                 <button className="min-w-0 text-left" onClick={() => void selectItem(item).catch(showError)}>
-                  <p className="truncate font-semibold">{item.name ?? item.problemText ?? item.id}</p>
-                  <p className="text-xs text-slate-500">{item.id} · v{item.version ?? 0} · {item.status}</p>
+                  <p className="truncate font-semibold dark:text-slate-100">{item.name ?? item.problemText ?? item.id}</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{item.id} · v{item.version ?? 0} · {item.status}</p>
                 </button>
                 <div className="flex gap-1"><button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button>{["draft", "rejected"].includes(item.status) && <button onClick={() => { setDeleteTarget(item); setDeleteConfirmation(""); }} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Permanently delete ${item.id}`}><Trash2 className="h-4 w-4" /></button>}</div>
               </div>
@@ -355,7 +355,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
 }
 
 function ManagedField({ field, value, approvedAllowed, onChange }: { field: FieldDefinition; value: unknown; approvedAllowed: boolean; onChange: (value: unknown) => void }) {
-  const className = "mt-1 w-full rounded-lg border p-2 font-normal";
+  const className = "mt-1 w-full rounded-lg border p-2 font-normal dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400";
   const options: Partial<Record<FieldType, string[]>> = {
     status: approvedAllowed
       ? ["draft", "approved", "archived"]
@@ -366,7 +366,7 @@ function ManagedField({ field, value, approvedAllowed, onChange }: { field: Fiel
     phase: [...REASONING_PHASES],
   };
   return (
-    <label className={`text-sm font-bold ${field.type === "textarea" || field.type === "lines" ? "sm:col-span-2" : ""}`}>
+    <label className={`text-sm font-bold dark:text-slate-200 ${field.type === "textarea" || field.type === "lines" ? "sm:col-span-2" : ""}`}>
       {field.label}
       {options[field.type] ? (
         <select required={field.required} value={String(value ?? "")} onChange={(event) => onChange(event.target.value)} className={className}>

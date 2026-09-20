@@ -1,3 +1,5 @@
+> Historical server-architecture document. Current implementation and deployment: [Spark operations](../SPARK_DEPLOYMENT.md). Functions-specific requirements below no longer apply to the Spark application.
+
 # Controlled pilot: staging, migration, and release
 
 Participant access defaults to closed. Use the Maintenance page for typed closed/open/drain/write-freeze controls and verified-UID cohort admission. Missing configuration never opens learning. A drain stops new sessions while allowing admitted learners to finish; a write-freeze stops learning mutations and content edits. Owner recovery remains accessible.

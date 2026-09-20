@@ -1,95 +1,57 @@
 # MINDGUIDE
 
-MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and Discrete Mathematics capstone acceptability evaluation. Its six core learning capabilities are the step-by-step Socratic solver, formula/theorem justification, misconception diagnosis, adaptive difficulty, progressive solution unlocking, and a four-criterion critical-thinking scorecard. It is not an official grading system and does not claim permanent improvement in critical thinking.
+MINDGUIDE is a formative learning application for Quantitative Methods and Discrete Mathematics. It uses **React → Firebase Firestore**, with Firebase Authentication and Hosting. No deployed Cloud Functions, AI API key, scheduler, or Blaze plan is required.
 
-## Secure architecture
+The existing Firebase project in `.env` is the application database. Do not replace it with a demo project, connect an emulator, seed sample questions, or manufacture validation records.
 
-- React renders learner-safe projections and sends bounded input to callable APIs.
-- Firebase Functions Gen 2 owns problem validation, progression, diagnosis, support, scoring, adaptation, statistics, notifications, administrative mutations, retention, and anonymization.
-- Firebase Auth custom claims are the role authority (`student` or `admin`). App Check is enforced outside the emulator.
-- Firestore separates public learning records from private references, evaluator configuration, raw AI interactions, rate limits, and audit evidence.
-- Gemini runs only in Functions with `GEMINI_API_KEY` stored in Secret Manager. The production-bundle scan rejects client AI code and known private instructional material.
-- MathLive provides keyboard input, KaTeX renders notation, and CortexJS Compute Engine performs server-side parsing and equivalence checks.
+## Learning behavior
 
-Learners see four stages: Problem Understanding, Method Selection, Computation, and Interpretation. Seven internal reasoning gates retain separate checks for relevant information, formula/theorem justification, and verification. Diagnosis runs after every response, the scorecard is generated before the worked solution is released, and existing dashboards, history, notifications, administration, review, and privacy features remain available as supporting capabilities.
+- Topic selection reads only approved topics from `topics`.
+- Prepared questions come from the existing `problems` collection. Only approved, validated questions with matching published scoring references are assignable.
+- Previously answered questions remain excluded, including historical responses. Transactions coordinate assignment and resumable sessions across tabs.
+- The seven guided phases, mathematical input, hints, supported own-problem formats, drafts, scoring, submissions, achievements, dashboard, and history remain available.
+- Difficulty starts at Basic. First-answer accuracy over up to five completed questions in the selected topic increases difficulty at 80% or above, maintains it at 50–79%, and decreases it below 50%.
+- New scorecards use `spark-practice-v1`: four local criteria worth 25 points each. These are client-generated practice indicators, not official or tamper-proof assessments. Historical scores are not rescored.
+- Learner data is owner-scoped. Administrators retain content management, validation, review, reporting, announcements, and application account-status controls.
 
-## Workspaces
+## Development and verification
 
-- `packages/contracts`: canonical schema-v5 types and workflow order.
-- `functions`: trusted Gen 2 callables and scheduled retention.
-- `src`: React learner and System Administrator interfaces.
-- `scripts/migrate-v4.ts`: legacy schema-v4 migration; `scripts/migrate-v5.ts` prepares the two-topic pilot.
-- `tests`: unit, migration, rules, and Playwright coverage.
-- `docs/mindguide-secure-release`: architecture, data dictionary, deployment, verification, and progress evidence.
+Use Node.js 22 and the existing `.env` configuration. `.env.example` describes public web configuration; it is not a replacement database.
 
-## Local verification
-
-Requires Node.js 22, Java for the Firestore emulator, and Firebase CLI.
-
-```bash
+```sh
 npm install
-copy .env.example .env
-npm run check
-```
-
-Useful focused commands:
-
-```bash
+npm run dev
 npm run typecheck
 npm run lint
-npm run deadcode
 npm run test
-npm run test:rules
 npm run build
 npm run scan:bundle
 npm run test:e2e
 ```
 
-Authenticated supporting-feature checks run only against a dedicated staging
-deployment. Supply `MINDGUIDE_E2E_BASE_URL` plus separate student and administrator
-credential variables shown in `.env.example`, then run:
+`npm run test:rules` uses Firebase's hosted rules simulator and the signed-in operator. It supplies simulated request/function contexts and does not create Firestore test data or start an emulator. The unit tests use in-memory mocks only.
 
-```bash
-npm run test:e2e:staging
+## Spark deployment
+
+```sh
+firebase login
+npm run migrate:spark
+npm run migrate:spark -- --apply
+npm run release:preflight
+npm run test:rules
+firebase deploy --only firestore:rules,firestore:indexes,hosting --project socratic-ai-a7765
 ```
 
-The staging preflight rejects missing credentials, duplicate role accounts, invalid
-URLs, and the known `socratic-ai-a7765` host. It does not deploy or seed data. The
-live suite restores its reversible account-status change; permanent deletion,
-retention, and anonymization stay in isolated automated tests. Google OAuth and
-password-reset inbox delivery remain documented manual staging checks.
+The migration is dry-run by default, verifies the project against `.env`, and publishes only allowed scoring fields from genuinely approved content. It never approves questions, populates a demo bank, or changes historical learning records. If there are no approved questions, it correctly performs no conversion.
 
-For interactive localhost development, `npm run dev` starts Vite and connects
-directly to the Firebase project configured in `.env`, including its deployed
-Auth, Firestore, and Functions services. No demo database is created or restored.
-Do not replace the configured project with a demo project or seed sample data.
+See [Spark operations and deployment](docs/SPARK_DEPLOYMENT.md) for readiness checks, manual account administration, retention, and rollback. Earlier files under `docs/mindguide-secure-release` describe the retired server architecture and are historical evidence, not current deployment instructions.
 
-Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
+## Source layout
 
-## Schema-v4 migration
+- `src/lib/learning`: browser-compatible mathematical checks, guided workflow, scoring, progress, and adaptive selection.
+- `src/lib/learning-service.ts`: owner-scoped Firestore learning transactions.
+- `src/lib/admin-service.ts`: Firestore administration; privileged Auth operations are directed to Firebase Console.
+- `packages/contracts`: shared types and workflow ordering.
+- `scripts/migrate-spark.ts`: operator-only conversion of existing validated scoring material.
 
-Migration is dry-run by default and requires an authenticated Admin SDK environment plus the target project ID. It upgrades an existing schema-v3 project; it also seeds missing managed references defensively, but production must still follow the staged export/restore procedure.
-
-```bash
-set FIREBASE_PROJECT_ID=your-staging-project
-npm run migrate:v4
-npm run migrate:v4 -- --apply
-npm run migrate:v4:verify
-npm run release:preflight -- --project=your-staging-project --output=preflight.json
-```
-
-Rollback requires the exact manifest created by the apply operation:
-
-```bash
-npm run migrate:v4:rollback -- --backup=".local-backups/<backup>.json" --project="your-project-id"
-```
-
-Do not run apply in production before a managed Firestore export and verified staging rehearsal. See [Deployment and rollback](docs/mindguide-secure-release/DEPLOYMENT.md).
-
-## Controlled pilot and release status
-
-The v5 repair adds typed private answers, verified own-problem formats, response-linked formative scoring, safe hints, topic manifests, cohort admission, maintenance enforcement, recovery, and complete report pagination. The initial review bank has 18 distinct draft problems across Measures of Central Tendency and Counting Principles. Drafts are not faculty approvals.
-
-Use `npm run migrate:v5 -- --project=<staging-id>` for a dry run, then `--apply` only in closed staging. Legacy data must complete the v3 security conversion before v4/v5. Historical scores are not silently rescored; incompatible unfinished sessions become read-only.
-
-The application is **not approved for participant release**. Faculty content/rubric approval, research protocol and privacy decisions, authenticated staging, cloud configuration, measured load/cost, and managed backup restoration remain required. See [v5 repair evidence](docs/mindguide-secure-release/PILOT_V5_REPAIR.md) and [deployment procedure](docs/mindguide-secure-release/DEPLOYMENT.md).
+Firebase's `firebase` umbrella package may include transitive Functions SDK packages in its installation. The application does not import or initialize them, and there is no Functions backend workspace or deployment target. Admin SDK usage is restricted to local operator scripts.

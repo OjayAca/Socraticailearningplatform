@@ -1,4 +1,4 @@
-import { solveVerifiedProblem, type VerifiedGivens } from "../functions/src/verified-problems.ts";
+import { solveVerifiedProblem, type VerifiedGivens } from "../src/lib/learning/verified-problems.ts";
 import type { SchemaV4ProblemSeed } from "./problem-bank-v4-core.ts";
 
 export const PILOT_TOPIC_IDS = ["quantitative-methods-measures-of-central-tendency", "discrete-mathematics-counting-principles"];

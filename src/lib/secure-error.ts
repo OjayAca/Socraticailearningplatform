@@ -31,19 +31,12 @@ export function secureErrorMessage(
   const code = stringValue(candidate?.code)?.toLowerCase() ?? "";
   let message: string;
 
-  if (code.endsWith("/not-found")) {
-    message =
-      "The secure MINDGUIDE service is not deployed for this environment. Contact the system administrator.";
-  } else if (code.endsWith("/internal")) {
-    message = "MINDGUIDE could not reach or complete the secure service request. Try again. If this continues, ask the system administrator to check that Firebase Cloud Functions is enabled and deployed in the configured region.";
-  } else if (code.endsWith("/unavailable")) {
-    message = "The secure MINDGUIDE service is temporarily unavailable. Please try again.";
-  } else if (code.endsWith("/deadline-exceeded")) {
-    message = "The secure MINDGUIDE service took too long to respond. Please try again.";
-  } else if (code.endsWith("/unauthenticated")) {
-    message = "Your sign-in session could not be verified. Sign in again to continue.";
-  } else if (code.endsWith("/permission-denied")) {
+  if (["unavailable", "deadline-exceeded", "resource-exhausted", "internal"].some(value => code === value || code.endsWith("/" + value))) {
+    message = "Unable to load learning materials.";
+  } else if (code === "permission-denied" || code.endsWith("/permission-denied")) {
     message = "Your account does not have access to this learning content.";
+  } else if (code === "unauthenticated" || code.endsWith("/unauthenticated")) {
+    message = "Your sign-in session could not be verified. Sign in again to continue.";
   } else {
     const rawMessage = stringValue(candidate?.message);
     message = rawMessage && !isGenericFirebaseMessage(rawMessage)

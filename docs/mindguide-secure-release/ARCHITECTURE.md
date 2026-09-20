@@ -1,3 +1,5 @@
+> Historical server-architecture document. Current implementation and deployment: [Spark operations](../SPARK_DEPLOYMENT.md). Functions-specific requirements below no longer apply to the Spark application.
+
 # Architecture and Trust Boundaries
 
 ## Request flow

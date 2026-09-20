@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildPilotProblemSeeds } from "../../scripts/problem-bank-v5-core";
-import { checkAnswer } from "../../functions/src/answers";
-import type { PrivateProblemReference } from "../../functions/src/workflow";
+import { checkAnswer } from "../../src/lib/learning/answers";
+import type { PrivateProblemReference } from "../../src/lib/learning/workflow";
 import { REASONING_PHASES } from "@mindguide/contracts";
 
 describe("initial two-topic review bank", () => {

@@ -1,224 +1,180 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function active() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
     }
-
-    function activeAccount() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
-    }
-
-    function isAdmin() {
-      return activeAccount()
-        && request.auth.token.role == "admin"
+    function admin() {
+      return active() && request.auth.token.get('role', '') == "admin"
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
-
-    function admitted() {
-      return activeAccount() && request.auth.token.email_verified == true
-        && exists(/databases/$(database)/documents/pilot_roster/$(request.auth.uid))
-        && get(/databases/$(database)/documents/pilot_roster/$(request.auth.uid)).data.status == "admitted";
+    function ownSession(id) { return active() && get(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
+    function ownSessionAfter(id) { return active() && getAfter(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
+    function preferences(value) {
+      return value is map && value.keys().hasOnly(['liveAlertPopups', 'theme', 'reducedMotion'])
+        && (!('liveAlertPopups' in value) || value.liveAlertPopups is bool)
+        && (!('theme' in value) || value.theme in ['light', 'dark', 'system'])
+        && (!('reducedMotion' in value) || value.reducedMotion is bool);
     }
-    function pilotContent() {
-      return admitted() && exists(/databases/$(database)/documents/system_settings/pilot)
-        && get(/databases/$(database)/documents/system_settings/pilot).data.state in ["open", "drain"];
+    function approvedProblem(id) {
+      let problem = get(/databases/$(database)/documents/problems/$(id)).data;
+      return problem.status == 'approved' && problem.validationRecordId is string;
     }
-    function clientWritesAllowed() {
-      return !exists(/databases/$(database)/documents/system_settings/pilot)
-        || get(/databases/$(database)/documents/system_settings/pilot).data.state != "write-freeze";
-    }
-    match /pilot_roster/{uid} {
-      allow get: if isOwner(uid) || isAdmin();
-      allow list: if isAdmin();
-      allow write: if false;
-    }
-    match /rubrics/{id} { allow read: if isAdmin(); allow write: if false; }
-
-    function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
-    }
-
-    function validPreferences(value) {
-      return value is map
-        && value.keys().hasOnly(["liveAlertPopups", "theme", "reducedMotion"])
-        && (!value.keys().hasAny(["liveAlertPopups"]) || value.liveAlertPopups is bool)
-        && (!value.keys().hasAny(["theme"]) || value.theme in ["light", "dark", "system"])
-        && (!value.keys().hasAny(["reducedMotion"]) || value.reducedMotion is bool);
-    }
-
-    function validOwnProfileUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "displayName",
-          "preferences",
-          "updatedAt"
-        ])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() >= 1
-        && request.resource.data.displayName.size() <= 120
-        && validPreferences(request.resource.data.preferences)
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.status == resource.data.status;
-    }
-
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create, delete: if false;
-      allow update: if isOwner(userId) && activeAccount() && clientWritesAllowed() && validOwnProfileUpdate();
-
+    match /users/{uid} {
+      allow get: if owner(uid) || admin();
+      allow list: if admin();
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['schemaVersion','displayName','email','role','status','preferences','academicProfile','academicProfileComplete','createdAt','updatedAt'])
+        && request.resource.data.role == 'student' && request.resource.data.status == 'active'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
+        && request.resource.data.academicProfile == null && request.resource.data.academicProfileComplete == false
+        && preferences(request.resource.data.preferences)
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if (owner(uid) && active()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','preferences','updatedAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
+        && preferences(request.resource.data.preferences) && request.resource.data.updatedAt == request.time)
+        || (admin() && resource.data.role == 'student'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+          && request.resource.data.status in ['active','suspended','deactivated'] && request.resource.data.updatedAt == request.time);
+      allow delete: if false;
       match /consents/{version} {
-        allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
-        allow write: if false;
+        allow read: if (owner(uid) && active()) || admin();
+        allow create, update: if owner(uid)
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'active'
+          && request.resource.data.keys().hasOnly(['version','acknowledgedAt','source'])
+          && request.resource.data.version == version && request.resource.data.source == 'web'
+          && request.resource.data.acknowledgedAt == request.time
+          && get(/databases/$(database)/documents/policy_documents/$(version)).data.status == 'active'
+          && version == get(/databases/$(database)/documents/system_settings/privacy).data.currentConsentVersion;
+      }
+      match /operations/{id} {
+        allow read: if owner(uid) && active();
+        allow create: if owner(uid) && active()
+          && request.resource.data.keys().hasOnly(['name','sessionId','result','createdAt'])
+          && request.resource.data.name is string && ownSessionAfter(request.resource.data.sessionId)
+          && request.resource.data.result is map && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
       }
     }
-
-    match /subjects/{subjectId} {
-      allow get, list: if isAdmin() || (pilotContent() && resource.data.status == "approved");
-      allow write: if false;
+    match /subjects/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /topics/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /problems/{id} {
+      allow read: if admin() || (active() && resource.data.status == 'approved');
+      allow write: if admin();
+      match /private/{key} { allow read, write: if admin(); }
     }
-
-    match /topics/{topicId} {
-      allow get, list: if isAdmin() || (pilotContent() && topicId in get(/databases/$(database)/documents/system_settings/pilot).data.enabledTopicIds && resource.data.status == "approved");
-      allow write: if false;
+    match /problem_scoring/{id} {
+      allow get: if admin() || (active() && approvedProblem(id)
+        && (!exists(/databases/$(database)/documents/problem_scoring/$(id))
+          || (resource.data.validationRecordId == get(/databases/$(database)/documents/problems/$(id)).data.validationRecordId
+            && resource.data.problemVersion == get(/databases/$(database)/documents/problems/$(id)).data.version)));
+      allow list, write: if admin();
     }
-
-    match /problems/{problemId} {
-      allow get, list: if isAdmin() || (pilotContent() && resource.data.topicId in get(/databases/$(database)/documents/system_settings/pilot).data.enabledTopicIds && resource.data.status == "approved");
-      allow write: if false;
-
-      match /private/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
+    match /sessions/{id} {
+      allow get: if active() && (!exists(/databases/$(database)/documents/sessions/$(id)) || resource.data.studentId == request.auth.uid || admin());
+      allow list: if active() && (resource.data.studentId == request.auth.uid || admin());
+      allow create: if active() && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['schemaVersion','workflowVersion','revision','scoringSource','studentId','studentName','subjectId','subject','topicId','topic','difficulty','problemId','problemMode','originalQuestion','status','currentPhase','currentStep','currentPrompt','gateStates','gateEvaluations','diagnosisSummary','allowedSupport','supportUsage','responseCount','draft','scorecard','releasedSolution','adaptiveRecommendation','configurationVersions','promptAdjustment','firstAnswerCorrect','createdAt','updatedAt','lastActivityAt','learningCompletedAt','submittedAt','statsCommittedAt'])
+        && request.resource.data.originalQuestion is string && request.resource.data.originalQuestion.size() <= 4000
+        && request.resource.data.gateStates is map && request.resource.data.gateEvaluations is map
+        && request.resource.data.scoringSource == 'client_practice'
+        && request.resource.data.revision == 0 && request.resource.data.status == 'in_progress'
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+        && request.resource.data.lastActivityAt == request.time
+        && request.resource.data.responseCount == 0 && request.resource.data.statsCommittedAt == null
+        && request.resource.data.scorecard == null && request.resource.data.firstAnswerCorrect == null
+        && request.resource.data.currentPhase == 'problem_understanding'
+        && request.resource.data.difficulty in ['Basic','Intermediate','Advanced']
+        && get(/databases/$(database)/documents/topics/$(request.resource.data.topicId)).data.status == 'approved'
+        && ((request.resource.data.problemMode == 'curated' && approvedProblem(request.resource.data.problemId)
+          && get(/databases/$(database)/documents/problems/$(request.resource.data.problemId)).data.topicId == request.resource.data.topicId
+          && get(/databases/$(database)/documents/problems/$(request.resource.data.problemId)).data.difficulty == request.resource.data.difficulty)
+          || (request.resource.data.problemMode == 'free_form' && request.resource.data.problemId == null));
+      allow update: if (ownSession(id)
+        && resource.data.status in ['in_progress','ready_for_submission']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'revision','updatedAt','lastActivityAt','gateStates','gateEvaluations','currentPhase','currentPrompt','allowedSupport',
+          'responseCount','lastDiagnosis','diagnosisSummary','firstAnswerCorrect','supportUsage','supportHistory','draft','scorecard',
+          'releasedSolution','status','currentStep','learningCompletedAt','submittedAt','statsCommittedAt','difficultyRecommendation','ctScore'])
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.updatedAt == request.time && request.resource.data.lastActivityAt == request.time
+        && request.resource.data.status in ['in_progress','ready_for_submission','submitted','abandoned','expired']
+        && (request.resource.data.status != 'submitted' || (resource.data.status == 'ready_for_submission' && resource.data.scorecard is map))
+        && (request.resource.data.status != 'ready_for_submission' || request.resource.data.scorecard is map)
+        && (resource.data.get('firstAnswerCorrect', null) == null || request.resource.data.firstAnswerCorrect == resource.data.firstAnswerCorrect)
+        && request.resource.data.get('responseCount', 0) >= resource.data.get('responseCount', 0)
+        && request.resource.data.get('responseCount', 0) <= resource.data.get('responseCount', 0) + 1)
+        || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminReview','reviewedAt','updatedAt','revision','allowedSupport'])
+          && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.updatedAt == request.time);
+      allow delete: if false;
+      match /practice_reference/{key} {
+        allow read: if ownSession(id) || admin();
+        allow create: if ownSessionAfter(id) && key == 'reference'
+          && request.resource.data.keys().hasOnly(['answerSpecification','safeHints','expectedConcepts','requiredFormula','requiredTheorem','solutionSteps','finalAnswer','interpretation','formulaTheoremConditions','socraticPrompts','misconceptionPrompts','rubricVersion','rubricCalibrationStatus','problemId','problemVersion','validationRecordId'])
+          && request.resource.data.answerSpecification is map;
+        allow update, delete: if false;
       }
-    }
-
-    match /formula_theorem_references/{referenceId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /socratic_prompt_bank/{promptId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /misconception_categories/{categoryId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /difficulty_policies/{policyId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /content_validation_records/{validationId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /policy_documents/{policyId} {
-      allow read: if activeAccount() && (isAdmin() || resource.data.status == "active");
-      allow write: if false;
-    }
-
-    match /sessions/{sessionId} {
-      allow get: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow create, update, delete: if false;
-
       match /responses/{responseId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
+        allow read: if ownSession(id) || admin();
+        allow create: if ownSession(id) && get(/databases/$(database)/documents/sessions/$(id)).data.status == 'in_progress'
+          && request.resource.data.keys().hasOnly(['phase','response','evaluation','diagnosis','studentId','createdAt'])
+          && request.resource.data.studentId == request.auth.uid && request.resource.data.response is map
+          && request.resource.data.evaluation is map && request.resource.data.diagnosis is map
+          && request.resource.data.response.plainText is string && request.resource.data.response.plainText.size() <= 4000
+          && request.resource.data.evaluation.phase == request.resource.data.phase
+          && request.resource.data.evaluation.status in ['accepted','needs_revision']
+          && request.resource.data.phase == get(/databases/$(database)/documents/sessions/$(id)).data.currentPhase
+          && request.resource.data.createdAt == request.time
+          && getAfter(/databases/$(database)/documents/sessions/$(id)).data.responseCount == get(/databases/$(database)/documents/sessions/$(id)).data.get('responseCount', 0) + 1;
+        allow update, delete: if false;
       }
-
       match /scorecards/{scorecardId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
+        allow read: if ownSession(id) || admin();
+        allow create: if ownSession(id) && request.resource.data.studentId == request.auth.uid
+          && request.resource.data.total is number && request.resource.data.total >= 0 && request.resource.data.total <= 100
+          && request.resource.data.createdAt == request.time
+          && getAfter(/databases/$(database)/documents/sessions/$(id)).data.status == 'ready_for_submission';
+        allow update, delete: if false;
       }
-
-      match /unlock_events/{eventId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
-      }
-
-      match /private/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-
-      match /private_evaluations/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-
-      match /private_ai/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
+      match /{privateCollection}/{key} { allow read: if admin(); allow write: if false; }
+    }
+    match /learning_progress/{uid} {
+      allow read: if (owner(uid) && active()) || admin();
+      allow create, update: if owner(uid) && active()
+        && request.resource.data.keys().hasOnly(['userId','sessionsCompleted','scoreTotal','averageCTScore','currentStreak','lastSessionAt','lastSessionDate','lastActivityAt','achievements','latestScorecard','subjectProgress','topicRecommendations','accuracyEvidence','updatedAt'])
+        && request.resource.data.userId == uid && request.resource.data.sessionsCompleted is int && request.resource.data.sessionsCompleted >= 0
+        && request.resource.data.averageCTScore is number && request.resource.data.averageCTScore >= 0 && request.resource.data.averageCTScore <= 100
+        && request.resource.data.updatedAt == request.time;
+      match /assignment_state/{topicId} {
+        allow read: if (owner(uid) && active()) || admin();
+        allow create, update: if owner(uid) && active()
+          && request.resource.data.keys().hasOnly(['activeSessionId','answeredProblemIds','accuracyEvidence','recentByDifficulty','updatedAt'])
+          && request.resource.data.answeredProblemIds is list
+          && (request.resource.data.activeSessionId == null || ownSessionAfter(request.resource.data.activeSessionId))
+          && request.resource.data.updatedAt == request.time;
       }
     }
-
-    match /learning_progress/{userId} {
-      allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
-      allow write: if false;
+    match /notifications/{id} {
+      allow read: if active() && resource.data.recipientId == request.auth.uid;
+      allow create: if admin() || (active() && request.resource.data.recipientId == request.auth.uid
+        && request.resource.data.eventType == 'achievement_awarded' && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time);
+      allow update: if admin() || (active() && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) && request.resource.data.read == true);
+      allow delete: if admin();
     }
-
-    match /notifications/{notificationId} {
-      allow get, list: if activeAccount() && resource.data.recipientId == request.auth.uid;
-      allow create, delete: if false;
-      allow update: if activeAccount()
-        && resource.data.recipientId == request.auth.uid
-        && request.resource.data.recipientId == resource.data.recipientId
-        && request.resource.data.read == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
-    }
-
-    match /announcements/{announcementId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /deletion_jobs/{jobId} {
-      allow read, write: if false;
-    }
-
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /ai_failure_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /system_settings/{settingId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /idempotency/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /rate_limits/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /evaluation_locks/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+    match /policy_documents/{id} { allow read: if admin() || (active() && resource.data.status == 'active'); allow write: if admin(); }
+    match /system_settings/{id} { allow get: if admin() || (active() && id == 'privacy'); allow list, write: if admin(); }
+    match /pilot_roster/{id} { allow get: if owner(id) || admin(); allow list, write: if admin(); }
+    match /content_validation_records/{id} { allow read, create: if admin(); allow update, delete: if false; }
+    match /audit_logs/{id} { allow read, create: if admin(); allow update, delete: if false; }
+    match /{name}/{id} {
+      allow read, write: if admin() && name in ['formula_theorem_references','socratic_prompt_bank','misconception_categories','difficulty_policies','rubrics','announcements'];
+      allow read: if admin() && name == 'ai_failure_logs';
     }
   }
 }

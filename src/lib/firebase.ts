@@ -14,7 +14,6 @@ import {
 } from "firebase/app-check";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
-import { getFunctions, type Functions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -55,11 +54,6 @@ export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
 
 /** Cloud Firestore database instance. */
 export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
-
-/** Callable Functions client used for all authoritative mutations. */
-export const functions: Functions | null = firebaseApp
-  ? getFunctions(firebaseApp, import.meta.env.VITE_FUNCTIONS_REGION || "asia-southeast1")
-  : null;
 
 const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY as
   | string

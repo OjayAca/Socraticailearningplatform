@@ -3,7 +3,7 @@ import path from "node:path";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { buildPilotProblemSeeds } from "./problem-bank-v5-core.ts";
-import { contentHash } from "../functions/src/content-hash.ts";
+import { contentHash } from "./lib/content-hash.ts";
 
 const arg = (name: string) => process.argv.find(item => item.startsWith(`${name}=`))?.slice(name.length+1);
 const projectId = arg("--project");
