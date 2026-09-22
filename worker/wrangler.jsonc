@@ -4,13 +4,15 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  "placement": { "mode": "smart" },
+  "placement": {
+    "mode": "off"
+  },
   "observability": {
     "enabled": true
   },
   "vars": {
-    "GEMINI_MODEL": "gemini-3.6-flash",
-    "AI_ENABLED": "false",
+    "GEMINI_MODEL": "gemini-2.5-flash-lite",
+    "AI_ENABLED": "true",
     "AI_FREE_TIER_CONFIRMED": "true",
     "GEMINI_RPM": "4",
     "GEMINI_TPM": "200000",
