@@ -150,9 +150,9 @@ test.describe("live administrator supporting features", () => {
       ["/admin/content/problems", "Managed Learning Content"],
       ["/admin/reports", "Reports and Exports"],
       ["/admin/notifications", "Administrator Notifications"],
-      ["/admin/logs", "Activity, Security, and AI Failure Logs"],
+      ["/admin/logs", "Activity and Legacy AI Logs"],
       ["/admin/settings", "System and Privacy Settings"],
-      ["/admin/maintenance", "Maintenance and Release Controls"],
+      ["/admin/maintenance", "Maintenance and Cohort Records"],
     ] as const) {
       await page.goto(path);
       await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();

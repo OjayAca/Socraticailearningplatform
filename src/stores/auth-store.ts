@@ -24,6 +24,8 @@ import {
 } from "firebase/auth";
 import {
   doc,
+  collection,
+  writeBatch,
   getDoc,
   setDoc,
   serverTimestamp,
@@ -318,11 +320,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // 2. Update Firestore Document
       const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      await setDoc(
-        userRef,
-        { displayName: normalizedName, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
+      if (isAdminRole(get().userProfile?.role)) {
+        const batch = writeBatch(requireDb());
+        batch.set(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
+        batch.set(doc(collection(requireDb(), "audit_logs")), { actorId: firebaseUser.uid, action: "admin_profile_update", target: userRef.path, createdAt: serverTimestamp() });
+        await batch.commit();
+      } else {
+        await setDoc(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
+      }
       
       // 3. Update Local Store State
       set((state) => ({

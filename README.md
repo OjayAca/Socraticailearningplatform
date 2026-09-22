@@ -1,6 +1,8 @@
 # MINDGUIDE
 
-MINDGUIDE is a formative learning application for Quantitative Methods and Discrete Mathematics. It uses **React → Firebase Firestore**, with Firebase Authentication and Hosting. No deployed Cloud Functions, AI API key, scheduler, or Blaze plan is required.
+MINDGUIDE is a formative learning application for Quantitative Methods and Discrete Mathematics. Workflow v6 uses **React → Cloudflare Worker → Gemini Free + Firebase Spark**, with Firebase Authentication and Hosting. Learning decisions move to the Worker; old practice records remain readable without rescoring.
+
+**AI rollout is not yet complete.** The Worker is deployed with student AI disabled. Follow [AI setup and rollout](docs/AI_TUTOR_SETUP.md) and [verification status](docs/AI_IMPLEMENTATION_STATUS.md). The Spark-only details below describe the historical workflow and are not v6 deployment instructions.
 
 The existing Firebase project in `.env` is the application database. Do not replace it with a demo project, connect an emulator, seed sample questions, or manufacture validation records.
 

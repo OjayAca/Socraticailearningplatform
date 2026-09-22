@@ -23,10 +23,15 @@ import type {
   StartLearningSessionInput,
 } from "@mindguide/contracts";
 import { auth } from "./firebase";
+import { AI_OPERATIONS, aiOperation } from "./ai-client";
 import { secureErrorMessage } from "./secure-error";
 
 function newRequestId(): string {
   return crypto.randomUUID();
+}
+
+export async function resumeTutorOpening(sessionId: string, revision: number): Promise<SessionMutationResponse> {
+  return call("resumeTutorOpening", { sessionId, revision, requestId: newRequestId() });
 }
 
 export async function checkLearningSessionActivity(sessionId: string): Promise<void> {
@@ -149,7 +154,7 @@ export async function adminDeleteContent(
 
 export async function adminPublishAnnouncement(
   input: Omit<AdminPublishAnnouncementRequest, "requestId">
-): Promise<{ announcementId: string; delivered: number }> {
+): Promise<{ announcementId: string; delivered: number; total: number; complete: boolean; error?: string }> {
   return call("adminPublishAnnouncement", { ...input, requestId: newRequestId() });
 }
 
@@ -185,13 +190,14 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
     else sessionStorage.setItem(pendingKey, JSON.stringify({ requestId: payload.requestId, input: values }));
   }
   try {
-    const operation = name.startsWith("admin") || name === "getPilotStatus"
+    const operation = AI_OPERATIONS.has(name) ? aiOperation : name.startsWith("admin") || name === "getPilotStatus"
       ? (await import("./admin-service")).adminOperation
       : (await import("./learning-service")).learningOperation;
     const result = await operation(name, validateOperation(name, payload ?? input));
-    if (pendingKey) sessionStorage.removeItem(pendingKey);
+    if (pendingKey && !(name == "adminPublishAnnouncement" && result?.complete === false)) sessionStorage.removeItem(pendingKey);
     return result as TResponse;
   } catch (error) {
+    if (AI_OPERATIONS.has(name)) throw error;
     const code = (error as { code?: string })?.code?.split("/").at(-1);
     if (["unavailable", "deadline-exceeded", "resource-exhausted"].includes(code ?? "") && !/^(get|preview|adminQuery|adminCatalog|check)/.test(name)) {
       throw new Error("Unable to save your changes. Check your connection and try again; your last saved progress is preserved.");

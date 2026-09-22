@@ -111,7 +111,6 @@ export function SecureTaskStart() {
       let confirmationHash: string | undefined;
       if (mode === "free_form") {
         const preview = await previewVerifiedProblem({ topicId, question: question.trim(), requestedDifficulty: difficulty });
-        if (!window.confirm(`Confirm these givens before starting: ${preview.description}`)) return;
         confirmationHash = preview.confirmationHash;
       }
       const result = await startLearningSession(
@@ -174,7 +173,6 @@ export function SecureTaskStart() {
           <h1 className="text-3xl font-bold text-slate-950 dark:text-white">Start a secure MINDGUIDE session</h1>
           <p className="mt-2 text-slate-600 dark:text-slate-400">Choose an approved topic. For prepared practice, MINDGUIDE selects an adaptive, non-repeating validated question.</p>
         </div>
-        {error && <ErrorMessage message={error} />}
         {catalog && catalog.subjects.length > 0 && (
           <section>
             <h2 className="text-lg font-bold text-slate-950 dark:text-white">Choose a subject</h2>
@@ -228,10 +226,11 @@ export function SecureTaskStart() {
                 </div>
               ) : (
                 <label className="block text-sm font-bold">Keyboard-entered problem
-                  <span className="block text-sm font-normal">Use mean, median, or mode followed by a numeric dataset; or product, permutation, or combination followed by integer parameters. Review the extracted givens before starting.</span>
+                  <span className="block text-sm font-normal">Use mean, median, or mode followed by a numeric dataset; or product, permutation, or combination followed by integer parameters.</span>
                   <textarea required value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={5} placeholder="Examples: mean: 4, 8, 12 or combination: 8, 3" className="mt-2 w-full rounded-lg border p-3 font-normal" />
                 </label>
               )}
+              {error && <ErrorMessage message={error} />}
               <button disabled={loading || !topicId || (mode === "free_form" && question.trim().length < 8)} onClick={() => void begin()} className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
                 {loading ? "Starting secure session..." : mode === "curated" ? "Assign my prepared problem" : "Validate and start"}
               </button>

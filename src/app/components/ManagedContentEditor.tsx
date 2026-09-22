@@ -1,3 +1,4 @@
+import { AnswerSpecificationEditor } from "./AnswerSpecificationEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { Archive, CheckCircle2, FileCheck2, Save, Trash2 } from "lucide-react";
@@ -196,7 +197,6 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
   }
 
   async function selectItem(item: Record<string, any>) {
-    setRecordId(item.id);
     const loaded = sanitizeLoadedValue(collectionName, item);
     if (collectionName === "problems" && db) {
       const privateSnapshot = await getDoc(doc(db, "problems", item.id, "private", "solution"));
@@ -210,6 +210,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
         delete loaded.privateSolution[protectedStepsKey];
       }
     }
+    setRecordId(item.id);
     setValue(loaded);
   }
 
@@ -271,8 +272,8 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
     <div>
       {readiness && (
         <div className={`mt-5 rounded-2xl border p-4 ${readiness.ready ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950" : "border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"}`}>
-          <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5" />Formal-evaluation readiness</div>
-          <p className="mt-1 text-sm dark:text-slate-300">{readiness.approvedProblemCount} / {readiness.expectedProblemCount} faculty-approved problems · {readiness.cells.filter((cell) => cell.ready).length} / 33 complete cells</p>
+          <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5" />Prepared-practice availability</div>
+          <p className="mt-1 text-sm dark:text-slate-300">{readiness.approvedProblemCount} questions with recorded approval and matching scoring material · {readiness.cells.filter((cell) => cell.ready).length} / {readiness.cells.length} topic/difficulty combinations available</p>
         </div>
       )}
       {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">{message}</div>}
@@ -288,6 +289,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
               <ManagedField key={field.path} field={field} value={getPath(value, field.path)} approvedAllowed={collectionName !== "problems"} onChange={(next) => setValue((currentValue) => setPath(currentValue, field.path, next))} />
             ))}
           </div>
+          {collectionName === "problems" && <AnswerSpecificationEditor value={value.privateSolution?.answerSpecification} onChange={next => setValue(previous => setPath(previous, "privateSolution.answerSpecification", next))} />}
           <button disabled={!recordId} onClick={() => void save()} className="mt-5 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 font-bold text-white disabled:opacity-50">
             <Save className="h-4 w-4" />Save version
           </button>
@@ -300,7 +302,9 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
                 if (!file) return;
                 void file.text().then((text) => {
                   const parsed = JSON.parse(text);
-                  setImportProblems(Array.isArray(parsed) ? parsed : parsed.problems);
+                  const records = Array.isArray(parsed) ? parsed : parsed.problems;
+                  if (!Array.isArray(records)) throw new Error("Choose a JSON array of problem drafts.");
+                  setImportProblems(records);
                 }).catch(showError);
               }} className="mt-3 block w-full text-sm" />
               {importProblems.length > 0 && <div className="mt-3 flex gap-2">

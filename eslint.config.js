@@ -9,6 +9,8 @@ export default tseslint.config(
     ignores: [
       "coverage/**",
       "dist/**",
+      "worker/.wrangler/**",
+      ".wrangler/**",
       "functions/lib/**",
       "migration-backups/**",
       "node_modules/**",

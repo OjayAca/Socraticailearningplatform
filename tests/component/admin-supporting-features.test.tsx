@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import {
+  SecureAdminDashboard,
   SecureAdminLogs,
   SecureAdminMaintenance,
   SecureAdminNotifications,
@@ -14,6 +15,7 @@ import {
 } from "@/app/components/SecureAdmin";
 
 const mocks = vi.hoisted(() => ({
+  getCountFromServer: vi.fn(),
   getDoc: vi.fn(),
   getDocs: vi.fn(),
   signOut: vi.fn(),
@@ -32,6 +34,8 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_db, ...path) => ({ path })),
   getDoc: mocks.getDoc,
   getDocs: mocks.getDocs,
+  getCountFromServer: mocks.getCountFromServer,
+  startAfter: vi.fn(),
   limit: vi.fn(),
   orderBy: vi.fn(),
   query: vi.fn((value) => value),
@@ -197,6 +201,21 @@ describe("administrator reports and announcements", () => {
       reason: "Authorized capstone announcement",
     });
   });
+  it("keeps a partial announcement available for retry and blocks a second in-flight click", async () => {
+    let resolve!: (value: unknown) => void;
+    mocks.adminPublishAnnouncement.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+    renderRoute(<SecureAdminNotifications />);
+    fireEvent.change(screen.getByPlaceholderText("Announcement title"), { target: { value: "Notice" } });
+    fireEvent.change(screen.getByPlaceholderText("Message for active students"), { target: { value: "Update" } });
+    const button = screen.getByRole("button", { name: /publish to active students/i });
+    fireEvent.click(button); fireEvent.click(button);
+    expect(mocks.adminPublishAnnouncement).toHaveBeenCalledTimes(1);
+    resolve({ delivered: 400, total: 401, complete: false });
+    expect(await screen.findByText(/400 of 401/)).toBeVisible();
+    expect(screen.getByPlaceholderText("Announcement title")).toHaveValue("Notice");
+    expect(button).toBeEnabled();
+  });
+
 });
 
 describe("administrator progress, logs, and settings recovery", () => {
@@ -234,19 +253,45 @@ describe("administrator progress, logs, and settings recovery", () => {
     expect(await screen.findByText("Audit logs are offline.")).toBeVisible();
   });
 
-  it("reports invalid settings JSON and preserves the maintenance warning", async () => {
-    mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ retentionDays: 90 }) });
+  it("edits typed privacy settings and labels maintenance as cohort records", async () => {
+    mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ currentConsentVersion: "notice", sessionInactivityHours: 24 }) });
     const settingsView = renderRoute(<SecureAdminSettings />);
-    const editor = await screen.findByLabelText("Privacy settings JSON");
-    fireEvent.change(editor, { target: { value: "not-json" } });
+    const editor = await screen.findByLabelText("Active consent policy ID");
+    await waitFor(() => expect(editor).toHaveValue("notice"));
+    fireEvent.change(screen.getByLabelText(/session inactivity hours/i), { target: { value: "48" } });
     fireEvent.click(screen.getByRole("button", { name: /save audited settings/i }));
-    expect(await screen.findByText(/unexpected token|not valid json/i)).toBeVisible();
-    expect(mocks.adminUpsertContent).not.toHaveBeenCalled();
-
+    await waitFor(() => expect(mocks.adminUpsertContent).toHaveBeenCalledWith({ collection: "system_settings", id: "privacy", value: { currentConsentVersion: "notice", sessionInactivityHours: 48, studyClosedAt: null } }));
     settingsView.unmount();
     renderRoute(<SecureAdminMaintenance />);
     expect(await screen.findByText("closed")).toBeVisible();
-    expect(screen.getByRole("button", { name: "Save release controls" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save cohort records" })).toBeVisible();
+  });
+  it("does not permit overwriting settings after a failed load", async () => {
+    mocks.getDoc.mockRejectedValue(new Error("Settings unavailable"));
+    renderRoute(<SecureAdminSettings />);
+    expect(await screen.findByText("Settings unavailable")).toBeVisible();
+    expect(screen.getByRole("button", { name: /save audited settings/i })).toBeDisabled();
+  });
+  it("shows full totals independently of the recent 50 sessions", async () => {
+    mocks.getDocs.mockResolvedValueOnce(snapshot([])).mockResolvedValueOnce(snapshot(Array.from({ length: 50 }, (_, i) => ({ id: `session-${i}`, status: "submitted" })))).mockResolvedValueOnce(snapshot([]));
+    mocks.getCountFromServer.mockResolvedValueOnce({ data: () => ({ count: 12 }) }).mockResolvedValueOnce({ data: () => ({ count: 123 }) }).mockResolvedValueOnce({ data: () => ({ count: 78 }) });
+    renderRoute(<SecureAdminDashboard />);
+    expect(await screen.findByText("123")).toBeVisible();
+    expect(screen.getByText("78")).toBeVisible();
+  });
+  it("distinguishes an absent learner profile from a read error", async () => {
+    mocks.getDoc.mockResolvedValue({ exists: () => false, data: () => undefined });
+    mocks.getDocs.mockResolvedValue(snapshot([]));
+    renderRoute(<SecureAdminProgressDetail />, "/admin/progress/missing", "/admin/progress/:userId");
+    expect(await screen.findByText(/learner.*not found|profile.*not found/i)).toBeVisible();
+  });
+  it("loads older logs and clearly labels the legacy AI feed", async () => {
+    mocks.getDocs.mockResolvedValueOnce(snapshot(Array.from({ length: 100 }, (_, i) => ({ id: `audit-${i}`, action: `change-${i}` })))).mockResolvedValueOnce(snapshot([])).mockResolvedValueOnce(snapshot([{ id: "older", action: "older-change" }]));
+    renderRoute(<SecureAdminLogs />);
+    const older = await screen.findByRole("button", { name: "Load older logs" });
+    expect(screen.getByText("Legacy AI failures")).toBeVisible();
+    fireEvent.click(older);
+    expect(await screen.findByText(/older-change/)).toBeVisible();
   });
 });
 

@@ -163,6 +163,17 @@ describe("student profile and achievements", () => {
     expect(mocks.getDoc).not.toHaveBeenCalled();
   });
 
+  it("shows administrator profile save errors without claiming success", async () => {
+    mocks.authState = { ...mocks.authState, userProfile: { ...studentProfile(), role: "admin" } };
+    mocks.updateDisplayName.mockRejectedValueOnce(new Error("Profile write failed"));
+    renderProfile("/admin/profile");
+    fireEvent.click(screen.getByRole("button", { name: /edit name/i }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Updated Admin" } });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    expect(await screen.findByText("Profile write failed")).toBeVisible();
+    expect(screen.queryByText("Profile Updated")).not.toBeInTheDocument();
+  });
+
   it("renders all earned and locked achievement states", () => {
     render(
       <AchievementGrid

@@ -6,6 +6,7 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
   return (
     <section className="mt-4 space-y-4" aria-label="Critical Thinking Scorecard">
       {scorecard.rubricVersion === "spark-practice-v1" && <p className="text-sm text-slate-600 dark:text-slate-300">Calculated in your browser for practice; this is not an official assessment.</p>}
+      {scorecard.rubricVersion === "ai-formative-v1" && <p className="text-sm text-slate-600 dark:text-slate-300">AI-supported formative feedback based on your saved reasoning. This is not an official grade.</p>}
       <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{scorecard.total}/100</p>
       <p className="text-sm">Rubric: {scorecard.rubricVersion ?? "legacy"} · {scorecard.calibrationStatus ?? "uncalibrated"} · Assistance: {scorecard.assistanceCount ?? "not recorded"}</p>
       <div className="grid gap-2 sm:grid-cols-2">
@@ -16,6 +17,7 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
             </div>
             <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{criterion.reason}</p>
             {!compact && <p className="mt-2 text-xs font-semibold text-indigo-700 dark:text-indigo-300">Improve: {criterion.improvementAdvice}</p>}
+            {!compact && scorecard.criteria[criterion.category].evidence.map((evidence,index)=><p key={index} className="mt-2 text-xs text-slate-600 dark:text-slate-300">Evidence: {evidence}</p>)}
           </div>
         ))}
       </div>

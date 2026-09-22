@@ -1,6 +1,6 @@
 import { MathText } from "./MathText";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { Link, Navigate, useParams } from "react-router";
 import {
   AlertCircle,
@@ -19,6 +19,8 @@ import type {
   SessionDraft,
   SessionProjection,
   SupportLevel,
+  TutorIntent,
+  TutorMessage,
 } from "@mindguide/contracts";
 import {
   PHASE_LABELS,
@@ -38,6 +40,7 @@ import {
   evaluatePhaseResponse,
   finalizeScorecard,
   requestSessionSupport,
+  resumeTutorOpening,
   saveSessionDraft,
   submitLearningSession,
 } from "@/lib/secure-api";
@@ -62,6 +65,13 @@ export function SecureSession() {
   const [support, setSupport] = useState<{ level: SupportLevel; title: string; content: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [intent, setIntent] = useState<TutorIntent>("answer");
+  const [messages, setMessages] = useState<TutorMessage[]>([]);
+  const refreshMessages = useCallback(async () => {
+    if (!db || !sessionId) return;
+    const result = await getDocs(collection(db, "sessions", sessionId, "messages"));
+    setMessages(result.docs.map(item => ({ ...item.data(), id: item.id, createdAt: item.get("createdAt")?.toMillis?.() ?? 0 } as TutorMessage)).sort((a,b) => a.createdAt-b.createdAt));
+  }, [sessionId]);
 
   const load = useCallback(async () => {
     if (!db || !sessionId || !firebaseUser) return;
@@ -86,12 +96,13 @@ export function SecureSession() {
         if (saved.revision === projected.revision) { setDraft(saved.draft); setResponse(saved.response); }
       }
       setPrompt(projected.currentPrompt || promptFor(projected.currentPhase));
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be loaded.");
     } finally {
       setLoading(false);
     }
-  }, [firebaseUser, sessionId]);
+  }, [firebaseUser, sessionId, refreshMessages]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
 
@@ -118,11 +129,13 @@ export function SecureSession() {
         expectedPhase: session.currentPhase,
         revision: session.revision,
         response,
+        intent,
       });
       setSession(result.session);
       setDiagnosis(result.diagnosis);
       setPrompt(result.nextPrompt);
-      if (result.evaluation.status === "accepted") setResponse(EMPTY_RESPONSE);
+      setResponse(EMPTY_RESPONSE);
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The reasoning response could not be evaluated.");
     } finally {
@@ -138,6 +151,8 @@ export function SecureSession() {
       const result = await requestSessionSupport({ sessionId: session.id, requestedLevel: level, revision: session.revision });
       setSession(result.session);
       setSupport({ level: result.level, title: result.title, content: result.content });
+      setPrompt(result.session.currentPrompt);
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Support could not be unlocked.");
     } finally {
@@ -208,21 +223,32 @@ export function SecureSession() {
   const reasoning = isReasoningPhase(session.currentPhase);
   return (
     <div className="flex-1 bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 lg:sticky lg:top-4 lg:self-start">
           <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">{session.subject} · {session.topic} · {session.difficulty}</p><h1 className="mt-1 text-xl font-bold text-slate-950">{session.originalQuestion}</h1>{session.adaptiveRecommendation && <p className="mt-2 text-xs text-slate-500">Adaptive difficulty: {session.adaptiveRecommendation.reason}</p>}</div><span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{progress}%</span></div>
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} /></div>
           <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">{SOLVER_STAGES.map((stage) => { const state = session.stageProgress[stage]; return <div key={stage} className={`rounded-lg border p-3 text-xs font-semibold ${state.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state.status === "active" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400"}`}>{state.status === "completed" ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <LockKeyhole className="mr-1 inline h-3 w-3" />}{SOLVER_STAGE_LABELS[stage]}<span className="mt-1 block font-normal">{state.acceptedGates}/{state.totalGates} reasoning checks</span></div>; })}</div>
         </div>
 
-        {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}</div>}
+        <div className="min-w-0 space-y-6">
+        {error && <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}<button disabled={loading} onClick={()=>void load()} className="ml-auto shrink-0 underline">Reload saved progress</button></div>}
+        <section aria-label="Socratic tutor conversation" className="rounded-2xl border bg-white p-5">
+          <h2 className="font-bold text-indigo-950">Your Socratic AI tutor</h2>
+          <p className="mt-1 text-sm text-slate-600">Explain your thinking or ask a question. Your tutor will guide you one step at a time.</p>
+          <div aria-live="polite" className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto">
+            {messages.map(message => <article key={message.id} className={`rounded-xl p-4 ${message.role === "assistant" ? "mr-4 bg-indigo-50" : "ml-4 bg-slate-100"}`}><p className="mb-1 text-xs font-bold text-slate-500">{message.role === "assistant" ? "AI tutor" : "You"} · {PHASE_LABELS[message.phase]}</p><div className="whitespace-pre-wrap text-sm"><MathText text={message.text} /></div></article>)}
+            {loading && <p role="status" className="text-sm text-indigo-700">Working on your session…</p>}
+          </div>
+          {session.needsOpening && <button disabled={loading} className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-white disabled:opacity-50" onClick={async () => {setLoading(true);setError(null);try {const result=await resumeTutorOpening(session.id,session.revision);setSession(result.session);setPrompt(result.session.currentPrompt);await refreshMessages();} catch(cause){setError(cause instanceof Error?cause.message:"The tutor could not start.");}finally{setLoading(false);}}}>Start AI conversation</button>}
+        </section>
         {diagnosis?.category && diagnosis.category !== "none" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="font-bold text-amber-900">Corrective guidance · {diagnosis.category.replace(/_/g, " ")}</p><p className="mt-1 text-sm text-amber-800">{diagnosis.correctivePrompt}</p><p className="mt-2 text-xs font-semibold text-amber-700">Confidence: {diagnosis.confidence} · Severity: {diagnosis.severity}</p></div>}
 
         {reasoning ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
             <div><p className="text-xs font-bold uppercase text-indigo-600">{SOLVER_STAGE_LABELS[session.currentStage]} · {PHASE_LABELS[session.currentPhase]}</p><h2 className="mt-2 text-lg font-bold text-slate-950">{prompt}</h2>{session.promptAdjustment !== "maintain" && <p className="mt-2 text-xs font-semibold text-indigo-500">Prompt support: {session.promptAdjustment === "simplify" ? "extra scaffolding" : "deeper reasoning"}</p>}</div>
             <MathInput value={response} onChange={setResponse} />
-            <button disabled={loading || (!response.plainText.trim() && !response.latex?.trim())} onClick={() => void submitReasoning()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}Submit reasoning</button>
+            <label className="block text-sm font-semibold">Message type<select aria-label="Message type" value={intent} onChange={event=>setIntent(event.target.value as TutorIntent)} className="ml-3 rounded-lg border p-2"><option value="answer">My reasoning</option><option value="question">Ask a question</option><option value="help">I need help</option></select></label>
+            <button disabled={loading || session.needsOpening || (!response.plainText.trim() && !response.latex?.trim())} onClick={() => void submitReasoning()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}{intent === "answer" ? "Submit reasoning" : intent === "question" ? "Ask tutor" : "Request guidance"}</button>
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
@@ -249,13 +275,14 @@ export function SecureSession() {
         {(session.supportHistory?.length ?? 0) > 0 && <section className="rounded-2xl border p-5"><h2 className="font-bold">Support history</h2>{(session.supportHistory ?? []).map((entry, index) => <div key={index} className="mt-3 rounded border p-3"><p>{entry.phase.replace(/_/g, " ")} — {entry.title}</p>{entry.content.map((line, i) => <p key={i}><MathText text={line} /></p>)}</div>)}</section>}
         {session.status === "in_progress" && session.allowedSupport.length > 0 && <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /><h2 className="font-bold">Available support</h2></div><div className="mt-3 flex flex-wrap gap-2">{session.allowedSupport.map((level) => <button key={level} onClick={() => void requestSupport(level)} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">{level.replace(/_/g, " ")}</button>)}</div>{support && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p className="font-bold text-amber-900">{support.title}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">{support.content.map((item) => <li key={item}>{item}</li>)}</ol></div>}</div>}
         <button onClick={() => void abandonSession()} disabled={loading} className="mx-auto flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-red-700 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
+        </div>
       </div>
     </div>
   );
 }
 
 function firestoreProjection(id: string, data: Record<string, any>): SessionProjection {
-  const millis = (value: any) => value?.toMillis?.() ?? Date.now();
+  const millis = (value: any) => value?.toMillis?.() ?? (typeof value === "number" ? value : Date.now());
   const currentPhase = data.currentPhase as SessionProjection["currentPhase"];
   const currentStage = solverStageForPhase(currentPhase);
   const gateStates = data.gateStates ?? {};
@@ -270,6 +297,8 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     }];
   })) as SessionProjection["stageProgress"];
   return {
+    needsOpening: data.needsOpening ?? false,
+    scoringSource: data.scoringSource,
     id,
     schemaVersion: SCHEMA_VERSION,
     workflowVersion: WORKFLOW_VERSION,

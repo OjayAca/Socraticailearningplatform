@@ -31,7 +31,7 @@ export function PilotControls() {
         ...(artifact ? { releaseArtifactId: artifact } : {}),
       });
       setActual(result.state);
-      setMessage("Cohort metadata saved.");
+      setMessage("AI pilot access settings saved.");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Pilot update failed.");
     } finally {
@@ -44,7 +44,7 @@ export function PilotControls() {
     setMessage("");
     try {
       await adminPilotRoster(uid.trim(), status);
-      setMessage(`Cohort admission ${status}.`);
+      setMessage(`AI practice access is now ${status}.`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Roster update failed.");
     } finally {
@@ -60,24 +60,24 @@ export function PilotControls() {
         </p>
       </div>
 
-      <p className="text-sm text-slate-600 dark:text-slate-300">These settings retain cohort records. Learning access is determined by active accounts and approved content; cohort state does not block access.</p>
+      <p className="text-sm text-slate-600 dark:text-slate-300">Open admits rostered students to the enabled topics. Closed and drain prevent new sessions; existing sessions can finish. Write-freeze pauses all learning operations. Saved history remains readable.</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block text-sm font-bold text-slate-950 dark:text-white">
-          Release state
+          Cohort state
           <select
             className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white p-2.5 font-normal text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={state}
             onChange={(event) => setState(event.target.value as PilotStatus["state"])}
           >
             <option value="closed">Closed</option>
-            <option value="open">Open (cohort record)</option>
-            <option value="drain">Drain (cohort record)</option>
-            <option value="write-freeze">Frozen (cohort record)</option>
+            <option value="open">Open for admitted students</option>
+            <option value="drain">Drain — finish existing sessions</option>
+            <option value="write-freeze">Pause all learning writes</option>
           </select>
         </label>
 
         <label className="block text-sm font-bold text-slate-950 dark:text-white">
-          Approved release artifact ID
+          Release evidence reference (record only)
           <input
             className="mt-1.5 block w-full rounded-xl border border-slate-200 bg-white p-2.5 font-normal text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             value={artifact}
@@ -101,13 +101,13 @@ export function PilotControls() {
         onClick={() => void save()}
         className="rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50"
       >
-        Save release controls
+        Save cohort records
       </button>
 
       <hr className="border-slate-200 dark:border-slate-800" />
 
       <div>
-        <h2 className="text-base font-bold text-slate-950 dark:text-white">Participant admission</h2>
+        <h2 className="text-base font-bold text-slate-950 dark:text-white">Participant cohort records</h2>
         <label className="mt-3 block text-sm font-bold text-slate-950 dark:text-white">
           Verified Firebase Auth UID
           <input
@@ -122,14 +122,14 @@ export function PilotControls() {
             onClick={() => void admission("admitted")}
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
-            Admit participant
+            Record as admitted
           </button>
           <button
             disabled={busy || !uid.trim()}
             onClick={() => void admission("revoked")}
             className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 font-bold text-rose-700 shadow-sm transition hover:bg-rose-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:opacity-50 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300"
           >
-            Revoke admission
+            Record as revoked
           </button>
         </div>
       </div>

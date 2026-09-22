@@ -66,7 +66,7 @@ describe("student history and review supporting flows", () => {
         {
           id: "active-v4",
           schemaVersion: 5,
-          workflowVersion: 5,
+          workflowVersion: 6,
           status: "in_progress",
           subject: "Quantitative Methods",
           topic: "Probability",

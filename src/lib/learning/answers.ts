@@ -7,6 +7,7 @@ export type AnswerSpecification =
   | { kind: "expression"; expression: string }
   | { kind: "truth"; value: boolean }
   | { kind: "set"; values: number[] }
+  | { kind: "proof"; conclusion: string; requirements: string[] }
   | { kind: "parts"; parts: Record<string, Exclude<AnswerSpecification, { kind: "parts" }>> };
 
 const engine = new ComputeEngine();
@@ -27,6 +28,7 @@ function answerMatches(text: string, specification: AnswerSpecification): boolea
   text = text.trim();
   if (!text || /\b(?:not|never|incorrect|false answer)\b/i.test(text)) return false;
   switch (specification.kind) {
+    case "proof": return false; // Semantic proof assessment belongs to the AI tutor, never a text match.
     case "number": {
       if (!Number.isFinite(specification.value) || !Number.isFinite(specification.tolerance ?? 0) || (specification.tolerance ?? 0) < 0) return false;
       if (specification.unit) {

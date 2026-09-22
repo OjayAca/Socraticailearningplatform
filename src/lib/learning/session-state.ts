@@ -14,7 +14,6 @@ import {
   SOLVER_STAGE_PHASES,
   solverStageForPhase,
 } from "@mindguide/contracts";
-import { Timestamp } from "firebase/firestore";
 import type { GateStateMap } from "./workflow.js";
 
 export function projectStageProgress(
@@ -41,7 +40,7 @@ export function nextLearningProgress(
   uid: string,
   current: Record<string, unknown> | undefined,
   score: number,
-  submittedAt: Timestamp,
+  submittedAt: { toDate(): Date; toMillis(): number },
   session?: {
     id: string;
     subject: Subject;

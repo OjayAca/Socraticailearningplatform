@@ -35,6 +35,7 @@ const startSessionSchema = z.discriminatedUnion("mode", [
 ]);
 
 const evaluateResponseSchema = z.object({
+  intent: z.enum(["answer", "question", "help"]).optional(),
   requestId,
   sessionId: z.string().trim().min(1).max(160),
   expectedPhase: z.enum(REASONING_PHASES),
@@ -361,30 +362,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+// Allocated once per isolate to avoid re-creating the schema map on every request.
+const operationSchemas: Record<string, z.ZodType> = {
+  bootstrapProfile: bootstrapProfileSchema,
+  startLearningSession: startSessionSchema,
+  evaluatePhaseResponse: evaluateResponseSchema,
+  requestSessionSupport: supportRequestSchema,
+  saveSessionDraft: saveDraftSchema,
+  finalizeScorecard: revisionedSessionMutationSchema,
+  submitLearningSession: revisionedSessionMutationSchema,
+  abandonLearningSession: sessionMutationSchema,
+  createFollowUpSession: sessionMutationSchema,
+  resumeTutorOpening: revisionedSessionMutationSchema,
+  adminOverrideSessionSupport: adminSupportOverrideSchema,
+  adminReviewSession: adminReviewSchema,
+  adminUpsertContent: contentMutationSchema,
+  adminArchiveContent: contentMutationSchema,
+  adminManageUser: adminUserSchema,
+  adminDeleteContent: adminDeleteContentSchema,
+  adminPublishAnnouncement: adminPublishAnnouncementSchema,
+  adminQueryReport: reportQuerySchema,
+  adminExportReport: reportExportSchema,
+  adminSubmitProblemValidation: submitProblemValidationSchema,
+  adminRecordProblemValidation: recordProblemValidationSchema,
+  adminBulkImportProblems: bulkImportProblemsSchema,
+};
+
 /** Validate the public operation boundary before any Firestore side effects. */
 export function validateOperation(name: string, value: unknown): unknown {
-  const schemas: Record<string, z.ZodType> = {
-    bootstrapProfile: bootstrapProfileSchema,
-    startLearningSession: startSessionSchema,
-    evaluatePhaseResponse: evaluateResponseSchema,
-    requestSessionSupport: supportRequestSchema,
-    saveSessionDraft: saveDraftSchema,
-    finalizeScorecard: revisionedSessionMutationSchema,
-    submitLearningSession: revisionedSessionMutationSchema,
-    abandonLearningSession: sessionMutationSchema,
-    createFollowUpSession: sessionMutationSchema,
-    adminOverrideSessionSupport: adminSupportOverrideSchema,
-    adminReviewSession: adminReviewSchema,
-    adminUpsertContent: contentMutationSchema,
-    adminArchiveContent: contentMutationSchema,
-    adminManageUser: adminUserSchema,
-    adminDeleteContent: adminDeleteContentSchema,
-    adminPublishAnnouncement: adminPublishAnnouncementSchema,
-    adminQueryReport: reportQuerySchema,
-    adminExportReport: reportExportSchema,
-    adminSubmitProblemValidation: submitProblemValidationSchema,
-    adminRecordProblemValidation: recordProblemValidationSchema,
-    adminBulkImportProblems: bulkImportProblemsSchema,
-  };
-  return schemas[name] ? parseInput(schemas[name], value) : value;
+  return operationSchemas[name] ? parseInput(operationSchemas[name], value) : value;
 }

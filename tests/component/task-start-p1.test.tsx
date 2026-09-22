@@ -1,13 +1,15 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { SecureTaskStart } from "@/app/components/SecureTaskStart";
+import { verifiedConfirmation } from "@/lib/learning/verified-problems";
 
 const mocks = vi.hoisted(() => ({
   getDoc: vi.fn(),
   getLearningCatalog: vi.fn(),
   getCurrentConsentNotice: vi.fn(),
   startLearningSession: vi.fn(),
+  previewVerifiedProblem: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({ doc: vi.fn(), getDoc: mocks.getDoc }));
@@ -17,6 +19,7 @@ vi.mock("@/lib/secure-api", () => ({
   getLearningCatalog: mocks.getLearningCatalog,
   getCurrentConsentNotice: mocks.getCurrentConsentNotice,
   startLearningSession: mocks.startLearningSession,
+  previewVerifiedProblem: mocks.previewVerifiedProblem,
 }));
 vi.mock("@/stores/auth-store", () => ({
   useAuthStore: () => ({
@@ -30,6 +33,7 @@ vi.mock("@/app/components/StudentShell", () => ({ StudentShell: ({ children }: {
 describe("P1 subject-first task start", () => {
   beforeEach(() => {
     mocks.startLearningSession.mockReset();
+    mocks.previewVerifiedProblem.mockReset();
     mocks.startLearningSession.mockResolvedValue({ session: { id: "new-session" } });
     mocks.getDoc.mockReset();
     mocks.getLearningCatalog.mockResolvedValue({
@@ -49,6 +53,37 @@ describe("P1 subject-first task start", () => {
       .mockResolvedValueOnce({ exists: () => true });
   });
   afterEach(cleanup);
+
+  it("validates the screenshot question and starts directly with the problem givens", async () => {
+    const question = "what is the mean for 23, 41,9,56";
+    const preview = verifiedConfirmation(question, "Measures of Central Tendency");
+    mocks.previewVerifiedProblem.mockImplementation(async ({ question }) =>
+      verifiedConfirmation(question, "Measures of Central Tendency"));
+    const confirm = vi.spyOn(window, "confirm");
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "My own problem" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: question } });
+    fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
+    await waitFor(() => expect(mocks.startLearningSession).toHaveBeenCalledWith({
+      mode: "free_form", topicId: "probability", question, requestedDifficulty: "Basic",
+      confirmationHash: preview.confirmationHash,
+    }));
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it("shows validation failures beside the start button and allows a retry", async () => {
+    mocks.previewVerifiedProblem.mockRejectedValue(new Error("Use a verified format: mean: 4, 8, 12"));
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole("button", { name: "My own problem" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "unsupported question" } });
+    fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
+    const alert = await screen.findByRole("alert");
+    const button = screen.getByRole("button", { name: "Validate and start" });
+    expect(alert).toHaveTextContent("Use a verified format");
+    expect(alert.nextElementSibling).toBe(button);
+    expect(button).toBeEnabled();
+    expect(mocks.startLearningSession).not.toHaveBeenCalled();
+  });
 
   it("shows a retryable load failure instead of claiming no topics are ready", async () => {
     mocks.getLearningCatalog.mockRejectedValueOnce(new Error("The secure service is unavailable."));

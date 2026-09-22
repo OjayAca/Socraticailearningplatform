@@ -6,7 +6,7 @@ import { callableError } from "./errors.js";
 export type VerifiedGivens = { operation: "mean" | "median" | "mode"; values: number[] } | { operation: "product" | "permutation" | "combination"; values: number[] };
 function parseVerifiedProblem(question: string, topic: string): VerifiedGivens {
   // A deliberately bounded grammar avoids pretending to understand arbitrary prose.
-  const match = /^(mean|median|mode|product|permutation|combination)\s*:\s*(-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)+)\s*$/i.exec(question.trim());
+  const match = /^(?:(?:what\s+is|find|calculate|compute)\s+(?:the\s+)?)?(mean|median|mode|product|permutation|combination)(?:\s*:\s*|\s+(?:of|for)\s+)(-?\d+(?:\.\d+)?(?:\s*,\s*-?\d+(?:\.\d+)?)+)\s*[?.]?\s*$/i.exec(question.trim());
   if (!match) throw callableError("invalid-argument", "unsupported_problem", "Use a verified format: mean: 4, 8, 12; median: 2, 7, 9; mode: 2, 2, 5; product: 3, 4; permutation: 5, 2; combination: 5, 2.");
   const operation = match[1].toLowerCase() as VerifiedGivens["operation"];
   const values = match[2].split(",").map(Number);

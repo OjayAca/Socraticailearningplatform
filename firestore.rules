@@ -18,10 +18,6 @@ service cloud.firestore {
         && (!('theme' in value) || value.theme in ['light', 'dark', 'system'])
         && (!('reducedMotion' in value) || value.reducedMotion is bool);
     }
-    function approvedProblem(id) {
-      let problem = get(/databases/$(database)/documents/problems/$(id)).data;
-      return problem.status == 'approved' && problem.validationRecordId is string;
-    }
     match /users/{uid} {
       allow get: if owner(uid) || admin();
       allow list: if admin();
@@ -67,97 +63,42 @@ service cloud.firestore {
       allow write: if admin();
       match /private/{key} { allow read, write: if admin(); }
     }
-    match /problem_scoring/{id} {
-      allow get: if admin() || (active() && approvedProblem(id)
-        && (!exists(/databases/$(database)/documents/problem_scoring/$(id))
-          || (resource.data.validationRecordId == get(/databases/$(database)/documents/problems/$(id)).data.validationRecordId
-            && resource.data.problemVersion == get(/databases/$(database)/documents/problems/$(id)).data.version)));
-      allow list, write: if admin();
-    }
+    // Answer references and AI decisions are server-owned. History remains owner-readable.
+    match /problem_scoring/{id} { allow read, write: if admin(); }
     match /sessions/{id} {
       allow get: if active() && (!exists(/databases/$(database)/documents/sessions/$(id)) || resource.data.studentId == request.auth.uid || admin());
       allow list: if active() && (resource.data.studentId == request.auth.uid || admin());
-      allow create: if active() && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['schemaVersion','workflowVersion','revision','scoringSource','studentId','studentName','subjectId','subject','topicId','topic','difficulty','problemId','problemMode','originalQuestion','status','currentPhase','currentStep','currentPrompt','gateStates','gateEvaluations','diagnosisSummary','allowedSupport','supportUsage','responseCount','draft','scorecard','releasedSolution','adaptiveRecommendation','configurationVersions','promptAdjustment','firstAnswerCorrect','createdAt','updatedAt','lastActivityAt','learningCompletedAt','submittedAt','statsCommittedAt'])
-        && request.resource.data.originalQuestion is string && request.resource.data.originalQuestion.size() <= 4000
-        && request.resource.data.gateStates is map && request.resource.data.gateEvaluations is map
-        && request.resource.data.scoringSource == 'client_practice'
-        && request.resource.data.revision == 0 && request.resource.data.status == 'in_progress'
-        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
-        && request.resource.data.lastActivityAt == request.time
-        && request.resource.data.responseCount == 0 && request.resource.data.statsCommittedAt == null
-        && request.resource.data.scorecard == null && request.resource.data.firstAnswerCorrect == null
-        && request.resource.data.currentPhase == 'problem_understanding'
-        && request.resource.data.difficulty in ['Basic','Intermediate','Advanced']
-        && get(/databases/$(database)/documents/topics/$(request.resource.data.topicId)).data.status == 'approved'
-        && ((request.resource.data.problemMode == 'curated' && approvedProblem(request.resource.data.problemId)
-          && get(/databases/$(database)/documents/problems/$(request.resource.data.problemId)).data.topicId == request.resource.data.topicId
-          && get(/databases/$(database)/documents/problems/$(request.resource.data.problemId)).data.difficulty == request.resource.data.difficulty)
-          || (request.resource.data.problemMode == 'free_form' && request.resource.data.problemId == null));
+      allow create, delete: if false;
       allow update: if (ownSession(id)
-        && resource.data.status in ['in_progress','ready_for_submission']
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'revision','updatedAt','lastActivityAt','gateStates','gateEvaluations','currentPhase','currentPrompt','allowedSupport',
-          'responseCount','lastDiagnosis','diagnosisSummary','firstAnswerCorrect','supportUsage','supportHistory','draft','scorecard',
-          'releasedSolution','status','currentStep','learningCompletedAt','submittedAt','statsCommittedAt','difficultyRecommendation','ctScore'])
+        && resource.data.workflowVersion == 6 && resource.data.status == 'in_progress'
+        && resource.data.currentPhase == 'controlled_solution_release'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['draft','revision','updatedAt','lastActivityAt'])
+        && request.resource.data.draft.keys().hasOnly(['answer','methodology','reflection'])
+        && request.resource.data.draft.answer is map
+        && request.resource.data.draft.answer.keys().hasOnly(['plainText','latex','normalizedLatex','mathJson'])
+        && request.resource.data.draft.answer.plainText is string && request.resource.data.draft.answer.plainText.size() <= 4000
+        && request.resource.data.draft.methodology is string && request.resource.data.draft.methodology.size() <= 4000
+        && request.resource.data.draft.reflection is string && request.resource.data.draft.reflection.size() <= 2000
         && request.resource.data.revision == resource.data.revision + 1
-        && request.resource.data.updatedAt == request.time && request.resource.data.lastActivityAt == request.time
-        && request.resource.data.status in ['in_progress','ready_for_submission','submitted','abandoned','expired']
-        && (request.resource.data.status != 'submitted' || (resource.data.status == 'ready_for_submission' && resource.data.scorecard is map))
-        && (request.resource.data.status != 'ready_for_submission' || request.resource.data.scorecard is map)
-        && (resource.data.get('firstAnswerCorrect', null) == null || request.resource.data.firstAnswerCorrect == resource.data.firstAnswerCorrect)
-        && request.resource.data.get('responseCount', 0) >= resource.data.get('responseCount', 0)
-        && request.resource.data.get('responseCount', 0) <= resource.data.get('responseCount', 0) + 1)
-        || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminReview','reviewedAt','updatedAt','revision','allowedSupport'])
+        && request.resource.data.updatedAt == request.time && request.resource.data.lastActivityAt == request.time)
+        || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminReview','reviewedAt','updatedAt','revision'])
+          && resource.data.status in ['submitted','reviewed','returned']
+          && request.resource.data.status in ['reviewed','returned']
           && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.updatedAt == request.time);
-      allow delete: if false;
-      match /practice_reference/{key} {
-        allow read: if ownSession(id) || admin();
-        allow create: if ownSessionAfter(id) && key == 'reference'
-          && request.resource.data.keys().hasOnly(['answerSpecification','safeHints','expectedConcepts','requiredFormula','requiredTheorem','solutionSteps','finalAnswer','interpretation','formulaTheoremConditions','socraticPrompts','misconceptionPrompts','rubricVersion','rubricCalibrationStatus','problemId','problemVersion','validationRecordId'])
-          && request.resource.data.answerSpecification is map;
-        allow update, delete: if false;
-      }
-      match /responses/{responseId} {
-        allow read: if ownSession(id) || admin();
-        allow create: if ownSession(id) && get(/databases/$(database)/documents/sessions/$(id)).data.status == 'in_progress'
-          && request.resource.data.keys().hasOnly(['phase','response','evaluation','diagnosis','studentId','createdAt'])
-          && request.resource.data.studentId == request.auth.uid && request.resource.data.response is map
-          && request.resource.data.evaluation is map && request.resource.data.diagnosis is map
-          && request.resource.data.response.plainText is string && request.resource.data.response.plainText.size() <= 4000
-          && request.resource.data.evaluation.phase == request.resource.data.phase
-          && request.resource.data.evaluation.status in ['accepted','needs_revision']
-          && request.resource.data.phase == get(/databases/$(database)/documents/sessions/$(id)).data.currentPhase
-          && request.resource.data.createdAt == request.time
-          && getAfter(/databases/$(database)/documents/sessions/$(id)).data.responseCount == get(/databases/$(database)/documents/sessions/$(id)).data.get('responseCount', 0) + 1;
-        allow update, delete: if false;
-      }
-      match /scorecards/{scorecardId} {
-        allow read: if ownSession(id) || admin();
-        allow create: if ownSession(id) && request.resource.data.studentId == request.auth.uid
-          && request.resource.data.total is number && request.resource.data.total >= 0 && request.resource.data.total <= 100
-          && request.resource.data.createdAt == request.time
-          && getAfter(/databases/$(database)/documents/sessions/$(id)).data.status == 'ready_for_submission';
-        allow update, delete: if false;
-      }
-      match /{privateCollection}/{key} { allow read: if admin(); allow write: if false; }
+      match /private/{key} { allow read: if admin(); allow write: if false; }
+      match /practice_reference/{key} { allow read: if admin(); allow write: if false; }
+      match /messages/{messageId} { allow read: if ownSession(id) || admin(); allow write: if false; }
+      match /responses/{responseId} { allow read: if ownSession(id) || admin(); allow write: if false; }
+      match /scorecards/{scorecardId} { allow read: if ownSession(id) || admin(); allow write: if false; }
     }
     match /learning_progress/{uid} {
       allow read: if (owner(uid) && active()) || admin();
-      allow create, update: if owner(uid) && active()
-        && request.resource.data.keys().hasOnly(['userId','sessionsCompleted','scoreTotal','averageCTScore','currentStreak','lastSessionAt','lastSessionDate','lastActivityAt','achievements','latestScorecard','subjectProgress','topicRecommendations','accuracyEvidence','updatedAt'])
-        && request.resource.data.userId == uid && request.resource.data.sessionsCompleted is int && request.resource.data.sessionsCompleted >= 0
-        && request.resource.data.averageCTScore is number && request.resource.data.averageCTScore >= 0 && request.resource.data.averageCTScore <= 100
-        && request.resource.data.updatedAt == request.time;
-      match /assignment_state/{topicId} {
-        allow read: if (owner(uid) && active()) || admin();
-        allow create, update: if owner(uid) && active()
-          && request.resource.data.keys().hasOnly(['activeSessionId','answeredProblemIds','accuracyEvidence','recentByDifficulty','updatedAt'])
-          && request.resource.data.answeredProblemIds is list
-          && (request.resource.data.activeSessionId == null || ownSessionAfter(request.resource.data.activeSessionId))
-          && request.resource.data.updatedAt == request.time;
-      }
+      allow write: if false;
+      match /assignment_state/{topicId} { allow read: if (owner(uid) && active()) || admin(); allow write: if false; }
     }
+    match /ai_operations/{id} { allow read, write: if false; }
+    match /ai_locks/{id} { allow read, write: if false; }
+    match /ai_usage/{id} { allow read: if admin(); allow write: if false; }
     match /notifications/{id} {
       allow read: if active() && resource.data.recipientId == request.auth.uid;
       allow create: if admin() || (active() && request.resource.data.recipientId == request.auth.uid

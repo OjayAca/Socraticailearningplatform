@@ -6,17 +6,17 @@ import {
 } from "@/lib/session-compatibility";
 
 describe("current learning-session compatibility", () => {
-  it("accepts schema-v4 sessions created by the current workflow", () => {
-    expect(isCurrentLearningSession({ schemaVersion: 5, workflowVersion: 5 })).toBe(true);
+  it("accepts AI workflow v6 sessions created by the current workflow", () => {
+    expect(isCurrentLearningSession({ schemaVersion: 5, workflowVersion: 6 })).toBe(true);
   });
 
   it.each(["in_progress", "ready_for_submission"])(
-    "routes a schema-v4 %s session back to the learner workflow",
+    "routes a AI workflow v6 %s session back to the learner workflow",
     (status) => {
       const session = {
         id: `session-${status}`,
         schemaVersion: 5,
-        workflowVersion: 5,
+        workflowVersion: 6,
         status,
       };
 
@@ -29,7 +29,7 @@ describe("current learning-session compatibility", () => {
     const legacy = {
       id: "legacy-session",
       schemaVersion: 3,
-      workflowVersion: 5,
+      workflowVersion: 6,
       status: "in_progress",
     };
 
@@ -39,12 +39,12 @@ describe("current learning-session compatibility", () => {
   });
 
   it.each(["submitted", "reviewed", "returned", "abandoned", "expired"])(
-    "keeps terminal schema-v4 status %s in read-only history",
+    "keeps terminal AI workflow v6 status %s in read-only history",
     (status) => {
       expect(learnerSessionDestination({
         id: `session-${status}`,
         schemaVersion: 5,
-        workflowVersion: 5,
+        workflowVersion: 6,
         status,
       })).toBe(`/student/review/session-${status}`);
     },

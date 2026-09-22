@@ -88,7 +88,7 @@ describe("SecureStudentDashboard", () => {
         topic: "Probability",
         status: "in_progress",
         schemaVersion: 5,
-        workflowVersion: 5,
+        workflowVersion: 6,
       },
       {
         id: "scored-session",
@@ -96,7 +96,7 @@ describe("SecureStudentDashboard", () => {
         topic: "Graph Theory",
         status: "ready_for_submission",
         schemaVersion: 5,
-        workflowVersion: 5,
+        workflowVersion: 6,
         scorecard: { total: 85 },
       },
       {

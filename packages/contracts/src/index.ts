@@ -1,5 +1,5 @@
 export const SCHEMA_VERSION = 5 as const;
-export const WORKFLOW_VERSION = 5 as const;
+export const WORKFLOW_VERSION = 6 as const;
 
 export type UserRole = "student" | "admin";
 export type AccountStatus = "active" | "suspended" | "deactivated" | "anonymized";
@@ -267,6 +267,8 @@ export interface PublicProblem {
 }
 
 export interface SessionProjection {
+  needsOpening?: boolean;
+  scoringSource?: "client_practice" | "ai_formative";
   lastDiagnosis?: DiagnosisResult | null;
   supportHistory?: Array<{ phase: ReasoningPhase; level: SupportLevel; title: string; content: string[] }>;
   responseCount?: number;
@@ -345,6 +347,7 @@ export type StartLearningSessionInput =
 export type StartLearningSessionRequest = MutationRequest & StartLearningSessionInput;
 
 export interface EvaluatePhaseResponseRequest extends MutationRequest {
+  intent?: TutorIntent;
   sessionId: string;
   expectedPhase: ReasoningPhase;
   revision: number;
@@ -352,12 +355,31 @@ export interface EvaluatePhaseResponseRequest extends MutationRequest {
 }
 
 export interface EvaluatePhaseResponseResponse {
+  tutorMessage?: TutorMessage;
   session: SessionProjection;
   evaluation: GateEvaluation;
-  diagnosis: DiagnosisResult;
+  diagnosis: DiagnosisResult | null;
   learnerMessage: string;
   nextPrompt: string;
   completion: SessionCompletion | null;
+}
+
+export type TutorIntent = "answer" | "question" | "help";
+export interface TutorMessage {
+  id: string;
+  role: "student" | "assistant";
+  phase: ReasoningPhase;
+  text: string;
+  createdAt: number;
+  intent?: TutorIntent;
+  model?: string;
+  promptVersion?: string;
+}
+export interface TutorAvailability {
+  code: string;
+  message: string;
+  retryable: boolean;
+  retryAfter: number;
 }
 
 export interface RequestSupportRequest extends MutationRequest {

@@ -1,0 +1,23 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mindguide-socratic-tutor",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "placement": { "mode": "smart" },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "GEMINI_MODEL": "gemini-3.6-flash",
+    "AI_ENABLED": "false",
+    "AI_FREE_TIER_CONFIRMED": "true",
+    "GEMINI_RPM": "4",
+    "GEMINI_TPM": "200000",
+    "GEMINI_RPD": "18",
+    "FIREBASE_PROJECT_ID": "socratic-ai-a7765",
+    "ALLOWED_ORIGINS": "http://localhost:5173,http://localhost:4173,https://socratic-ai-a7765.web.app,https://socratic-ai-a7765.firebaseapp.com",
+    "OPERATOR_UID": "MTFad2RDfAWnnCIHnpeUSBPX3pg2"
+  },
+  "account_id": "1adf2aa59129c7af57c92224f8506e8c"
+}

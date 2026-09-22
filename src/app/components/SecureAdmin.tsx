@@ -1,6 +1,7 @@
+import { AdminPrivacySettings } from "./AdminPrivacySettings";
 import { PilotControls } from "./PilotControls";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { collection, doc, getDoc, getDocs, getCountFromServer, limit, orderBy, query, where, startAfter, type QueryDocumentSnapshot, type DocumentData } from "firebase/firestore";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router";
 import {
   Activity,
@@ -19,7 +20,6 @@ import {
   Menu,
   Moon,
   Printer,
-  Save,
   Settings,
   Sparkles,
   Sun,
@@ -37,7 +37,6 @@ import {
   adminPublishAnnouncement,
   adminQueryReport,
   adminReviewSession,
-  adminUpsertContent,
 } from "@/lib/secure-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { CONTENT_COLLECTIONS, ManagedContentEditor, type ContentCollection } from "./ManagedContentEditor";
@@ -125,11 +124,10 @@ function MobileAdminNavLinks({ active, items }: { active: string; items: readonl
 }
 
 function adminNavLinkClass(isActive: boolean) {
-  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-    isActive
-      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
-      : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-100"
-  }`;
+  return `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${isActive
+    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
+    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-slate-400 dark:hover:bg-slate-800/80 dark:hover:text-slate-100"
+    }`;
 }
 
 function AdminSignOutButton({ onSignOut }: { onSignOut: () => Promise<void> }) {
@@ -166,10 +164,13 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
   const email = userProfile?.email || "Admin Console";
   const initials = getInitials(displayName);
   const isDark = resolvedTheme === "dark";
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   async function handleSignOut() {
-    await signOut();
-    navigate("/login");
+    try {
+      await signOut();
+      navigate("/login");
+    } catch (cause) { setSignOutError(errorMessage(cause, "Sign out failed. Please try again.")); }
   }
 
   return (
@@ -188,6 +189,7 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {signOutError && <div role="alert" className="bg-red-50 p-3 text-red-800">{signOutError}</div>}
         <header className="z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
           <div className="mr-3 md:hidden">
             <Sheet>
@@ -227,7 +229,6 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold text-slate-950 dark:text-white sm:text-lg">
               Welcome, {displayName}
-              <span aria-hidden="true" className="ml-1.5">👋</span>
             </h1>
           </div>
 
@@ -280,17 +281,19 @@ export function SecureAdminDashboard() {
       getDocs(collection(db, "users")),
       getDocs(query(collection(db, "sessions"), orderBy("updatedAt", "desc"), limit(50))),
       getDocs(collection(db, "problems")),
-      getDocs(collection(db, "audit_logs")),
+      getCountFromServer(collection(db, "audit_logs")),
+      getCountFromServer(collection(db, "sessions")),
+      getCountFromServer(query(collection(db, "sessions"), where("status", "==", "submitted"))),
     ])
-      .then(([usersSnapshot, sessionsSnapshot, problemSnapshot, auditSnapshot]) => {
+      .then(([usersSnapshot, sessionsSnapshot, problemSnapshot, auditSnapshot, sessionCount, pendingCount]) => {
         const values: Record<string, any>[] = sessionsSnapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
         setSessions(values);
         setCounts({
           users: usersSnapshot.size,
-          sessions: sessionsSnapshot.size,
+          sessions: sessionCount.data().count,
           problems: problemSnapshot.size,
-          audits: auditSnapshot.size,
-          pending: values.filter((item) => item.status === "submitted").length,
+          audits: auditSnapshot.data().count,
+          pending: pendingCount.data().count,
         });
       })
       .catch((cause) => setError(errorMessage(cause, "Administrator data could not be loaded.")))
@@ -351,7 +354,7 @@ export function SecureAdminDashboard() {
               </div>
               <h2 className="text-xl font-bold sm:text-2xl">Quantitative & Discrete Reasoning Administration</h2>
               <p className="mt-2 max-w-xl text-sm leading-6 text-indigo-100">
-                Oversee verified learning records, manage academic user profiles, review submitted formative sessions, and export audited reports.
+                Oversee formative practice records, manage academic user profiles, review submitted formative sessions, and export audited reports.
               </p>
             </div>
             <div className="flex flex-wrap gap-2.5 sm:self-center">
@@ -377,7 +380,7 @@ export function SecureAdminDashboard() {
           <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
             <h2 className="font-bold text-slate-950 dark:text-white">Recent learner sessions</h2>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-              Authoritative reasoning submissions, scored activities, and review queues.
+              Learner reasoning submissions, scored activities, and review queues.
             </p>
           </div>
           {loading ? (
@@ -559,17 +562,17 @@ export function SecureAdminContent() {
           <Link
             key={item}
             to={`/admin/content/${item}`}
-            className={`rounded-xl px-3.5 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-              item === collectionName
-                ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
-                : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-            }`}
+            className={`rounded-xl px-3.5 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${item === collectionName
+              ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
+              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              }`}
           >
             {item.replace(/_/g, " ")}
           </Link>
         ))}
       </div>
       <div className="mt-6">
+        <p className="mb-4 text-sm text-slate-600 dark:text-slate-300">Approved problem scoring material is copied into new sessions. Standalone formula, prompt, misconception, and difficulty records are maintained as a content library; editing them does not automatically change the current practice engine or historical sessions.</p>
         <ManagedContentEditor collectionName={collectionName} />
       </div>
     </AdminShell>
@@ -593,17 +596,38 @@ export function SecureAdminReports() {
   const [reason, setReason] = useState("Authorized capstone evaluation report");
   const [error, setError] = useState<string | null>(null);
 
+  const [reportBusy, setReportBusy] = useState(false);
+  const reportPending = useRef(false);
+  function clearReport() { setRows([]); setTotal(null); setError(null); }
+
   async function run() {
+    if (reportPending.current) return;
+    reportPending.current = true;
+    setReportBusy(true);
+    setError(null);
     try {
-      const result = await adminQueryReport({ kind, ...filters, includeIdentity, limit: 250 });
-      setRows(result.rows);
-      setTotal(result.totalRows ?? result.rows.length);
+      if (from && to && from > to) throw new Error("The report start date must not follow its end date.");
+      const combined: Record<string, unknown>[] = [];
+      let cursor: string | undefined;
+      do {
+        const result = await adminQueryReport({ kind, ...filters, includeIdentity, limit: 250, ...(cursor ? { cursor } : {}) });
+        combined.push(...result.rows);
+        cursor = result.nextCursor ?? undefined;
+      } while (cursor);
+      setRows(combined);
+      setTotal(combined.length);
     } catch (cause) {
+      setRows([]);
+      setTotal(null);
       setError(errorMessage(cause, "Report failed."));
-    }
+    } finally { reportPending.current = false; setReportBusy(false); }
   }
 
   async function output(format: "csv" | "print") {
+    if (reportPending.current) return;
+    reportPending.current = true;
+    setReportBusy(true);
+    setError(null);
     try {
       const result = await adminExportReport({
         kind,
@@ -625,7 +649,7 @@ export function SecureAdminReports() {
       }
     } catch (cause) {
       setError(errorMessage(cause, "Export failed."));
-    }
+    } finally { reportPending.current = false; setReportBusy(false); }
   }
 
   return (
@@ -637,9 +661,9 @@ export function SecureAdminReports() {
       {error && <ErrorBox message={error} />}
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
         <div className="grid gap-3 md:grid-cols-4">
-          <select
+          <select disabled={reportBusy}
             value={kind}
-            onChange={(event) => setKind(event.target.value as ReportKind)}
+            onChange={(event) => { clearReport(); setKind(event.target.value as ReportKind); }}
             className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           >
             <option value="learning_progress">Learning progress</option>
@@ -649,15 +673,15 @@ export function SecureAdminReports() {
             <option value="usage">Usage</option>
           </select>
           <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
-            <input
+            <input disabled={reportBusy}
               type="checkbox"
               checked={includeIdentity}
-              onChange={(event) => setIncludeIdentity(event.target.checked)}
+              onChange={(event) => { clearReport(); setIncludeIdentity(event.target.checked); }}
               className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900"
             />
             Include identity
           </label>
-          <input
+          <input disabled={reportBusy}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             placeholder="Audit reason"
@@ -665,12 +689,14 @@ export function SecureAdminReports() {
           />
           <div className="flex gap-2">
             <button
+              disabled={reportBusy}
               onClick={() => void run()}
               className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
             >
               Preview
             </button>
             <button
+              disabled={reportBusy}
               onClick={() => void output("csv")}
               className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               aria-label="Export CSV"
@@ -678,6 +704,7 @@ export function SecureAdminReports() {
               <Download className="h-5 w-5" />
             </button>
             <button
+              disabled={reportBusy}
               onClick={() => void output("print")}
               className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               aria-label="Open print report"
@@ -689,27 +716,27 @@ export function SecureAdminReports() {
         <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-sm">
           <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
             From (Manila):
-            <input
+            <input disabled={reportBusy}
               type="date"
               value={from}
-              onChange={(event) => setFrom(event.target.value)}
+              onChange={(event) => { clearReport(); setFrom(event.target.value); }}
               className="rounded-lg border border-slate-200 bg-white p-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
           <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
             Through (Manila):
-            <input
+            <input disabled={reportBusy}
               type="date"
               value={to}
-              onChange={(event) => setTo(event.target.value)}
+              onChange={(event) => { clearReport(); setTo(event.target.value); }}
               className="rounded-lg border border-slate-200 bg-white p-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
           <label className="flex items-center gap-2 font-medium text-slate-700 dark:text-slate-300">
             Exact topic:
-            <input
+            <input disabled={reportBusy}
               value={topic}
-              onChange={(event) => setTopic(event.target.value)}
+              onChange={(event) => { clearReport(); setTopic(event.target.value); }}
               placeholder="Filter by topic"
               className="rounded-lg border border-slate-200 bg-white p-1.5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
@@ -780,14 +807,27 @@ export function SecureAdminNotifications() {
   const [reason, setReason] = useState("Authorized capstone announcement");
   const [result, setResult] = useState<string | null>(null);
 
+  const [busy, setBusy] = useState(false);
+  const publishing = useRef(false);
+
   async function publish() {
+    if (publishing.current) return;
+    publishing.current = true;
+    setBusy(true);
     try {
       const response = await adminPublishAnnouncement({ title, message, reason });
+      if (response.complete === false) {
+        setResult(`Delivery interrupted: ${response.delivered} of ${response.total} recipients confirmed. Retry without changing the message to resume. ${response.error ?? ""}`);
+        return;
+      }
       setResult(`Announcement delivered to ${response.delivered} active students.`);
       setTitle("");
       setMessage("");
     } catch (cause) {
-      setResult(errorMessage(cause, "Announcement failed."));
+      setResult(errorMessage(cause, "Announcement failed. Retry the same message to resume any confirmed delivery."));
+    } finally {
+      publishing.current = false;
+      setBusy(false);
     }
   }
 
@@ -822,7 +862,7 @@ export function SecureAdminNotifications() {
             className="rounded-xl border border-slate-200 bg-white p-3 text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
           <button
-            disabled={!title.trim() || !message.trim() || reason.trim().length < 8}
+            disabled={busy || !title.trim() || !message.trim() || reason.trim().length < 8}
             onClick={() => void publish()}
             className="w-fit rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50"
           >
@@ -1002,9 +1042,8 @@ export function SecureAdminProgressDetail() {
       <div className="mt-3">
         <PageTitle
           title={profile.displayName ?? "Learner"}
-          description={`${profile.academicProfile?.studentNumber ?? "No student number"} · ${
-            progress?.sessionsCompleted ?? 0
-          } completed · ${progress?.averageCTScore ?? 0}/100 average`}
+          description={`${profile.academicProfile?.studentNumber ?? "No student number"} · ${progress?.sessionsCompleted ?? 0
+            } completed · ${progress?.averageCTScore ?? 0}/100 average`}
         />
       </div>
 
@@ -1048,100 +1087,68 @@ export function SecureAdminLogs() {
   const [audits, setAudits] = useState<Record<string, any>[]>([]);
   const [failures, setFailures] = useState<Record<string, any>[]>([]);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!db) return;
-    Promise.all([
-      getDocs(query(collection(db, "audit_logs"), orderBy("createdAt", "desc"), limit(100))),
-      getDocs(query(collection(db, "ai_failure_logs"), orderBy("createdAt", "desc"), limit(100))),
-    ])
-      .then(([a, f]) => {
-        setAudits(a.docs.map((item) => ({ id: item.id, ...item.data() })));
-        setFailures(f.docs.map((item) => ({ id: item.id, ...item.data() })));
-      })
-      .catch((cause) => setError(errorMessage(cause, "Administrator logs could not be loaded.")));
-  }, []);
-
-  return (
-    <AdminShell active="logs">
-      <PageTitle
-        title="Activity, Security, and AI Failure Logs"
-        description="Review immutable administrative changes, report exports, AI fallbacks, and security events."
-      />
-      {error && <ErrorBox message={error} />}
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <LogPanel title="Audit events" icon={<ClipboardList className="h-5 w-5" />} rows={audits} />
-        <LogPanel title="AI failures" icon={<FileWarning className="h-5 w-5" />} rows={failures} />
-      </div>
-    </AdminShell>
-  );
+  const [busy, setBusy] = useState(false);
+  const [more, setMore] = useState(false);
+  const cursors = useRef<Array<QueryDocumentSnapshot<DocumentData> | undefined>>([]);
+  const exhausted = useRef([false, false]);
+  const loading = useRef(false);
+  async function load(reset = false) {
+    if (!db || loading.current) return;
+    loading.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const pages = await Promise.all(["audit_logs", "ai_failure_logs"].map((name, index) => {
+        if (!reset && exhausted.current[index]) return null;
+        const cursor = reset ? undefined : cursors.current[index];
+        return getDocs(query(collection(db!, name), orderBy("createdAt", "desc"), ...(cursor ? [startAfter(cursor)] : []), limit(100)));
+      }));
+      pages.forEach((page, index) => {
+        if (!page) return;
+        cursors.current[index] = page.docs.at(-1);
+        exhausted.current[index] = page.docs.length < 100;
+        const rows = page.docs.map(item => ({ id: item.id, ...item.data() }));
+        (index === 0 ? setAudits : setFailures)(previous => reset ? rows : [...previous, ...rows]);
+      });
+      setMore(exhausted.current.some(value => !value));
+    } catch (cause) { setError(errorMessage(cause, "Administrator logs could not be loaded.")); }
+    finally { setBusy(false); loading.current = false; }
+  }
+  // Load one initial page; subsequent pages are user requested.
+  useEffect(() => { void load(true); }, []);
+  return <AdminShell active="logs">
+    <PageTitle title="Activity and Legacy AI Logs" description="Review application administrative events and existing AI failure records. The current practice engine does not call a live AI service. These logs do not cover external Firebase Console actions." />
+    {error && <ErrorBox message={error} />}
+    {busy && <p role="status">Loading logs…</p>}
+    <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <LogPanel title="Audit events" icon={<ClipboardList className="h-5 w-5" />} rows={audits} />
+      <LogPanel title="Legacy AI failures" icon={<FileWarning className="h-5 w-5" />} rows={failures} />
+    </div>
+    <button disabled={busy} onClick={() => void load(true)} className="mt-4 rounded-xl border p-3">Refresh logs</button>
+    {more && <button disabled={busy} onClick={() => void load()} className="ml-3 rounded-xl border p-3">Load older logs</button>}
+  </AdminShell>;
 }
 
-export function SecureAdminSettings({ maintenance = false }: { maintenance?: boolean }) {
-  const active = maintenance ? "maintenance" : "settings";
-  const settingId = maintenance ? "maintenance" : "privacy";
-  const [json, setJson] = useState("{}");
-  const [message, setMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!db) return;
-    getDoc(doc(db, "system_settings", settingId))
-      .then((snapshot) => setJson(JSON.stringify(snapshot.exists() ? snapshot.data() : {}, null, 2)))
-      .catch((cause) => setMessage(errorMessage(cause, "Settings could not be loaded.")));
-  }, [settingId]);
-
-  async function save() {
-    try {
-      await adminUpsertContent({ collection: "system_settings", id: settingId, value: JSON.parse(json) });
-      setMessage("Settings saved and audited.");
-    } catch (cause) {
-      setMessage(errorMessage(cause, "Settings failed."));
-    }
-  }
-
-  return (
-    <AdminShell active={active}>
-      <PageTitle
-        title={maintenance ? "Maintenance and Release Controls" : "System and Privacy Settings"}
-        description={
-          maintenance
-            ? "Control maintenance mode, migration readiness, study closure, backups, and release prerequisites."
-            : "Configure consent version, study closure, retention, and server-controlled policy values."
-        }
-      />
-      {maintenance && (
-        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          Firebase project-owner configuration remains required before formal evaluation.
-        </div>
-      )}
-      <textarea
-        aria-label={maintenance ? "Maintenance settings JSON" : "Privacy settings JSON"}
-        value={json}
-        onChange={(event) => setJson(event.target.value)}
-        rows={20}
-        className="mt-6 w-full rounded-2xl border border-slate-700 bg-slate-950 p-4 font-mono text-sm text-slate-100 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-      />
-      {message && <Message text={message} />}
-      <button
-        onClick={() => void save()}
-        className="mt-4 flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 font-bold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-      >
-        <Save className="h-4 w-4" />
-        Save audited settings
-      </button>
-    </AdminShell>
-  );
+export function SecureAdminSettings() {
+  return <AdminShell active="settings"><PageTitle title="System and Privacy Settings" description="Configure consent and session inactivity. Retention and study closure are recorded policies, not scheduled cleanup or access controls." /><AdminPrivacySettings /></AdminShell>;
 }
 
 export function SecureAdminMaintenance() {
   return (
     <AdminShell active="maintenance">
       <PageTitle
-        title="Maintenance and Release Controls"
-        description="Participant access requires approved content and a verified release artifact."
+        title="Maintenance and Cohort Records"
+        description="Maintain cohort records and review operator tasks. Active accounts and approved content determine learning access."
       />
       <div className="mt-6">
         <PilotControls />
+        <section className="mt-6 rounded-xl border p-5 space-y-3">
+          <h2 className="font-bold">Operator maintenance</h2>
+          <p>Account deletion, backup and restore, security configuration, and retention cleanup require an authorized project operator. This page does not perform or verify those tasks.</p>
+          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/authentication/users`}>Open Authentication users</a>
+          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/firestore`}>Open Firestore data and rules</a>
+          <p>Review dependencies and the recorded retention policy before cleanup. Restore only verified backups of this project; no demo data or replacement approvals.</p>
+        </section>
       </div>
     </AdminShell>
   );
@@ -1344,12 +1351,12 @@ export function Stat({ label, value }: { label: string; value: number }) {
   const Icon = label.toLowerCase().includes("user")
     ? Users
     : label.toLowerCase().includes("session")
-    ? BrainCircuit
-    : label.toLowerCase().includes("problem")
-    ? BookOpen
-    : label.toLowerCase().includes("audit")
-    ? Activity
-    : AlertCircle;
+      ? BrainCircuit
+      : label.toLowerCase().includes("problem")
+        ? BookOpen
+        : label.toLowerCase().includes("audit")
+          ? Activity
+          : AlertCircle;
   return (
     <AdminStat
       label={label}

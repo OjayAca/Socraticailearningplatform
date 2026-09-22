@@ -4,13 +4,18 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { SecureSession } from "@/app/components/SecureSession";
 
 const mocks = vi.hoisted(() => ({
+  firebaseUser: { uid: "student-1" },
   getDoc: vi.fn(),
   submitLearningSession: vi.fn(),
+  evaluatePhaseResponse: vi.fn(),
+  getDocs: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
   doc: vi.fn((_database, ...segments: string[]) => ({ path: segments.join("/") })),
   getDoc: mocks.getDoc,
+  collection: vi.fn((_db, ...segments: string[]) => ({ path: segments.join("/") })),
+  getDocs: mocks.getDocs,
 }));
 
 vi.mock("@/lib/firebase", () => ({
@@ -20,7 +25,7 @@ vi.mock("@/lib/firebase", () => ({
 vi.mock("@/lib/secure-api", () => ({
   checkLearningSessionActivity: vi.fn().mockResolvedValue(undefined),
   abandonLearningSession: vi.fn(),
-  evaluatePhaseResponse: vi.fn(),
+  evaluatePhaseResponse: mocks.evaluatePhaseResponse,
   finalizeScorecard: vi.fn(),
   requestSessionSupport: vi.fn(),
   saveSessionDraft: vi.fn(),
@@ -29,18 +34,18 @@ vi.mock("@/lib/secure-api", () => ({
 
 vi.mock("@/stores/auth-store", () => ({
   useAuthStore: (selector: (state: Record<string, unknown>) => unknown) => selector({
-    firebaseUser: { uid: "student-1" },
+    firebaseUser: mocks.firebaseUser,
   }),
 }));
 
 vi.mock("@/app/components/MathInput", () => ({
-  MathInput: ({ label = "Your reasoning" }: { label?: string }) => <div>{label}</div>,
+  MathInput: ({ label = "Your reasoning", value, onChange }: { label?: string; value: {plainText:string}; onChange: (value:{plainText:string})=>void }) => <label>{label}<textarea aria-label={label} value={value.plainText} onChange={event=>onChange({plainText:event.target.value})} /></label>,
 }));
 
 function sessionSnapshot(id: string, overrides: Record<string, unknown> = {}) {
   const data = {
     schemaVersion: 5,
-    workflowVersion: 5,
+    workflowVersion: 6,
     revision: 0,
     studentId: "student-1",
     subjectId: "quantitative-methods",
@@ -88,16 +93,34 @@ function renderSession(id = "new-session") {
   );
 }
 
-describe("SecureSession schema-v4 workflow", () => {
+describe("SecureSession AI workflow v6 workflow", () => {
   beforeEach(() => {
     mocks.getDoc.mockReset();
     mocks.submitLearningSession.mockReset();
+    mocks.evaluatePhaseResponse.mockReset();
+    mocks.getDocs.mockResolvedValue({docs:[]});
+    sessionStorage.clear();
   });
 
   afterEach(cleanup);
 
+  it("reloads saved conversation and sends clarification with question intent",async()=>{
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session"));
+    mocks.getDocs.mockResolvedValue({docs:[{id:"opening",data:()=>({role:"assistant",phase:"problem_understanding",text:"Which quantity are you finding?"}),get:()=>({toMillis:()=>1})}]});
+    mocks.evaluatePhaseResponse.mockRejectedValue(new Error("Free allowance paused; your work is saved."));
+    renderSession();
+    expect(await screen.findByText("Which quantity are you finding?")).toBeVisible();
+    fireEvent.change(screen.getByLabelText("Your reasoning"),{target:{value:"What does equally likely mean?"}});
+    fireEvent.change(screen.getByLabelText("Message type"),{target:{value:"question"}});
+    fireEvent.click(screen.getByRole("button",{name:"Ask tutor"}));
+    await waitFor(()=>expect(mocks.evaluatePhaseResponse).toHaveBeenCalledWith(expect.objectContaining({intent:"question",revision:0,response:expect.objectContaining({plainText:"What does equally likely mean?"})})));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Free allowance paused");
+    expect(screen.getByLabelText("Your reasoning")).toHaveValue("What does equally likely mean?");
+    expect(JSON.parse(sessionStorage.getItem("mindguide.draft.student-1.new-session")!).response.plainText).toBe("What does equally likely mean?");
+  });
+
   it.each(["new-session", "follow-up-session"])(
-    "opens the current schema-v4 learner workflow for %s",
+    "opens the current AI workflow v6 learner workflow for %s",
     async (sessionId) => {
       mocks.getDoc.mockResolvedValue(sessionSnapshot(sessionId, {
         parentSessionId: sessionId === "follow-up-session" ? "returned-session" : null,
@@ -160,7 +183,7 @@ describe("SecureSession schema-v4 workflow", () => {
       session: {
         id: "scored-session",
         schemaVersion: 5,
-        workflowVersion: 5,
+        workflowVersion: 6,
         revision: 9,
         studentId: "student-1",
         subjectId: "quantitative-methods",
