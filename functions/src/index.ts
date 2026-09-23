@@ -1,6 +1,5 @@
 export {
   bootstrapProfile,
-  completeAcademicProfile,
   getCurrentConsentNotice,
   getLearningCatalog,
   startLearningSession,

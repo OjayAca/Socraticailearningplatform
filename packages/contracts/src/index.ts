@@ -14,13 +14,6 @@ export type ManagedContentStatus =
   | "rejected"
   | "archived";
 
-export interface AcademicProfile {
-  studentNumber: string;
-  course: string;
-  yearLevel: string;
-  section: string;
-}
-
 export interface CatalogSubject {
   id: string;
   name: Subject;
@@ -315,8 +308,6 @@ export interface BootstrapProfileRequest extends MutationRequest {
   displayName: string;
   consentVersion?: string;
 }
-
-export interface CompleteAcademicProfileRequest extends MutationRequest, AcademicProfile {}
 
 export interface CuratedLearningSessionInput {
   mode: "curated";

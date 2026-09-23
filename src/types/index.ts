@@ -3,7 +3,6 @@
  */
 
 import type { Timestamp } from "firebase/firestore";
-import type { AcademicProfile } from "@mindguide/contracts";
 
 // ─── User Types ──────────────────────────────────────────────
 
@@ -19,8 +18,6 @@ export interface UserProfile {
   displayName: string;
   email: string;
   role: UserRole | null;
-  academicProfile: AcademicProfile | null;
-  academicProfileComplete: boolean;
   createdAt: Timestamp;
   stats: UserStats;
   preferences: UserPreferences;

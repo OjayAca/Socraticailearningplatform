@@ -1,6 +1,5 @@
 import { onCall } from "firebase-functions/v2/https";
 import type {
-  AcademicProfile,
   AdaptiveRecommendation,
   Difficulty,
   EvaluatePhaseResponseResponse,
@@ -39,7 +38,6 @@ import {
 } from "./security.js";
 import {
   bootstrapProfileSchema,
-  completeAcademicProfileSchema,
   evaluateResponseSchema,
   parseInput,
   revisionedSessionMutationSchema,
@@ -89,43 +87,6 @@ export const getLearningCatalog = onCall(callableOptions, async (request) => {
   }
 });
 
-export const completeAcademicProfile = onCall(callableOptions, async (request) => {
-  const id = correlationId();
-  let operation: Awaited<ReturnType<typeof beginIdempotentRequest<{ academicProfile: AcademicProfile }>>> | undefined;
-  try {
-    const actor = await requireActor(request);
-    const data = parseInput(completeAcademicProfileSchema, request.data);
-    operation = await beginIdempotentRequest(actor.uid, "completeAcademicProfile", data.requestId);
-    if (operation.cached) return operation.cached;
-    const profileRef = database.doc(`users/${actor.uid}`);
-    const academicProfile: AcademicProfile = {
-      studentNumber: data.studentNumber,
-      course: data.course,
-      yearLevel: data.yearLevel,
-      section: data.section,
-    };
-    const response = { academicProfile };
-    await database.runTransaction(async (transaction) => {
-      const profile = await transaction.get(profileRef);
-      if (!profile.exists || profile.get("role") !== "student") {
-        throw callableError("failed-precondition", "student_profile_required", "Only an active student profile can store academic details.");
-      }
-      transaction.update(profileRef, {
-        schemaVersion: SCHEMA_VERSION,
-        academicProfile,
-        academicProfileComplete: true,
-        academicProfileCompletedAt: profile.get("academicProfileCompletedAt") ?? FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      completeIdempotentRequest(transaction, operation!.ref, response);
-    });
-    return response;
-  } catch (error) {
-    if (operation?.ref && !operation.cached) await releaseIdempotentRequest(operation.ref);
-    throw asCallableError(error, id);
-  }
-});
-
 export const bootstrapProfile = onCall(callableOptions, async (request) => {
   const id = correlationId();
   try {
@@ -161,8 +122,6 @@ export const bootstrapProfile = onCall(callableOptions, async (request) => {
         updatedAt: FieldValue.serverTimestamp(),
         lastActivityAt: FieldValue.serverTimestamp(),
         preferences: current.get("preferences") ?? { liveAlertPopups: true },
-        academicProfile: current.get("academicProfile") ?? null,
-        academicProfileComplete: current.get("academicProfileComplete") === true,
       };
       transaction.set(profileRef, profile, { merge: true });
       if (data.consentVersion) {
@@ -193,14 +152,6 @@ export const startLearningSession = onCall(aiCallableOptions, async (request) =>
     await enforceRateLimit(actor.uid, "session_start", 5, 3_600_000);
     await requireCurrentConsent(actor.uid);
 
-    const profile = await database.doc(`users/${actor.uid}`).get();
-    if (profile.get("role") === "student" && profile.get("academicProfileComplete") !== true) {
-      throw callableError(
-        "failed-precondition",
-        "academic_profile_required",
-        "Complete your student number, course, year level, and section before starting a learning session."
-      );
-    }
     const readiness = await buildCatalogReadiness();
     if (!readiness.ready) {
       throw callableError(

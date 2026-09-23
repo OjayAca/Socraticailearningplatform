@@ -1,12 +1,10 @@
 import { httpsCallable } from "firebase/functions";
 import type {
-  AcademicProfile,
   AdminBulkImportProblemsRequest,
   AdminRecordProblemValidationRequest,
   AdminReviewSessionRequest,
   BootstrapProfileRequest,
   CatalogReadinessResponse,
-  CompleteAcademicProfileRequest,
   ContentMutationRequest,
   EvaluatePhaseResponseRequest,
   EvaluatePhaseResponseResponse,
@@ -39,12 +37,6 @@ export async function getCurrentConsentNotice(): Promise<GetCurrentConsentNotice
 
 export async function getLearningCatalog(): Promise<LearningCatalog> {
   return call("getLearningCatalog", {});
-}
-
-export async function completeAcademicProfile(
-  input: Omit<CompleteAcademicProfileRequest, "requestId">
-): Promise<{ academicProfile: AcademicProfile }> {
-  return call("completeAcademicProfile", { ...input, requestId: newRequestId() });
 }
 
 export async function startLearningSession(

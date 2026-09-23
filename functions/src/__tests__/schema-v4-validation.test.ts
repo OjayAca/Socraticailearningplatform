@@ -1,29 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  completeAcademicProfileSchema,
   recordProblemValidationSchema,
   startSessionSchema,
 } from "../validation.js";
 
 describe("schema-v4 callable validation", () => {
   const requestId = "9f3a52bc-82f5-4d44-93df-17eb6f4d0c8a";
-
-  it("requires all four academic profile fields", () => {
-    expect(completeAcademicProfileSchema.safeParse({
-      requestId,
-      studentNumber: "2026-001",
-      course: "BS Information Technology",
-      yearLevel: "4",
-      section: "A",
-    }).success).toBe(true);
-    expect(completeAcademicProfileSchema.safeParse({
-      requestId,
-      studentNumber: "2026-001",
-      course: "",
-      yearLevel: "4",
-      section: "A",
-    }).success).toBe(false);
-  });
 
   it("accepts only topic-driven start requests", () => {
     expect(startSessionSchema.safeParse({

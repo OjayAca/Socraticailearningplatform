@@ -18,15 +18,6 @@ export const bootstrapProfileSchema = z.object({
   consentVersion: z.string().trim().min(1).max(80).optional(),
 });
 
-const academicProfileSchema = z.object({
-  studentNumber: z.string().trim().min(1).max(80),
-  course: z.string().trim().min(1).max(160),
-  yearLevel: z.string().trim().min(1).max(80),
-  section: z.string().trim().min(1).max(80),
-});
-
-export const completeAcademicProfileSchema = academicProfileSchema.extend({ requestId });
-
 export const startSessionSchema = z.discriminatedUnion("mode", [
   z.object({
     requestId,

@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router";
-import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck, UserRoundCheck } from "lucide-react";
+import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
 import type {
-  AcademicProfile,
   AdaptiveRecommendation,
   Difficulty,
   GetCurrentConsentNoticeResponse,
@@ -12,7 +11,6 @@ import type {
 import { db } from "@/lib/firebase";
 import {
   bootstrapProfile,
-  completeAcademicProfile,
   getCurrentConsentNotice,
   getLearningCatalog,
   startLearningSession,
@@ -21,25 +19,15 @@ import { secureErrorMessage } from "@/lib/secure-error";
 import { useAuthStore } from "@/stores/auth-store";
 import { StudentShell } from "./StudentShell";
 
-const EMPTY_PROFILE: AcademicProfile = {
-  studentNumber: "",
-  course: "",
-  yearLevel: "",
-  section: "",
-};
-
 export function SecureTaskStart() {
   const navigate = useNavigate();
-  const { firebaseUser, userProfile, reloadProfile } = useAuthStore();
+  const { firebaseUser, userProfile } = useAuthStore();
   const [mode, setMode] = useState<"curated" | "free_form">("curated");
   const [catalog, setCatalog] = useState<LearningCatalog | null>(null);
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("Basic");
   const [question, setQuestion] = useState("");
-  const [academicProfile, setAcademicProfile] = useState<AcademicProfile>(
-    userProfile?.academicProfile ?? EMPTY_PROFILE
-  );
   const [consented, setConsented] = useState<boolean | null>(null);
   const [notice, setNotice] = useState<GetCurrentConsentNoticeResponse | null>(null);
   const [topicRecommendations, setTopicRecommendations] = useState<Record<string, AdaptiveRecommendation>>({});
@@ -88,20 +76,6 @@ export function SecureTaskStart() {
     }, [selectedTopic?.name, topicRecommendations]);
   const topics = catalog?.topics.filter((topic) => topic.subjectId === subjectId) ?? [];
 
-  async function saveAcademicProfile(event: React.FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError(null);
-    try {
-      await completeAcademicProfile(academicProfile);
-      await reloadProfile();
-    } catch (cause) {
-      setError(secureErrorMessage(cause, "Academic profile could not be saved."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
   async function acceptNotice() {
     if (!acknowledge || !userProfile || !notice) return;
     setLoading(true);
@@ -136,46 +110,6 @@ export function SecureTaskStart() {
 
   if (loading && consented === null) {
     return <StudentShell active="task"><CenteredLoader /></StudentShell>;
-  }
-
-  if (userProfile && !userProfile.academicProfileComplete) {
-    return (
-      <StudentShell active="task">
-        <form onSubmit={saveAcademicProfile} className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          <UserRoundCheck className="h-12 w-12 text-indigo-600 dark:text-indigo-400" />
-          <h1 className="mt-4 text-2xl font-bold text-slate-950 dark:text-white">Complete your academic profile</h1>
-          <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-            These fields are required before your first learning session and are visible only to you and authorized System Administrators.
-          </p>
-          {error && <ErrorMessage message={error} />}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {([
-              ["studentNumber", "Student number"],
-              ["course", "Course"],
-              ["yearLevel", "Year level"],
-              ["section", "Section"],
-            ] as const).map(([field, label]) => (
-              <label key={field} className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                {label}
-                <input
-                  required
-                  maxLength={field === "course" ? 160 : 80}
-                  value={academicProfile[field]}
-                  onChange={(event) => setAcademicProfile((current) => ({
-                    ...current,
-                    [field]: event.target.value,
-                  }))}
-                  className="mt-2 w-full rounded-lg border border-slate-200 bg-white p-3 font-normal text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-              </label>
-            ))}
-          </div>
-          <button disabled={loading} className="mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50">
-            {loading ? "Saving profile..." : "Save and continue"}
-          </button>
-        </form>
-      </StudentShell>
-    );
   }
 
   if (consented === false) {
