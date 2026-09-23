@@ -3,7 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { chromium } from "@playwright/test";
 
 // Public-page baseline only. Authenticated learning and real devices require staging evidence.
-const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", "4179", "--strictPort"], { windowsHide: true, stdio: "pipe" });
+const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", "4179"], { windowsHide: true, stdio: "pipe" });
 let diagnostics = "";
 server.stderr.on("data", chunk => { diagnostics += chunk; });
 let browser;

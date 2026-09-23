@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LearningService } from "../../worker/src/service";
-import { AI_WORKFLOW_VERSION, allowedSupport, checkMath, educationalContext, initialGates, numericValue, recommendation, GeminiTutor, type Turn, type Score, type Tutor } from "../../worker/src/tutor";
-import { encode, decode, ServiceError, type Env, type RecordDoc, type Store } from "../../worker/src/platform";
+import { LearningService } from "../../server/services/LearningService";
+import { AI_WORKFLOW_VERSION, allowedSupport, checkMath, educationalContext, initialGates, numericValue, recommendation, GeminiTutor, type Turn, type Score, type Tutor } from "../../server/gemini";
+import { ServiceError, type Env, type RecordDoc, type Store } from "../../server/platform";
 import { REASONING_PHASES } from "@mindguide/contracts";
 
 // In-memory unit fixtures only. Never seed or connect a Firebase project.
@@ -16,7 +16,7 @@ class MemoryStore implements Store {
     for(const {doc,data} of writes)this.put(doc.path,data);
   }
 }
-const env={AI_ENABLED:"true",AI_FREE_TIER_CONFIRMED:"true",GEMINI_MODEL:"gemini-3.6-flash",GEMINI_RPM:"100",GEMINI_TPM:"10000000",GEMINI_RPD:"1000"} as Env;
+const env={GEMINI_API_KEY:"unit-test-only",AI_ENABLED:"true",AI_FREE_TIER_CONFIRMED:"true",GEMINI_MODEL:"gemini-3.6-flash",GEMINI_RPM:"100",GEMINI_TPM:"10000000",GEMINI_RPD:"1000"} as Env;
 const response=(overrides:Partial<Turn>={}):Turn=>({feedback:"Your reasoning identifies the target.",question:"Which information is given?",accepted:false,confidence:"high",category:"none",evidence:["Student identifies the target quantity."],intent:"answer",leaksSolution:false,...overrides});
 let db:MemoryStore, generate:ReturnType<typeof vi.fn>, service:LearningService;
 const baseReference={answerSpecification:{kind:"number",value:8},expectedConcepts:["mean"],solutionSteps:["Sum and divide by the count."],finalAnswer:"8",interpretation:"The average is 8.",problemVersion:1,validationRecordId:"approval"};
@@ -33,6 +33,26 @@ const start=()=>service.operation("startLearningSession",{mode:"curated",topicId
 const answer=(session:any,intent="answer",requestId=crypto.randomUUID())=>service.operation("evaluatePhaseResponse",{sessionId:session.id,expectedPhase:session.currentPhase,revision:session.revision,intent,response:{plainText:"The target is the average of the given values."},requestId});
 
 describe("AI session authority and recovery",()=>{
+  it("recovers only the authenticated user's exact saved operation without generating again", async () => {
+    const input = { mode: "curated", topicId: "mean", requestId: crypto.randomUUID() };
+    const result = await service.operation("startLearningSession", input);
+    const calls = generate.mock.calls.length;
+    const recovery = { operation: "startLearningSession", input };
+    expect(await service.operation("getLearningOperationResult", recovery)).toEqual({ status: "complete", result });
+    await expect(service.operation("getLearningOperationResult", { ...recovery, input: { ...input, topicId: "different" } })).rejects.toThrow("does not match");
+    const own = db.records.get(`ai_operations/alice_${input.requestId}`)!;
+    db.records.delete(`ai_operations/alice_${input.requestId}`);
+    db.records.set(`ai_operations/bob_${input.requestId}`, own);
+    expect(await service.operation("getLearningOperationResult", recovery)).toEqual({ status: "missing" });
+    expect(generate).toHaveBeenCalledTimes(calls);
+  });
+  it("keeps the request lease valid through a slow retried provider call", async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, "now").mockReturnValue(now);
+    generate.mockImplementation(async () => { clock.mockReturnValue(now + 95000); return response(); });
+    try { expect((await start()).session.needsOpening).toBe(false); }
+    finally { clock.mockRestore(); }
+  });
   it("pins private references and starts an AI conversation",async()=>{
     const {session}=await start();expect(session.workflowVersion).toBe(AI_WORKFLOW_VERSION);expect(session.needsOpening).toBe(false);
     expect((await db.get(`sessions/${session.id}/private/reference`)).data.finalAnswer).toBe("8");expect(JSON.stringify(session)).not.toContain('"finalAnswer"');
@@ -72,8 +92,12 @@ describe("AI session authority and recovery",()=>{
     expect(result.session.responseCount).toBe(0);expect(result.session.currentPhase).toBe(session.currentPhase);
     expect((await db.get(`sessions/${session.id}`)).data.gateStates.problem_understanding.attemptCount).toBe(0);
   });
-  it("recognizes clarification sent using the answer action",async()=>{
-    const {session}=await start();generate.mockResolvedValue(response({intent:"question"}));expect((await answer(session)).session.responseCount).toBe(0);
+  it.each(["question", "help"] as const)("recognizes natural %s messages sent using the answer action",async(intent)=>{
+    const {session}=await start();generate.mockResolvedValue(response({intent}));
+    const result = await answer(session);
+    expect(result.session.responseCount).toBe(0);
+    expect(result.session.currentPhase).toBe(session.currentPhase);
+    expect((await db.get(`sessions/${session.id}`)).data.gateStates.problem_understanding.attemptCount).toBe(0);
   });
   it("progresses requested help without marking it as a failed answer",async()=>{
     let {session}=await start();generate.mockResolvedValue(response({intent:"help"}));
@@ -146,6 +170,29 @@ describe("AI session authority and recovery",()=>{
     const input={sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID()};await service.operation("submitLearningSession",input);await service.operation("submitLearningSession",input);
     expect((await db.get("learning_progress/alice")).data.sessionsCompleted).toBe(1);
   });
+  it("walks every reasoning phase, saves a draft and awards progress and notifications",async()=>{
+    let {session}=await start();
+    generate.mockResolvedValue(response({intent:"help"}));
+    ({session}=await service.operation("requestSessionSupport",{sessionId:session.id,revision:session.revision,requestedLevel:"socratic_prompt",requestId:crypto.randomUUID()}));
+    generate.mockResolvedValue(response({accepted:true}));
+    for (const phase of REASONING_PHASES) {
+      expect(session.currentPhase).toBe(phase);
+      ({session}=await service.operation("evaluatePhaseResponse",{sessionId:session.id,revision:session.revision,expectedPhase:phase,response:{plainText:phase==="guided_computation_or_proof"?"8":"The observations have equal weight; sum them and divide by their count."},requestId:crypto.randomUUID()}));
+    }
+    ({session}=await service.operation("saveSessionDraft",{sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID(),draft:{answer:{plainText:"8"},methodology:"Sum and divide by three",reflection:"Each observation has equal weight"}}));
+    const criterion={score:20,evidence:["Saved methodology"],evidenceIds:["final_methodology"],reason:"Appropriate method",improvementAdvice:"State the units",confidence:"high"};
+    generate.mockResolvedValue({accuracy:criterion,logicalValidity:criterion,methodSelection:criterion,explanationQuality:criterion,feedback:"Sound reasoning",solution:{method:"Mean",justification:"Equal weights",steps:["Add and divide"],answer:"8",verification:"Recompute",interpretation:"The average is 8"}});
+    ({session}=await service.operation("finalizeScorecard",{sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID()}));
+    const input={sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID()};
+    await service.operation("submitLearningSession",input);
+    await service.operation("submitLearningSession",input);
+    expect((await db.get(`sessions/${session.id}`)).data.status).toBe("submitted");
+    const progress=(await db.get("learning_progress/alice")).data;
+    expect(progress.sessionsCompleted).toBe(1);
+    expect(progress.achievements.first_step.sourceSessionId).toBe(session.id);
+    expect(await db.query("notifications")).toHaveLength(2);
+    expect((await db.get("learning_progress/alice/assignment_state/mean")).data.activeSessionId).toBeNull();
+  });
 });
 
 describe("Mathematics and adaptation",()=>{
@@ -168,9 +215,6 @@ describe("Mathematics and adaptation",()=>{
   it("does not send account identity or secrets as educational context",()=>{
     const context=educationalContext({session:{studentId:"secret-uid",studentName:"Private Name",email:"email@private.invalid",currentPhase:"method_selection"},reference:{apiKey:"secret-api"},messages:[],intent:"question"});
     expect(JSON.stringify(context)).not.toMatch(/secret-uid|Private Name|private.invalid|secret-api/);
-  });
-  it("round trips Firestore timestamps and nested reference values",()=>{
-    const input={date:new Date("2026-09-21"),empty:[],nested:{n:2.5,b:true,none:null}};expect(decode(encode(input))).toEqual(input);
   });
   it("rejects malformed or truncated Gemini output",async()=>{
     vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({candidates:[{finishReason:"MAX_TOKENS",content:{parts:[{text:'{"accepted":'}]}}]})));

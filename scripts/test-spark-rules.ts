@@ -70,14 +70,32 @@ scenario("cannot fabricate scorecard", "DENY", "sessions/session/scorecards/scor
 scenario("cannot update quota", "DENY", "ai_usage/shared", "update", {}, {request:{resource:{data:{daily:0}}}});
 scenario("own tutor history", "ALLOW", "sessions/session/messages/message", "get", {}, {mocks:[getMock("sessions/session",session)]});
 scenario("other tutor history", "DENY", "sessions/session/messages/message", "get", {}, {mocks:[getMock("sessions/session",{...session,studentId:"rules-bob"})]});
+scenario("list own tutor conversation", "ALLOW", "sessions/session/messages/message", "list", {}, {mocks:[getMock("sessions/session",session)]});
+scenario("cannot list another learner conversation", "DENY", "sessions/session/messages/message", "list", {}, {mocks:[getMock("sessions/session",{...session,studentId:"rules-bob"})]});
+scenario("signed out cannot list tutor conversation", "DENY", "sessions/session/messages/message", "list", {}, {request:{auth:null},mocks:[getMock("sessions/session",session)]});
+scenario("inactive learner cannot list tutor conversation", "DENY", "sessions/session/messages/message", "list", {}, {
+  request:{auth:{uid:"rules-inactive",token:{role:"student"}}},
+  mocks:[getMock("users/rules-inactive",{status:"suspended",role:"student"}),getMock("sessions/session",{...session,studentId:"rules-inactive"})],
+});
 const aiDraftSession={...session,workflowVersion:6,currentPhase:"controlled_solution_release"};
 scenario("save final draft only", "ALLOW", "sessions/session", "update", aiDraftSession, {request:{time,resource:{data:{...aiDraftSession,revision:1,draft:{answer:{plainText:"8"},methodology:"Explanation",reflection:"Interpretation"}}}},mocks:[getMock("sessions/session",aiDraftSession)]});
 scenario("cannot smuggle gate change with draft", "DENY", "sessions/session", "update", aiDraftSession, {request:{time,resource:{data:{...aiDraftSession,revision:1,gateStates:{accepted:true},draft:{answer:{plainText:"8"},methodology:"Explanation",reflection:"Interpretation"}}}},mocks:[getMock("sessions/session",aiDraftSession)]});
 
 const token = await applicationDefault().getAccessToken();
+let source = { files: [{ name: "firestore.rules", content: await readFile("firestore.rules", "utf8") }] };
+if (process.argv.includes("--deployed")) {
+  const headers = { Authorization: `Bearer ${token.access_token}` };
+  const releaseResponse = await fetch(`https://firebaserules.googleapis.com/v1/projects/${project}/releases/cloud.firestore`, { headers });
+  if (!releaseResponse.ok) throw new Error(`Cannot read deployed rules release: ${releaseResponse.status}`);
+  const release = await releaseResponse.json();
+  const rulesResponse = await fetch(`https://firebaserules.googleapis.com/v1/${release.rulesetName}`, { headers });
+  if (!rulesResponse.ok) throw new Error(`Cannot read deployed rules: ${rulesResponse.status}`);
+  source = (await rulesResponse.json()).source;
+  console.log(`Testing deployed Firestore rules for ${project}.`);
+}
 const result = await fetch(`https://firebaserules.googleapis.com/v1/projects/${project}:test`, {
   method: "POST", headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ source: { files: [{ name: "firestore.rules", content: await readFile("firestore.rules", "utf8") }] }, testSuite: { testCases: cases.map(item => item.test) } }),
+  body: JSON.stringify({ source, testSuite: { testCases: cases.map(item => item.test) } }),
 });
 const report = await result.json();
 if (!result.ok) throw new Error(`Rules simulator returned ${result.status}: ${JSON.stringify(report.error?.message)}`);

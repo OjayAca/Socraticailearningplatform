@@ -360,6 +360,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
+    await verifyAdministratorAccess(user, snapshot.data());
     return normalizeUserProfile({
       uid: user.uid,
       ...snapshot.data(),
@@ -367,6 +368,18 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   }
 
   return createUserProfile(user, user.displayName || "User");
+}
+
+async function verifyAdministratorAccess(user: User, profile: Record<string, unknown>) {
+  if (!isAdminRole(profile.role)) return;
+  if (profile.role !== "admin" || profile.status !== "active") {
+    throw new ProfileLoadError("Your administrator profile needs to be migrated to an active admin account by the Firebase project operator.");
+  }
+  // Pick up operator-applied claims before any administrator queries mount.
+  const token = await user.getIdTokenResult(true);
+  if (token.claims.role !== "admin") {
+    throw new ProfileLoadError("Your administrator sign-in claim is missing. Ask the Firebase project operator to synchronize your admin access, then retry your profile.");
+  }
 }
 
 /**

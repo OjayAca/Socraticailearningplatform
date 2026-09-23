@@ -1,3 +1,5 @@
+> Historical documentation. The current application uses the native Next.js backend. See [current migration and deployment instructions](NEXT_BACKEND_MIGRATION.md) and [README](../README.md). Do not use the retired deployment commands below.
+
 # Spark operations and deployment
 
 ## Runtime and trust model

@@ -1,3 +1,5 @@
+> Historical documentation. The current application uses the native Next.js backend. See [current migration and deployment instructions](NEXT_BACKEND_MIGRATION.md) and [README](../README.md). Do not use the retired deployment commands below.
+
 # AI tutor setup and rollout
 
 Firebase project: `socratic-ai-a7765`. Worker: `mindguide-socratic-tutor`.

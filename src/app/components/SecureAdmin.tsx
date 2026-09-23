@@ -485,7 +485,7 @@ export function SecureAdminUsers() {
         />
       </div>
       {message && <Message text={message} />}
-      <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Delete Auth accounts or reset access in <a className="underline" href={`https://console.firebase.google.com/project/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/authentication/users`} target="_blank" rel="noreferrer">Firebase Console</a>. Role changes require an authorized operator to update both custom claims and the Firestore profile; they cannot be performed by this browser.</p>
+      <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">Delete Auth accounts or reset access in <a className="underline" href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/authentication/users`} target="_blank" rel="noreferrer">Firebase Console</a>. Role changes require an authorized operator to update both custom claims and the Firestore profile; they cannot be performed by this browser.</p>
       {loading ? (
         <Spinner />
       ) : (
@@ -1145,8 +1145,8 @@ export function SecureAdminMaintenance() {
         <section className="mt-6 rounded-xl border p-5 space-y-3">
           <h2 className="font-bold">Operator maintenance</h2>
           <p>Account deletion, backup and restore, security configuration, and retention cleanup require an authorized project operator. This page does not perform or verify those tasks.</p>
-          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/authentication/users`}>Open Authentication users</a>
-          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${import.meta.env.VITE_FIREBASE_PROJECT_ID}/firestore`}>Open Firestore data and rules</a>
+          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/authentication/users`}>Open Authentication users</a>
+          <a className="block underline" target="_blank" rel="noreferrer" href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore`}>Open Firestore data and rules</a>
           <p>Review dependencies and the recorded retention policy before cleanup. Restore only verified backups of this project; no demo data or replacement approvals.</p>
         </section>
       </div>

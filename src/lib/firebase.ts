@@ -1,7 +1,7 @@
 /**
  * Firebase application initialization and service exports.
  *
- * Reads configuration from environment variables (prefixed with VITE_)
+ * Reads configuration from environment variables (public NEXT_PUBLIC_ values; existing VITE_ values are mapped by Next.js)
  * and initializes the Firebase app, Auth, and Firestore instances.
  *
  * @module lib/firebase
@@ -16,13 +16,13 @@ import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 const requiredConfigKeys = [
@@ -42,7 +42,7 @@ export const isFirebaseConfigured = requiredConfigKeys.every(
 ) && !firebaseConfig.projectId?.startsWith("demo-");
 
 export const firebaseSetupMessage =
-  "Firebase is not configured yet. Add your VITE_FIREBASE_* values to a .env file to enable sign-in and database features.";
+  "Firebase is not configured yet. Add your public Firebase values to a .env file to enable sign-in and database features.";
 
 /** The initialized Firebase app instance. */
 const firebaseApp: FirebaseApp | null = isFirebaseConfigured
@@ -55,7 +55,7 @@ export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
 /** Cloud Firestore database instance. */
 export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
 
-const appCheckSiteKey = import.meta.env.VITE_RECAPTCHA_ENTERPRISE_SITE_KEY as
+const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY as
   | string
   | undefined;
 

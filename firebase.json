@@ -2,24 +2,5 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  },
-  "hosting": {
-    "public": "dist",
-    "predeploy": [
-      "npm run build",
-      "npm run scan:bundle",
-      "node scripts/verify-deploy-gate.mjs"
-    ],
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
   }
 }

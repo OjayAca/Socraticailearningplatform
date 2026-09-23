@@ -1,6 +1,0 @@
-# Local server-only secrets. Copy to .dev.vars, which is ignored by Git.
-# Keep the project ID identical to VITE_FIREBASE_PROJECT_ID in the root .env.
-FIREBASE_PROJECT_ID="your-existing-project-id"
-FIREBASE_SERVICE_ACCOUNT='{"type":"service_account","project_id":"your-existing-project-id","client_email":"worker-account@your-existing-project-id.iam.gserviceaccount.com","private_key":"-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"}'
-GEMINI_API_KEY="your-google-ai-studio-key"
-ALLOWED_ORIGINS="http://localhost:5173,http://localhost:4173,https://your-existing-project-id.web.app"

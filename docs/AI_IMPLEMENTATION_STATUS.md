@@ -1,3 +1,5 @@
+> Historical documentation. The current application uses the native Next.js backend. See [current migration and deployment instructions](NEXT_BACKEND_MIGRATION.md) and [README](../README.md). Do not use the retired deployment commands below.
+
 # AI implementation and verification status
 
 Status as of 2026-09-21: implemented workflow v6; rollout blocked. **Do not claim that all six features have been demonstrated with real learning configuration.**

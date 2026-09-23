@@ -1,5 +1,6 @@
+import "server-only";
 import { z } from "zod";
-import { REASONING_PHASES, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase, type Difficulty, type MathResponse } from "../../packages/contracts/src/index";
+import { REASONING_PHASES, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase, type Difficulty, type MathResponse } from "../packages/contracts/src/index";
 import { ensure, ServiceError, type Env } from "./platform";
 
 export const AI_WORKFLOW_VERSION = 6;
@@ -21,7 +22,7 @@ const providerSchema = (schema: typeof turnSchema | typeof scoreSchema) => {
   const { $schema: _schema, ...jsonSchema } = z.toJSONSchema(schema);
   return jsonSchema;
 };
-// Build schemas once per isolate, outside request handling on the tight Free CPU budget.
+// Build schemas once per server process.
 const turnJsonSchema = providerSchema(turnSchema);
 const scoreJsonSchema = providerSchema(scoreSchema);
 export type Turn = z.infer<typeof turnSchema>;
@@ -72,13 +73,14 @@ export function educationalContext(context: TutorContext) {
     ...(context.intent === "score" ? { draft: session.draft, assistance: session.supportHistory, learnerEvidence: messages.filter(m => m.role === "student").slice(-35).map(m => ({ id: m.id, phase: m.phase, text: String(m.text).slice(0, 1600) })) } : {}),
   };
 }
-// Pre-stringify JSON schemas once per isolate to avoid per-request serialization.
+// Pre-stringify JSON schemas once per server process to avoid per-request serialization.
 const turnJsonSchemaString = JSON.stringify(turnJsonSchema);
 const scoreJsonSchemaString = JSON.stringify(scoreJsonSchema);
 
 export class GeminiTutor implements Tutor {
   constructor(private env: Env) { }
   async generate(context: TutorContext): Promise<Turn | Score> {
+    ensure(this.env.GEMINI_API_KEY && this.env.GEMINI_MODEL, "The AI provider is not configured.", 503);
     const schema = context.intent === "score" ? scoreSchema : turnSchema;
     const jsonSchema = context.intent === "score" ? scoreJsonSchema : turnJsonSchema;
     const schemaString = context.intent === "score" ? scoreJsonSchemaString : turnJsonSchemaString;
@@ -98,6 +100,7 @@ export class GeminiTutor implements Tutor {
   /** Call Gemini with a single automatic retry on 503 (not on location blocks). */
   private async callGemini(body: string, retried: boolean): Promise<any> {
     let response: Response;
+    const started = Date.now();
     try {
       response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(this.env.GEMINI_MODEL)}:generateContent`, {
         method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": this.env.GEMINI_API_KEY }, signal: AbortSignal.timeout(45000), body,
@@ -105,6 +108,8 @@ export class GeminiTutor implements Tutor {
     } catch (networkError) {
       if (networkError instanceof ServiceError) throw networkError;
       throw new ServiceError(503, "ai-network-error", "Could not reach the AI provider. Your work is preserved; retry later.");
+    } finally {
+      console.info(JSON.stringify({ event: "gemini_request_timing", retried, durationMs: Date.now() - started }));
     }
     if (response.status === 429) throw new ServiceError(429, "ai-quota", "The free AI allowance is temporarily unavailable. Your work is saved; try again later.", 60);
     if (!response.ok) {
@@ -154,7 +159,7 @@ export function projection(id: string, session: any) {
   };
 }
 
-// A small bounded arithmetic parser avoids eval and a large symbolic engine on a Free Worker.
+// A small bounded arithmetic parser avoids eval and a large symbolic engine in the backend.
 export function numericValue(input: string): number | null {
   const source = input.replace(/\s/g, "");
   if (!source || source.length > 240 || !/^[\d.eE+*/()^%-]+$/.test(source)) return null;

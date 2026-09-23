@@ -1,59 +1,79 @@
 # MINDGUIDE
 
-MINDGUIDE is a formative learning application for Quantitative Methods and Discrete Mathematics. Workflow v6 uses **React → Cloudflare Worker → Gemini Free + Firebase Spark**, with Firebase Authentication and Hosting. Learning decisions move to the Worker; old practice records remain readable without rescoring.
+MINDGUIDE is a formative Socratic learning platform for Quantitative Methods and Discrete Mathematics. The application runs in **Next.js → native /api/learning → Firebase Admin / Firestore + Gemini**. Firebase browser authentication, the existing React Router interface, and workflow v6 are preserved.
 
-**AI rollout is not yet complete.** The Worker is deployed with student AI disabled. Follow [AI setup and rollout](docs/AI_TUTOR_SETUP.md) and [verification status](docs/AI_IMPLEMENTATION_STATUS.md). The Spark-only details below describe the historical workflow and are not v6 deployment instructions.
+Use the existing Firebase project configured in .env. Do not seed a demo database, connect an emulator, manufacture approvals, or run data migrations for this backend move.
 
-The existing Firebase project in `.env` is the application database. Do not replace it with a demo project, connect an emulator, seed sample questions, or manufacture validation records.
+## Local development
 
-## Learning behavior
-
-- Topic selection reads only approved topics from `topics`.
-- Prepared questions come from the existing `problems` collection. Only approved, validated questions with matching published scoring references are assignable.
-- Previously answered questions remain excluded, including historical responses. Transactions coordinate assignment and resumable sessions across tabs.
-- The seven guided phases, mathematical input, hints, supported own-problem formats, drafts, scoring, submissions, achievements, dashboard, and history remain available.
-- Difficulty starts at Basic. First-answer accuracy over up to five completed questions in the selected topic increases difficulty at 80% or above, maintains it at 50–79%, and decreases it below 50%.
-- New scorecards use `spark-practice-v1`: four local criteria worth 25 points each. These are client-generated practice indicators, not official or tamper-proof assessments. Historical scores are not rescored.
-- Learner data is owner-scoped. Administrators retain content management, validation, review, reporting, announcements, and application account-status controls.
-
-## Development and verification
-
-Use Node.js 22 and the existing `.env` configuration. `.env.example` describes public web configuration; it is not a replacement database.
+Use Node.js 22:
 
 ```sh
 npm install
 npm run dev
-npm run typecheck
-npm run lint
-npm run test
-npm run build
-npm run scan:bundle
-npm run test:e2e
 ```
 
-`npm run test:rules` uses Firebase's hosted rules simulator and the signed-in operator. It supplies simulated request/function contexts and does not create Firestore test data or start an emulator. The unit tests use in-memory mocks only.
+Open http://localhost:5173. Existing public VITE_FIREBASE_* values in .env remain supported through an explicit allowlist in next.config.mjs. New installations may use the equivalent NEXT_PUBLIC_FIREBASE_* identifiers. These must identify the same project as the server.
 
-## Spark deployment
+Set private backend values in ignored .env.local using the empty placeholders in .env.example: GEMINI_API_KEY, GEMINI_MODEL, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY. The private key accepts quoted escaped newlines. Preserve existing AI_ENABLED, AI_FREE_TIER_CONFIRMED, GEMINI_RPM, GEMINI_TPM, GEMINI_RPD, and optional OPERATOR_UID settings. Missing enablement defaults to disabled. Never prefix secrets with NEXT_PUBLIC_ or VITE_.
+
+## Verification
 
 ```sh
-firebase login
-npm run migrate:spark
-npm run migrate:spark -- --apply
-npm run release:preflight
-npm run test:rules
-firebase deploy --only firestore:rules,firestore:indexes,hosting --project socratic-ai-a7765
+npm run check
+npm run test:e2e -- tests/e2e/public.spec.ts
+npm run ai:preflight
+npm run ai:health
 ```
 
-The migration is dry-run by default, verifies the project against `.env`, and publishes only allowed scoring fields from genuinely approved content. It never approves questions, populates a demo bank, or changes historical learning records. If there are no approved questions, it correctly performs no conversion.
+ai:preflight reads the real learning configuration using the signed-in Firebase operator. ai:health authenticates the existing operator account and checks the running backend, defaulting to localhost:5173; use MINDGUIDE_BASE_URL for another deployment. It does not create learning records. Add -- --probe to health to test structured Gemini output. npm run ai:probe -- --free-tier-confirmed tests Gemini directly without student data or database writes. Probes consume provider quota.
 
-See [Spark operations and deployment](docs/SPARK_DEPLOYMENT.md) for readiness checks, manual account administration, retention, and rollback. Earlier files under `docs/mindguide-secure-release` describe the retired server architecture and are historical evidence, not current deployment instructions.
+Unit/component tests use in-memory fixtures only. Public browser tests cover navigation, login-page rendering, and signed-out route protection. Authenticated learning verification requires an existing admitted account, current consent, and genuinely approved content.
 
 ## Source layout
 
-- `src/lib/learning`: browser-compatible mathematical checks, guided workflow, scoring, progress, and adaptive selection.
-- `src/lib/learning-service.ts`: owner-scoped Firestore learning transactions.
-- `src/lib/admin-service.ts`: Firestore administration; privileged Auth operations are directed to Firebase Console.
-- `packages/contracts`: shared types and workflow ordering.
-- `scripts/migrate-spark.ts`: operator-only conversion of existing validated scoring material.
+```text
+app/
+  layout.tsx                    Existing page metadata, fonts and styles
+  client-app.tsx                Browser-only host for the existing interface
+  [[...slug]]/page.tsx          Existing client route entrypoint
+  api/learning/route.ts        Authenticated Node.js API
+server/
+  auth.ts                      Firebase ID-token verification
+  config.ts                    Private configuration and project guards
+  firebase.ts                  Reused Firebase Admin app
+  firestore.ts                 Atomic, version-checked Firestore adapter
+  gemini.ts                    Existing prompts, Tutor and Zod output schemas
+  platform.ts                  Service contracts and errors
+  services/LearningService.ts  Existing learning workflow
+src/                          Existing interface and browser Firebase services
+packages/contracts/           Shared types and workflow ordering
+```
 
-Firebase's `firebase` umbrella package may include transitive Functions SDK packages in its installation. The application does not import or initialize them, and there is no Functions backend workspace or deployment target. Admin SDK usage is restricted to local operator scripts.
+All nine learning mutations, activity checks and verified-problem previews remain available. Backend membership, consent, content approval, ownership, quota, idempotency and progress checks remain authoritative. Historical records retain their original workflow/scoring versions.
+
+## Deployment
+
+Build and run on a Node.js Next.js host:
+
+```sh
+npm ci
+npm run check
+npm start
+```
+
+Configure the same public Firebase identifiers before building and private backend secrets through the host's secret store. Run one Next.js service for both interface and API. npm start listens on port 3000 by default; pass -- --port PORT if required. Allow at least 120 seconds for API requests at the hosting/proxy layer. Existing learner request deadlines and lease protections remain in place.
+
+Use a region supported by the configured Gemini project. Add the application hostname to Firebase Authentication's authorized domains and any enabled App Check configuration. Keep existing Firebase rules and indexes. firebase.json now contains only Firestore deployment targets; plain Firebase Hosting static deployment cannot run this backend. Do not deploy the obsolete dist directory or use static export.
+
+Publish the repository's current Firestore rules to the existing project as part of the backend migration. Older rules deny the browser's tutor-message reads even when the server can save a session:
+
+```sh
+npm run test:rules
+npx firebase deploy --only firestore:rules --project socratic-ai-a7765
+npm run test:rules -- --deployed
+```
+
+The rules tests use Firebase's hosted rules simulator and do not create database records. They check that active learners can read their own conversations while other learners, signed-out users, and suspended users cannot.
+
+See [migration details and acceptance checks](docs/NEXT_BACKEND_MIGRATION.md). Older deployment/audit documents are historical evidence and must not be used to redeploy the retired architecture.

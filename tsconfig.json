@@ -22,20 +22,34 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "types": [
-      "vite/client",
       "node"
     ],
     "paths": {
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "incremental": true,
+    "allowJs": true,
+    "esModuleInterop": true
   },
   "include": [
     "src",
     "tests",
-    "vite.config.ts",
     "vitest.config.ts",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "app",
+    "server",
+    "next-env.d.ts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

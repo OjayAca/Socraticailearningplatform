@@ -37,3 +37,9 @@ npm-debug.log*
 # Local Firebase migration backups (may contain private student data)
 .local-backups/
 migration-backups/
+
+# Next.js output and local environments
+.next/
+*.tsbuildinfo
+.env.*
+!.env.example

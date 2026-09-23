@@ -1,10 +1,11 @@
+import "server-only";
 import { REASONING_PHASES, SCHEMA_VERSION } from "../../packages/contracts/src/index";
 import { solveVerifiedProblem, verifiedConfirmation } from "../../src/lib/learning/verified-problems";
 import { validateOperation } from "../../src/lib/learning/validation";
 import { contentHash } from "../../src/lib/learning/content-hash";
 import { nextLearningProgress } from "../../src/lib/learning/session-state";
-import { AI_WORKFLOW_VERSION, PROMPT_VERSION, RUBRIC_VERSION, allowedSupport, checkMath, exposesAnswer, initialGates, projection, recommendation, scoreSchema, turnSchema, type Score, type Tutor, type TutorContext, type Turn } from "./tutor";
-import { digest, ensure, ServiceError, type Env, type RecordDoc, type Store } from "./platform";
+import { AI_WORKFLOW_VERSION, PROMPT_VERSION, RUBRIC_VERSION, allowedSupport, checkMath, exposesAnswer, initialGates, projection, recommendation, scoreSchema, turnSchema, type Score, type Tutor, type TutorContext, type Turn } from "../gemini";
+import { digest, ensure, ServiceError, type Env, type RecordDoc, type Store } from "../platform";
 
 const idOf = (doc: RecordDoc) => doc.path.split("/").at(-1)!;
 const empty = (path: string): RecordDoc => ({ path, data: null });
@@ -52,6 +53,19 @@ export class LearningService {
     if (blockers.length) throw new ServiceError(backendDisabled ? 503 : 403, "practice-not-ready", `AI practice is not ready: ${blockers.join("; ")}. Your saved work is unchanged.`);
   }
   async operation(name: string, raw: any): Promise<any> {
+    if (name === "getLearningOperationResult") {
+      await this.member();
+      let original: any;
+      try { original = validateOperation(raw?.operation, raw?.input); }
+      catch { throw new ServiceError(400, "invalid-request", "Invalid recovery request."); }
+      ensure(mutationNames.has(raw.operation) && typeof original.requestId === "string", "Invalid recovery request.");
+      const saved = await this.db.get(`ai_operations/${this.uid}_${original.requestId}`);
+      if (!saved.data) return { status: "missing" };
+      ensure(saved.data.fingerprint === await digest({ name: raw.operation, input: original }), "This request does not match the saved operation.", 409);
+      return saved.data.status === "complete"
+        ? { status: "complete", result: saved.data.result }
+        : { status: saved.data.status === "pending" && saved.data.expiresAt > Date.now() ? "pending" : "retryable" };
+    }
     let input: any;
     try { input = validateOperation(name, raw); } catch { throw new ServiceError(400,"invalid-request","Check the request fields and try again."); }
     const profile = await this.member();
@@ -142,7 +156,8 @@ export class LearningService {
     const lock = await this.db.get(`ai_locks/${this.uid}`);
     ensure(!lock.data || lock.data.expiresAt < Date.now(), "Another request is still processing. Retry shortly.", 409);
     const leaseId = crypto.randomUUID();
-    const expiresAt = Date.now()+90000;
+    // Outlive the route's 120-second budget, including provider retries and commits.
+    const expiresAt = Date.now()+150000;
     const reservation: Array<{doc:RecordDoc;data:any}> = [{doc:op,data:{fingerprint,status:"pending",expiresAt,leaseId,sessionId:idOf(session!),createdAt:stamp()}}, {doc:lock,data:{leaseId,expiresAt}}];
     if (aiCall) reservation.push(...await this.reserveQuota());
     if (starting) {

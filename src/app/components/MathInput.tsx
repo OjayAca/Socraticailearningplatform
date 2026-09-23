@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
 import "mathlive";
@@ -8,6 +8,7 @@ type MathFieldElement = HTMLElement & {
   value: string;
   insert: (value: string) => void;
   focus: () => void;
+  readOnly: boolean;
 };
 
 const SYMBOLS = [
@@ -28,24 +29,30 @@ const SYMBOLS = [
 export function MathInput({
   value,
   onChange,
+  notationOnly = false,
+  disabled = false,
   label = "Your reasoning",
   explanationPlaceholder = "Explain your reasoning in words...",
 }: {
   value: MathResponse;
   onChange: (value: MathResponse) => void;
+  notationOnly?: boolean;
+  disabled?: boolean;
   label?: string;
   explanationPlaceholder?: string;
 }) {
   const fieldRef = useRef<MathFieldElement | null>(null);
+  const explanationId = useId();
 
   useEffect(() => {
     const field = fieldRef.current;
     if (!field) return;
+    field.readOnly = disabled;
     if (field.value !== (value.latex ?? "")) field.value = value.latex ?? "";
     const handleInput = () => onChange({ ...value, latex: field.value });
     field.addEventListener("input", handleInput);
     return () => field.removeEventListener("input", handleInput);
-  }, [onChange, value]);
+  }, [disabled, onChange, value]);
 
   const preview = useMemo<{ html: string; error: string | null }>(() => {
     if (!value.latex?.trim()) {
@@ -65,12 +72,13 @@ export function MathInput({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label className="mb-2 block text-sm font-bold text-slate-800" htmlFor="math-explanation">
+      {!notationOnly && <div>
+        <label className="mb-2 block text-sm font-bold text-slate-800" htmlFor={explanationId}>
           {label}
         </label>
         <textarea
-          id="math-explanation"
+          id={explanationId}
+          disabled={disabled}
           value={value.plainText}
           onChange={(event) => onChange({ ...value, plainText: event.target.value })}
           maxLength={4000}
@@ -78,7 +86,7 @@ export function MathInput({
           placeholder={explanationPlaceholder}
           className="w-full rounded-xl border border-slate-300 bg-white p-4 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
         />
-      </div>
+      </div>}
 
       <div className="space-y-2">
         <span className="block text-sm font-bold text-slate-800">Mathematical notation (optional)</span>
@@ -87,6 +95,7 @@ export function MathInput({
             <button
               key={name}
               type="button"
+              disabled={disabled}
               onClick={() => {
                 fieldRef.current?.insert(command);
                 fieldRef.current?.focus();
@@ -113,7 +122,7 @@ export function MathInput({
           <div className="overflow-x-auto rounded-xl bg-slate-50 p-3" aria-label="Rendered equation preview" dangerouslySetInnerHTML={{ __html: preview.html }} />
         ) : null}
       </div>
-      <p className="text-xs text-slate-500">Keyboard-entered text and LaTeX are supported. Images, handwriting, OCR, and graphical input are not accepted.</p>
+      {!notationOnly && <p className="text-xs text-slate-500">Keyboard-entered text and LaTeX are supported. Images, handwriting, OCR, and graphical input are not accepted.</p>}
     </div>
   );
 }

@@ -2,7 +2,8 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "ignoreDependencies": [
     "tailwindcss",
-    "tw-animate-css"
+    "tw-animate-css",
+    "server-only"
   ],
   "workspaces": {
     ".": {
@@ -13,7 +14,9 @@
         "src/**/*.{ts,tsx}",
         "scripts/**/*.{mjs,ts}",
         "tests/**/*.{mjs,ts,tsx}",
-        "*.config.{js,mjs,ts}"
+        "*.config.{js,mjs,ts}",
+        "app/**/*.{ts,tsx}",
+        "server/**/*.ts"
       ]
     },
     "packages/contracts": {
