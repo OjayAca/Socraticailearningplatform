@@ -1,3 +1,5 @@
+> Historical server-architecture document. Current implementation and deployment: [Spark operations](../SPARK_DEPLOYMENT.md). Functions-specific requirements below no longer apply to the Spark application.
+
 # Schema-v4 Data Dictionary
 
 ## Public or learner-readable
@@ -13,8 +15,9 @@
 | `sessions/{id}/responses` | Learner response plus safe evaluation/diagnosis | None |
 | `sessions/{id}/scorecards` | Evidence-backed formative criterion results | None |
 | `sessions/{id}/unlock_events` | Authorized support already released | None |
-| `learning_progress/{uid}` | Aggregate learner progress and recommendations | None |
+| `learning_progress/{uid}` | Aggregate learner progress, subject rollups, latest scorecard metadata, adaptive recommendations, streak and exactly-once achievement awards | None |
 | `notifications/{id}` | Recipient notification | Recipient may only change `read` to true |
+| `announcements/{id}` | Canonical administrator announcement and delivery summary | None; administrators may read |
 
 ## Protected
 
@@ -33,6 +36,7 @@
 | `audit_logs` | Immutable administrative/export/privacy evidence | Admin/server |
 | `ai_failure_logs` | Correlated AI fallback/failure evidence | Admin/server |
 | `idempotency`, `rate_limits`, `evaluation_locks` | Server control records | Server only |
+| `deletion_jobs/{requestId}` | Resumable permanent-account deletion state without learner email content | Server only |
 | `learning_progress/{uid}/assignment_state/{topicId}` | Per-difficulty recent variant IDs used for transactional non-repeating assignment | Server only |
 
 New sessions store safe configuration IDs/versions publicly and the resolved prompts, references, conditions, policies, and solution material in `sessions/{id}/private/reference`. Administrator edits therefore affect only sessions created after the edit. Firestore reads return whole documents, so private references must never be placed in learner-readable problem documents or the browser bundle. `scripts/migrate-v4.ts --verify` and the browser-bundle scan enforce the split.
@@ -66,3 +70,14 @@ erDiagram
 - In-progress sessions: expire after configured inactivity hours (24 by default).
 - Identifiable learner records: retain through `studyClosedAt` plus `identifiableRetentionMonths` (12 by default), then pseudonymize identity while preserving aggregate research data.
 - Audit logs: delete after the same configured post-study retention boundary.
+
+## Schema/workflow v5 additions
+
+- `problems/{id}/private/solution`: `answerSpecification` (number/expression/truth/set/named parts), `safeHints` by phase/support level, `rubricVersion`, optional verified givens. Never browser data.
+- `content_validation_records/{id}`: immutable exact `manifest` and `manifestHash`, faculty decision/evidence, problem identity and version.
+- `rubrics/pilot-v5`: draft/reviewed anchors, version, calibration status and evidence. `pilot_roster/{uid}` binds admitted/revoked status to verified Auth identity.
+- `system_settings/pilot`: closed/open/drain/write-freeze, enabled topics, release artifact ID, daily AI/start request ceilings. `release_artifacts/{hash}` stores owner-attested project/artifact evidence; clients cannot write it.
+- v5 sessions: authoritative `responseCount`, safe `lastDiagnosis` and `supportHistory`, immutable scorecard rubric/calibration/assistance metadata, and start input fingerprint. Legacy scores retain their original definitions.
+- `idempotency`: input fingerprint and lease token accompany logical request IDs. `assignment_reservations` keep retries on the same selection; committed assignment rotation changes with session creation.
+- `privacy_jobs`, `retention_jobs`, `content_deletion_jobs`: resumable completion/failure state. Cleanup retains only minimal pseudonymous numerical session summaries; raw response/question/draft text is removed along with linked private records.
+- Report responses: `nextCursor`, `complete`, `totalRows`, `populationCount`, `eventField`, `asOf`. Date controls interpret calendar dates in Asia/Manila. Usage/activity dates mean creation; completed-learning dates mean submission.

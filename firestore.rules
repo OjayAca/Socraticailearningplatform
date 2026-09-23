@@ -1,195 +1,121 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() {
-      return request.auth != null;
+    function signedIn() { return request.auth != null; }
+    function owner(uid) { return signedIn() && request.auth.uid == uid; }
+    function active() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
     }
-
-    function activeAccount() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
-    }
-
-    function isAdmin() {
-      return activeAccount()
-        && request.auth.token.role == "admin"
+    function admin() {
+      return active() && request.auth.token.get('role', '') == "admin"
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
-
-    function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
+    function ownSession(id) { return active() && get(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
+    function ownSessionAfter(id) { return active() && getAfter(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
+    function preferences(value) {
+      return value is map && value.keys().hasOnly(['liveAlertPopups', 'theme', 'reducedMotion'])
+        && (!('liveAlertPopups' in value) || value.liveAlertPopups is bool)
+        && (!('theme' in value) || value.theme in ['light', 'dark', 'system'])
+        && (!('reducedMotion' in value) || value.reducedMotion is bool);
     }
-
-    function validPreferences(value) {
-      return value is map
-        && value.keys().hasOnly(["liveAlertPopups", "theme", "reducedMotion"])
-        && (!value.keys().hasAny(["liveAlertPopups"]) || value.liveAlertPopups is bool)
-        && (!value.keys().hasAny(["theme"]) || value.theme in ["light", "dark", "system"])
-        && (!value.keys().hasAny(["reducedMotion"]) || value.reducedMotion is bool);
-    }
-
-    function validOwnProfileUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          "displayName",
-          "preferences",
-          "updatedAt"
-        ])
-        && request.resource.data.displayName is string
-        && request.resource.data.displayName.size() >= 1
-        && request.resource.data.displayName.size() <= 120
-        && validPreferences(request.resource.data.preferences)
-        && request.resource.data.updatedAt == request.time
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.status == resource.data.status;
-    }
-
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create, delete: if false;
-      allow update: if isOwner(userId) && activeAccount() && validOwnProfileUpdate();
-
+    match /users/{uid} {
+      allow get: if owner(uid) || admin();
+      allow list: if admin();
+      allow create: if owner(uid)
+        && request.resource.data.keys().hasOnly(['schemaVersion','displayName','email','role','status','preferences','academicProfile','academicProfileComplete','createdAt','updatedAt'])
+        && request.resource.data.role == 'student' && request.resource.data.status == 'active'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
+        && request.resource.data.academicProfile == null && request.resource.data.academicProfileComplete == false
+        && preferences(request.resource.data.preferences)
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
+      allow update: if (owner(uid) && active()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','preferences','updatedAt'])
+        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
+        && preferences(request.resource.data.preferences) && request.resource.data.updatedAt == request.time)
+        || (admin() && resource.data.role == 'student'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+          && request.resource.data.status in ['active','suspended','deactivated'] && request.resource.data.updatedAt == request.time);
+      allow delete: if false;
       match /consents/{version} {
-        allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
-        allow write: if false;
+        allow read: if (owner(uid) && active()) || admin();
+        allow create, update: if owner(uid)
+          && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'active'
+          && request.resource.data.keys().hasOnly(['version','acknowledgedAt','source'])
+          && request.resource.data.version == version && request.resource.data.source == 'web'
+          && request.resource.data.acknowledgedAt == request.time
+          && get(/databases/$(database)/documents/policy_documents/$(version)).data.status == 'active'
+          && version == get(/databases/$(database)/documents/system_settings/privacy).data.currentConsentVersion;
+      }
+      match /operations/{id} {
+        allow read: if owner(uid) && active();
+        allow create: if owner(uid) && active()
+          && request.resource.data.keys().hasOnly(['name','sessionId','result','createdAt'])
+          && request.resource.data.name is string && ownSessionAfter(request.resource.data.sessionId)
+          && request.resource.data.result is map && request.resource.data.createdAt == request.time;
+        allow update, delete: if false;
       }
     }
-
-    match /subjects/{subjectId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
-      allow write: if false;
+    match /subjects/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /topics/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /problems/{id} {
+      allow read: if admin() || (active() && resource.data.status == 'approved');
+      allow write: if admin();
+      match /private/{key} { allow read, write: if admin(); }
     }
-
-    match /topics/{topicId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
-      allow write: if false;
-    }
-
-    match /problems/{problemId} {
-      allow get, list: if activeAccount() && (isAdmin() || resource.data.status == "approved");
-      allow write: if false;
-
-      match /private/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-    }
-
-    match /formula_theorem_references/{referenceId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /socratic_prompt_bank/{promptId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /misconception_categories/{categoryId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /difficulty_policies/{policyId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /content_validation_records/{validationId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /policy_documents/{policyId} {
-      allow read: if activeAccount() && (isAdmin() || resource.data.status == "active");
-      allow write: if false;
-    }
-
-    match /sessions/{sessionId} {
-      allow get: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow list: if activeAccount() && (resource.data.studentId == request.auth.uid || isAdmin());
-      allow create, update, delete: if false;
-
-      match /responses/{responseId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
-      }
-
-      match /scorecards/{scorecardId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
-      }
-
-      match /unlock_events/{eventId} {
-        allow read: if activeAccount()
-          && (get(/databases/$(database)/documents/sessions/$(sessionId)).data.studentId == request.auth.uid || isAdmin());
-        allow write: if false;
-      }
-
-      match /private/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-
-      match /private_evaluations/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-
-      match /private_ai/{documentId} {
-        allow read: if isAdmin();
-        allow write: if false;
-      }
-    }
-
-    match /learning_progress/{userId} {
-      allow read: if (isOwner(userId) && activeAccount()) || isAdmin();
-      allow write: if false;
-    }
-
-    match /notifications/{notificationId} {
-      allow get, list: if activeAccount() && resource.data.recipientId == request.auth.uid;
+    // Answer references and AI decisions are server-owned. History remains owner-readable.
+    match /problem_scoring/{id} { allow read, write: if admin(); }
+    match /sessions/{id} {
+      allow get: if active() && (!exists(/databases/$(database)/documents/sessions/$(id)) || resource.data.studentId == request.auth.uid || admin());
+      allow list: if active() && (resource.data.studentId == request.auth.uid || admin());
       allow create, delete: if false;
-      allow update: if activeAccount()
-        && resource.data.recipientId == request.auth.uid
-        && request.resource.data.recipientId == resource.data.recipientId
-        && request.resource.data.read == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["read"]);
+      allow update: if (ownSession(id)
+        && resource.data.workflowVersion == 6 && resource.data.status == 'in_progress'
+        && resource.data.currentPhase == 'controlled_solution_release'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['draft','revision','updatedAt','lastActivityAt'])
+        && request.resource.data.draft.keys().hasOnly(['answer','methodology','reflection'])
+        && request.resource.data.draft.answer is map
+        && request.resource.data.draft.answer.keys().hasOnly(['plainText','latex','normalizedLatex','mathJson'])
+        && request.resource.data.draft.answer.plainText is string && request.resource.data.draft.answer.plainText.size() <= 4000
+        && request.resource.data.draft.methodology is string && request.resource.data.draft.methodology.size() <= 4000
+        && request.resource.data.draft.reflection is string && request.resource.data.draft.reflection.size() <= 2000
+        && request.resource.data.revision == resource.data.revision + 1
+        && request.resource.data.updatedAt == request.time && request.resource.data.lastActivityAt == request.time)
+        || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminReview','reviewedAt','updatedAt','revision'])
+          && resource.data.status in ['submitted','reviewed','returned']
+          && request.resource.data.status in ['reviewed','returned']
+          && request.resource.data.revision == resource.data.revision + 1 && request.resource.data.updatedAt == request.time);
+      match /private/{key} { allow read: if admin(); allow write: if false; }
+      match /practice_reference/{key} { allow read: if admin(); allow write: if false; }
+      match /messages/{messageId} { allow read: if ownSession(id) || admin(); allow write: if false; }
+      match /responses/{responseId} { allow read: if ownSession(id) || admin(); allow write: if false; }
+      match /scorecards/{scorecardId} { allow read: if ownSession(id) || admin(); allow write: if false; }
     }
-
-    match /audit_logs/{logId} {
-      allow read: if isAdmin();
+    match /learning_progress/{uid} {
+      allow read: if (owner(uid) && active()) || admin();
       allow write: if false;
+      match /assignment_state/{topicId} { allow read: if (owner(uid) && active()) || admin(); allow write: if false; }
     }
-
-    match /ai_failure_logs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false;
+    match /ai_operations/{id} { allow read, write: if false; }
+    match /ai_locks/{id} { allow read, write: if false; }
+    match /ai_usage/{id} { allow read: if admin(); allow write: if false; }
+    match /notifications/{id} {
+      allow read: if active() && resource.data.recipientId == request.auth.uid;
+      allow create: if admin() || (active() && request.resource.data.recipientId == request.auth.uid
+        && request.resource.data.eventType == 'achievement_awarded' && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time);
+      allow update: if admin() || (active() && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) && request.resource.data.read == true);
+      allow delete: if admin();
     }
-
-    match /system_settings/{settingId} {
-      allow read: if isAdmin();
-      allow write: if false;
-    }
-
-    match /idempotency/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /rate_limits/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /evaluation_locks/{documentId} {
-      allow read, write: if false;
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+    match /policy_documents/{id} { allow read: if admin() || (active() && resource.data.status == 'active'); allow write: if admin(); }
+    match /system_settings/{id} { allow get: if admin() || (active() && id == 'privacy'); allow list, write: if admin(); }
+    match /pilot_roster/{id} { allow get: if owner(id) || admin(); allow list, write: if admin(); }
+    match /content_validation_records/{id} { allow read, create: if admin(); allow update, delete: if false; }
+    match /audit_logs/{id} { allow read, create: if admin(); allow update, delete: if false; }
+    match /{name}/{id} {
+      allow read, write: if admin() && name in ['formula_theorem_references','socratic_prompt_bank','misconception_categories','difficulty_policies','rubrics','announcements'];
+      allow read: if admin() && name == 'ai_failure_logs';
     }
   }
 }

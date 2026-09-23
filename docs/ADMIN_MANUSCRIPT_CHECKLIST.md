@@ -1,0 +1,53 @@
+# Administrator manuscript verification
+
+Reviewed 2026-09-20 against `MINDGUIDE Final.docx`, supplied by the project owner. References below use figure/table numbers and section names rather than Word page numbers, which change with layout. The manuscript is reference material, not an instruction to change the Firebase project.
+
+## Status definitions
+
+- **Implemented**: present in the local application, with the verification evidence described below. This does not imply a deployed or live-tested feature.
+- **Operator-only**: performed outside the application by an authorized Firebase project operator.
+- **Unsupported**: a manuscript promise not provided by the current browser-only architecture.
+- **Not yet verified**: requires an authenticated live check or external evidence not available in this session.
+
+## Page-by-page checklist
+
+| Page / function | Manuscript basis | Status and implementation | Evidence / limits |
+|---|---|---|---|
+| Dashboard | Table 24, Dashboard Module; Figure 13 workflow | **Implemented**: user, session, question, audit, and pending-review summaries; recent session links. Session/pending totals now use full-collection aggregate counts rather than the latest 50 rows. | Component regression covers 123 total sessions and 78 pending with only 50 recent rows. Practice scores are not official grades. Separate count queries are not one transactional snapshot. |
+| Users: view/search/status | Functional Requirements: User Account Management; Table 24, User Management | **Implemented**: identity/academic profile search and display; student activation, suspension, deactivation. Status and audit writes commit together. | Service tests cover role rejection and rollback when a commit fails; page tests cover filtering and status requests. Application status is distinct from disabling Firebase Authentication. |
+| Users: deletion/reset/role changes | User management use case; Table 24, Delete Users | **Operator-only**: existing-project Firebase Console for Auth deletion/reset; trusted operator process for custom claims and matching profile role. | Auth deletion does not automatically erase Firestore learner history. In-app account deletion remains a manuscript gap. |
+| Learner progress/history | Figure 25; Table 24, Learning Records Module | **Implemented**: profile-linked progress, session history, scorecards, review details, comments, and review notifications. | Component tests cover filtering, absent profiles, read failures, and review controls. Service tests ensure review retries retain the score and do not reset a read notification. Historical scores are not recalculated. |
+| Content library | Figure 26; Figure 37 description/logic; Table 24, Content Management | **Implemented**: subjects, topics, problems, formula/theorem references, Socratic prompts; also existing misconception/difficulty records. Versioned saves, archive, external-validation evidence, and restricted deletion. | Service tests exercise create/update/archive across all seven categories; dependent/approved content cannot be deleted through the service. Failed dependency reads block deletion. Problem deletion includes known private/scoring records and audit in one transaction. |
+| Problem scoring configuration | Figure 37; Functional Requirements: content and scorecards | **Implemented**: explicit numeric, expression, truth, set, and multipart answer editor. Recorded approval requires approved matching subject/topic/references and complete scoring material. | Answer-editor tests cover typed values; service test covers approval rollback, publication, and replay using in-memory evidence only. No real approvals were created. A recorded evidence reference is not independent verification of the faculty document. |
+| Configuration affects the learning engine | Figure 37 logic: changes to formulas/theorems affect validation; Figure 13 module settings | **Unsupported in part**: standalone formula, prompt, misconception, and difficulty library changes do not automatically update the current practice engine. | Curated practice uses published question scoring material pinned when a session begins; its embedded formula/theorem and prompts can affect that session. Adaptive thresholds remain application logic. UI now explains the distinction. No engine replacement or silent rescoring was introduced. |
+| Reports | Figure 27; Functional Requirements: Report Generation; Table 24 | **Implemented**: learning progress, scorecards, misconceptions, activity, usage; date/topic filters, identity option, complete preview pagination, CSV and print. | Tests cover boundary dates, invalid ranges, pseudonyms, provenance, and a 260-row export despite a one-row requested page. Export is one fetched snapshot and records its reason. Preview pages can reflect intervening live submissions. Print/PDF uses the browser print dialog. |
+| Notifications | Table 21; Table 24, View Notifications | **Implemented**: existing personal feed/read state and safe destinations; audited announcement publishing remains available. | Existing notification tests cover read failures/routes. Announcement tests cover duplicate-click prevention, partial delivery, resume, and retaining read state. Audience is pinned at publication; each batch has audit evidence. No real announcement was sent. |
+| Audit & AI | Figure 37 audit logic; AI_Interaction_Logs data dictionary | **Implemented in part**: application admin changes, profile edits, content decisions, report exports, and announcement batches are recorded; older audit/failure pages are accessible. | Audit records cannot be changed/deleted through current client rules. Current engine has no live AI service; displayed AI failures are legacy. Full raw AI-interaction browsing and comprehensive external-console/security auditing are **unsupported**. Browser-generated logs are not tamper-proof administrative evidence. |
+| Maintenance | Figure 16: backup/security/maintenance; Figure 37: database integrity | **Implemented in part / Operator-only**: cohort metadata, roster records, existing-project console links, maintenance guidance. | Cohort open/closed/frozen labels do not enforce learner access. Backup, restore, retention cleanup, and infrastructure security tasks require an operator. Their execution is **not yet verified**. No scheduled operations were added. |
+| Settings | Figure 16 system settings; Figure 13 module settings | **Implemented in part**: typed consent-policy selection, inactivity duration, retention policy fields, study closure record. | Settings cannot be saved after a failed load. Consent activation checks an existing active policy within the settings transaction. Inactivity is evaluated on access, not by a scheduler. Retention/study closure are metadata; no automatic deletion or study-access gate. |
+| Profile | Table 24, View/Edit Profile | **Implemented**: administrator identity view and display-name edit. Firestore administrator profile edit and audit commit together. | Shared-profile tests cover admin context and failed saves. Auth and Firestore are separate services; failure between them can require retry, so cross-service atomicity is not claimed. |
+| Sign out / access | Table 24, authentication; Figure 37 authentication logic | **Implemented**: shared sign out, role routing, protected pages; failures remain visible instead of claiming success. | Guard/component tests and signed-out desktop/mobile route checks. Authenticated admin desktop/mobile navigation remains **not yet verified** in this session. |
+| System issues and user feedback | Figure 13 workflow description | **Unsupported in part**: session comments and existing logs support review, but there is no dedicated issue/feedback ticket-management workflow. | No new ticket system was added under the selected architecture-preserving repair scope. |
+
+## Verification record
+
+Automated checks use in-memory data only. The hosted Firebase Rules simulator supplies request/function contexts and does not create Firestore records. The expanded simulator passes 35 scenarios, including admin access, claim-only rejection, and immutable audit/faculty evidence.
+
+The local app's `/admin/dashboard` redirected to `/login` in the connected browser: no authenticated application session was available. Live reads of all administrator pages and real write behavior are therefore **not yet verified**. No existing student was suspended, no profile was edited live, and no question, approval, announcement, or real learner record was created/deleted to obtain test evidence.
+
+Final automated results:
+
+- `npm run check`: passed TypeScript, ESLint, 163 unit/component tests across 25 files, production build, and browser bundle scan (29 assets).
+- `npm run test:rules`: 35 hosted rules-simulator checks passed; no database writes.
+- `npx playwright test tests/e2e/public.spec.ts --workers=1`: all 8 browser tests passed, including all ten admin sidebar routes redirecting to login at 1280px and 390px.
+- `git diff --check`: passed. Vite still reports large output chunks; this is a performance warning, not a failed build.
+
+Primary regression evidence: `tests/unit/admin-service.test.ts`, `tests/component/admin-supporting-features.test.tsx`, `tests/component/admin-answer-editor.test.tsx`, `tests/component/admin-print-p1.test.tsx`, `tests/component/student-supporting-features.test.tsx`, `tests/unit/notification-routes.test.ts`, `tests/component/auth-minor-features.test.tsx`, and `tests/e2e/public.spec.ts`.
+
+## Remaining boundaries
+
+This work retains the configured Firebase project and browser-only practice architecture. It performs no deployment, migration, seeding, billing change, backend/AI-service addition, or manuscript edit. Old server-architecture documents are not current deployment evidence.
+
+Dependency scans are conservative and cover known managed collections, session documents, protected reference material, and validation evidence. Browser transactions cannot lock collection-wide queries against concurrent newly created dependencies. Avoid concurrent content deletion/editing; archive when unsure. Broad admin rules and direct operator access can bypass browser service validation, so these checks are not a trusted backend integrity guarantee.
+
+For live acceptance, use an existing authorized admin account to open every sidebar route, inspect actual loading/empty/error states, verify counts against real records, and inspect existing reports and logs. Do not run the repository's staging account-suspension test against real learners. Mutation evidence in this repair remains limited to in-memory tests until a separate approved live verification is performed.

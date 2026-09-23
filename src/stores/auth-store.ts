@@ -17,10 +17,15 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  reload,
+  getIdToken,
   type User,
 } from "firebase/auth";
 import {
   doc,
+  collection,
+  writeBatch,
   getDoc,
   setDoc,
   serverTimestamp,
@@ -66,6 +71,8 @@ interface AuthState {
   signInWithGoogle: () => Promise<UserProfile>;
   /** Sends a password reset email without revealing whether the account exists. */
   resetPassword: (email: string) => Promise<void>;
+  sendVerification: () => Promise<void>;
+  refreshVerification: () => Promise<boolean>;
   /** Signs out the current user. */
   signOut: () => Promise<void>;
   /** Updates the user's display name. */
@@ -220,6 +227,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null, isLoading: true });
     try {
       const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
       const credential = await signInWithPopup(requireAuth(), provider);
       const profile = await loadUserProfile(credential.user);
       set({
@@ -252,7 +260,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  sendVerification: async () => {
+    const user = requireAuth().currentUser;
+    if (!user) throw new Error("Sign in again to verify your email.");
+    if (!user.emailVerified) await sendEmailVerification(user);
+  },
+
+  refreshVerification: async () => {
+    const user = requireAuth().currentUser;
+    if (!user) throw new Error("Sign in again to verify your email.");
+    await reload(user);
+    await getIdToken(user, true);
+    if (auth?.currentUser?.uid !== user.uid) throw new Error("The signed-in account changed. Try again.");
+    set({ firebaseUser: user });
+    return user.emailVerified;
+  },
+
   signOut: async () => {
+    for (let index = sessionStorage.length - 1; index >= 0; index--) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith("mindguide.pending.") || key?.startsWith("mindguide.draft.")) sessionStorage.removeItem(key);
+    }
     set({ error: null });
     try {
       await firebaseSignOut(requireAuth());
@@ -292,11 +320,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       // 2. Update Firestore Document
       const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      await setDoc(
-        userRef,
-        { displayName: normalizedName, updatedAt: serverTimestamp() },
-        { merge: true }
-      );
+      if (isAdminRole(get().userProfile?.role)) {
+        const batch = writeBatch(requireDb());
+        batch.set(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
+        batch.set(doc(collection(requireDb(), "audit_logs")), { actorId: firebaseUser.uid, action: "admin_profile_update", target: userRef.path, createdAt: serverTimestamp() });
+        await batch.commit();
+      } else {
+        await setDoc(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
+      }
       
       // 3. Update Local Store State
       set((state) => ({
@@ -329,6 +360,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
+    await verifyAdministratorAccess(user, snapshot.data());
     return normalizeUserProfile({
       uid: user.uid,
       ...snapshot.data(),
@@ -336,6 +368,18 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   }
 
   return createUserProfile(user, user.displayName || "User");
+}
+
+async function verifyAdministratorAccess(user: User, profile: Record<string, unknown>) {
+  if (!isAdminRole(profile.role)) return;
+  if (profile.role !== "admin" || profile.status !== "active") {
+    throw new ProfileLoadError("Your administrator profile needs to be migrated to an active admin account by the Firebase project operator.");
+  }
+  // Pick up operator-applied claims before any administrator queries mount.
+  const token = await user.getIdTokenResult(true);
+  if (token.claims.role !== "admin") {
+    throw new ProfileLoadError("Your administrator sign-in claim is missing. Ask the Firebase project operator to synchronize your admin access, then retry your profile.");
+  }
 }
 
 /**

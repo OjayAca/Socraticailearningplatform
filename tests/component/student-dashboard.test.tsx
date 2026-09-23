@@ -5,6 +5,7 @@ import { SecureStudentDashboard } from "@/app/components/SecureStudent";
 
 const mocks = vi.hoisted(() => ({
   getDocs: vi.fn(),
+  getDoc: vi.fn(),
   setTheme: vi.fn(),
   signOut: vi.fn<() => Promise<void>>(),
 }));
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("firebase/firestore", () => ({
   collection: vi.fn(),
   doc: vi.fn(),
-  getDoc: vi.fn(),
+  getDoc: mocks.getDoc,
   getDocs: mocks.getDocs,
   limit: vi.fn(),
   orderBy: vi.fn(),
@@ -70,6 +71,8 @@ function renderDashboard() {
 describe("SecureStudentDashboard", () => {
   beforeEach(() => {
     mocks.getDocs.mockReset();
+    mocks.getDoc.mockReset();
+    mocks.getDoc.mockResolvedValue({ exists: () => false });
     mocks.setTheme.mockReset();
     mocks.signOut.mockReset();
     mocks.signOut.mockResolvedValue();
@@ -84,8 +87,17 @@ describe("SecureStudentDashboard", () => {
         subject: "Quantitative Methods",
         topic: "Probability",
         status: "in_progress",
-        schemaVersion: 3,
-        workflowVersion: 4,
+        schemaVersion: 5,
+        workflowVersion: 6,
+      },
+      {
+        id: "scored-session",
+        subject: "Discrete Mathematics",
+        topic: "Graph Theory",
+        status: "ready_for_submission",
+        schemaVersion: 5,
+        workflowVersion: 6,
+        scorecard: { total: 85 },
       },
       {
         id: "submitted-session",
@@ -102,6 +114,22 @@ describe("SecureStudentDashboard", () => {
         ctScore: 70,
       },
     ]));
+    mocks.getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({
+        sessionsCompleted: 2,
+        averageCTScore: 75,
+        currentStreak: 3,
+        latestScorecard: {
+          sessionId: "submitted-session",
+          total: 80,
+          subject: "Discrete Mathematics",
+          topic: "Logic and Propositions",
+          summary: "Strong reasoning with clear next steps.",
+        },
+        achievements: {},
+      }),
+    });
 
     const { container } = renderDashboard();
 
@@ -110,9 +138,12 @@ describe("SecureStudentDashboard", () => {
 
     expect(within(screen.getByText("Completed").parentElement!).getByText("2")).toBeVisible();
     expect(within(screen.getByText("Formative average").parentElement!).getByText("75/100")).toBeVisible();
-    expect(within(screen.getByText("Active").parentElement!).getByText("1")).toBeVisible();
+    expect(within(screen.getByText("Current streak").parentElement!).getByText("3 days")).toBeVisible();
+    expect(within(screen.getAllByText("Latest scorecard")[0].parentElement!).getByText("80/100")).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Achievements" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /start session/i })).toHaveAttribute("href", "/student/task");
     expect(container.querySelector('a[href="/session/active-session/learn"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/session/scored-session/learn"]')).toBeInTheDocument();
     expect(container.querySelector('a[href="/student/review/submitted-session"]')).toBeInTheDocument();
   });
 

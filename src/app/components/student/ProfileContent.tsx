@@ -11,19 +11,26 @@ import {
   User,
 } from "lucide-react";
 import { motion } from "motion/react";
+import { useLocation } from "react-router";
 import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { UserStats } from "@/types";
+import type { AchievementAward, AchievementId } from "@mindguide/contracts";
+import { AchievementGrid } from "../AchievementGrid";
 
 export function ProfileContent() {
-  const { userProfile, updateDisplayName, error, clearError } = useAuthStore();
+  const { hash } = useLocation();
+  const { userProfile, firebaseUser, sendVerification, refreshVerification, updateDisplayName, error, clearError } = useAuthStore();
+  const [verificationBusy, setVerificationBusy] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [newName, setNewName] = useState(userProfile?.displayName || "");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [learningStats, setLearningStats] = useState<UserStats | null>(null);
+  const [achievements, setAchievements] = useState<Partial<Record<AchievementId, AchievementAward>>>({});
 
   const displayName = userProfile?.displayName || "User";
   const initials = displayName
@@ -40,6 +47,7 @@ export function ProfileContent() {
       .then((snapshot) => {
         if (!active || !snapshot.exists()) return;
         const progress = snapshot.data();
+        setAchievements(progress.achievements ?? {});
         const completed = Number(progress.sessionsCompleted ?? 0);
         setLearningStats({
           sessionsCompleted: completed,
@@ -52,6 +60,15 @@ export function ProfileContent() {
       .catch(() => undefined);
     return () => { active = false; };
   }, [isAdministrator, userProfile?.uid]);
+
+  useEffect(() => {
+    if (hash !== "#achievements") return;
+    document.getElementById("achievements")?.scrollIntoView({
+      behavior: "auto",
+      block: "start",
+    });
+  }, [hash]);
+
   const stats = learningStats ?? userProfile?.stats;
 
   async function handleSaveName(e: React.FormEvent) {
@@ -77,6 +94,24 @@ export function ProfileContent() {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function verifyEmail(refresh: boolean) {
+    setVerificationBusy(true);
+    setVerificationMessage("");
+    try {
+      if (refresh) {
+        const verified = await refreshVerification();
+        setVerificationMessage(verified ? "Email verified. You can return to task selection." : "Your email is still unverified. Open the verification link, then check again.");
+      } else {
+        await sendVerification();
+        setVerificationMessage("Verification email sent. Open its link, then select Check verification.");
+      }
+    } catch (caught) {
+      setVerificationMessage(caught instanceof Error ? caught.message : "Verification could not be completed. Try again.");
+    } finally {
+      setVerificationBusy(false);
     }
   }
 
@@ -154,6 +189,18 @@ export function ProfileContent() {
         )}
       </div>
 
+      {firebaseUser && !firebaseUser.emailVerified && (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
+          <h3 className="font-bold">Verify your email</h3>
+          <p className="mt-2 text-sm">Pilot admission requires a verified email and an administrator invitation.</p>
+          <div className="mt-3 flex gap-3">
+            <button disabled={verificationBusy} onClick={() => void verifyEmail(false)} className="rounded-lg border px-3 py-2">Send verification email</button>
+            <button disabled={verificationBusy} onClick={() => void verifyEmail(true)} className="rounded-lg border px-3 py-2">Check verification</button>
+          </div>
+        </section>
+      )}
+      {verificationMessage && <p role="status" className="text-sm">{verificationMessage}</p>}
+
       {(saveError || error) && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-700 dark:text-red-300">
           <AlertCircle className="w-5 h-5 shrink-0" />
@@ -207,6 +254,7 @@ export function ProfileContent() {
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Day Streak</div>
             </div>
           </div>
+          <div className="mt-10"><AchievementGrid achievements={achievements} /></div>
         </>
       )}
     </div>

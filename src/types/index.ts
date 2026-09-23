@@ -3,6 +3,7 @@
  */
 
 import type { Timestamp } from "firebase/firestore";
+import type { AchievementId, NotificationEventType } from "@mindguide/contracts";
 
 // ─── User Types ──────────────────────────────────────────────
 
@@ -89,12 +90,6 @@ export interface MindGuideProblem {
   interpretation: string;
 }
 
-type NotificationEventType =
-  | "session_submitted"
-  | "session_reviewed"
-  | "session_returned"
-  | "follow_up_started";
-
 type NotificationDocumentId =
   `${NotificationEventType}__${string}__${string}`;
 
@@ -103,11 +98,13 @@ export interface AppNotification {
   eventType: NotificationEventType;
   senderId: string;
   recipientId: string;
-  sessionId: string;
+  sessionId?: string;
+  announcementId?: string;
+  achievementId?: AchievementId;
   title: string;
   message: string;
   read: boolean;
-  actionUrl: string;
+  actionUrl?: string;
   createdAt: Timestamp;
   userId?: string;
 }

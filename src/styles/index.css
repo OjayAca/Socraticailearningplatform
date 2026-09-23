@@ -3,6 +3,23 @@
 @import './theme.css';
 
 @media print {
+  body:has(.print-report) * {
+    visibility: hidden;
+  }
+
+  body:has(.print-report) .print-report,
+  body:has(.print-report) .print-report * {
+    visibility: visible;
+  }
+
+  body:has(.print-report) .print-report {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: white;
+    color: black;
+  }
+
   @page {
     size: A4;
     margin: 14mm;

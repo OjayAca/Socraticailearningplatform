@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { MathText } from "./MathText";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { Link, Navigate, useParams } from "react-router";
 import {
   AlertCircle,
@@ -11,16 +12,19 @@ import {
   LockKeyhole,
   RefreshCw,
   Send,
+  X,
+  ArrowDown,
 } from "lucide-react";
 import type {
-  DiagnosisResult,
   MathResponse,
   SessionDraft,
   SessionProjection,
   SupportLevel,
+  TutorMessage,
 } from "@mindguide/contracts";
 import {
   PHASE_LABELS,
+  SCHEMA_VERSION,
   SOLVER_STAGES,
   SOLVER_STAGE_LABELS,
   SOLVER_STAGE_PHASES,
@@ -29,16 +33,21 @@ import {
   solverStageForPhase,
 } from "@mindguide/contracts";
 import { db } from "@/lib/firebase";
+import { isCurrentLearningSession } from "@/lib/session-compatibility";
 import {
   abandonLearningSession,
+  checkLearningSessionActivity,
   evaluatePhaseResponse,
   finalizeScorecard,
   requestSessionSupport,
+  resumeTutorOpening,
   saveSessionDraft,
   submitLearningSession,
 } from "@/lib/secure-api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MathInput } from "./MathInput";
+import { ScorecardDetails } from "./ScorecardDetails";
+import { TutorMessageBubble } from "./TutorMessageBubble";
 
 const EMPTY_RESPONSE: MathResponse = { plainText: "", latex: "" };
 
@@ -52,35 +61,90 @@ export function SecureSession() {
     methodology: "",
     reflection: "",
   });
-  const [diagnosis, setDiagnosis] = useState<DiagnosisResult | null>(null);
   const [prompt, setPrompt] = useState<string>("");
-  const [support, setSupport] = useState<{ level: SupportLevel; title: string; content: string[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [slowRequest, setSlowRequest] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlowRequest(loading), loading ? 15000 : 0);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const nearBottom = useRef(true);
+  const busy = useRef(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const restoreComposerFocus = useRef(false);
+  const lastSend = useRef<{ key: string; requestId: string } | null>(null);
+  const lastHint = useRef<{ key: string; requestId: string } | null>(null);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [pendingText, setPendingText] = useState<string | null>(null);
+  const [showEquation, setShowEquation] = useState(false);
+  const [messages, setMessages] = useState<TutorMessage[]>([]);
+  const refreshMessages = useCallback(async () => {
+    if (!db || !sessionId) return;
+    const result = await getDocs(collection(db, "sessions", sessionId, "messages"));
+    setMessages(result.docs.map(item => ({ ...item.data(), id: item.id, createdAt: item.get("createdAt")?.toMillis?.() ?? 0 } as TutorMessage)).sort((a,b) => a.createdAt-b.createdAt));
+  }, [sessionId]);
 
   const load = useCallback(async () => {
     if (!db || !sessionId || !firebaseUser) return;
     setLoading(true);
     setError(null);
     try {
+      await checkLearningSessionActivity(sessionId);
       const snapshot = await getDoc(doc(db, "sessions", sessionId));
       if (!snapshot.exists()) throw new Error("The learning session was not found.");
       const data = snapshot.data();
-      if (data.schemaVersion !== 3 || data.workflowVersion !== WORKFLOW_VERSION) {
-        throw new Error("This is a preserved legacy session. View it from your learning history or start a current-workflow follow-up.");
+      if (!isCurrentLearningSession(data)) {
+        throw new Error("This session uses an incompatible legacy workflow. View it from your learning history or start a current-workflow follow-up.");
       }
       const projected = firestoreProjection(snapshot.id, data);
       setSession(projected);
       if (projected.draft) setDraft(projected.draft);
+      const local = sessionStorage.getItem(`mindguide.draft.${firebaseUser.uid}.${sessionId}`);
+      if (local && projected.status === "in_progress") {
+        const saved = JSON.parse(local);
+        if (saved.revision === projected.revision) { setDraft(saved.draft); setResponse(saved.response); }
+      }
       setPrompt(projected.currentPrompt || promptFor(projected.currentPhase));
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be loaded.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
-  }, [firebaseUser, sessionId]);
+  }, [firebaseUser, sessionId, refreshMessages]);
 
   useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
+
+  useEffect(() => {
+    if (!firebaseUser || !sessionId || !session || loading) return;
+    const key = `mindguide.draft.${firebaseUser.uid}.${sessionId}`;
+    if (session.status !== "in_progress") { sessionStorage.removeItem(key); return; }
+    sessionStorage.setItem(key, JSON.stringify({ revision: session.revision, draft, response }));
+  }, [draft, response, session, sessionId, firebaseUser, loading]);
+
+  function jumpToLatest() {
+    const viewport = scrollRef.current;
+    if (viewport) viewport.scrollTop = viewport.scrollHeight;
+    nearBottom.current = true;
+    setHasNewMessages(false);
+  }
+
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    if (!viewport) return;
+    if (nearBottom.current) viewport.scrollTop = viewport.scrollHeight;
+  }, [messages, pendingText, loading]);
+
+  useEffect(() => {
+    if (!loading && restoreComposerFocus.current) {
+      composerRef.current?.focus();
+      restoreComposerFocus.current = false;
+    }
+  }, [loading]);
 
   const progress = useMemo(() => {
     if (!session) return 0;
@@ -89,7 +153,13 @@ export function SecureSession() {
   }, [session]);
 
   async function submitReasoning() {
-    if (!session || !isReasoningPhase(session.currentPhase)) return;
+    if (!session || busy.current || loading || session.needsOpening || !isReasoningPhase(session.currentPhase) || (!response.plainText.trim() && !response.latex?.trim())) return;
+    busy.current = true;
+    restoreComposerFocus.current = true;
+    const key = JSON.stringify([session.id, session.currentPhase, session.revision, response]);
+    if (lastSend.current?.key !== key) lastSend.current = { key, requestId: crypto.randomUUID() };
+    const requestId = lastSend.current.requestId;
+    setPendingText([response.plainText, response.latex].filter(Boolean).join("\n"));
     setLoading(true);
     setError(null);
     try {
@@ -98,50 +168,74 @@ export function SecureSession() {
         expectedPhase: session.currentPhase,
         revision: session.revision,
         response,
+        intent: "answer",
+        requestId,
       });
       setSession(result.session);
-      setDiagnosis(result.diagnosis);
       setPrompt(result.nextPrompt);
-      if (result.evaluation.status === "accepted") setResponse(EMPTY_RESPONSE);
+      setResponse(EMPTY_RESPONSE);
+      setPendingText(null);
+      lastSend.current = null;
+      // Keep an acknowledged exchange visible even if the subsequent history read fails.
+      const studentMessage: TutorMessage = { id: `${requestId}_student`, role: "student", phase: session.currentPhase, text: [response.plainText, response.latex].filter(Boolean).join("\n"), createdAt: Date.now() };
+      setMessages(current => [...current.filter(message => message.id !== studentMessage.id && message.id !== result.tutorMessage?.id), studentMessage, ...(result.tutorMessage ? [result.tutorMessage] : [])]);
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The reasoning response could not be evaluated.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
   }
 
   async function requestSupport(level: SupportLevel) {
-    if (!session) return;
+    if (!session || busy.current || loading || session.needsOpening || !isReasoningPhase(session.currentPhase) || !session.allowedSupport.includes(level)) return;
+    busy.current = true;
+    const key = JSON.stringify([session.id, session.revision, level]);
+    if (lastHint.current?.key !== key) lastHint.current = { key, requestId: crypto.randomUUID() };
+    const requestId = lastHint.current.requestId;
     setLoading(true);
     setError(null);
     try {
-      const result = await requestSessionSupport({ sessionId: session.id, requestedLevel: level, revision: session.revision });
+      const result = await requestSessionSupport({ sessionId: session.id, requestedLevel: level, revision: session.revision, requestId });
       setSession(result.session);
-      setSupport({ level: result.level, title: result.title, content: result.content });
+      setPrompt(result.session.currentPrompt);
+      lastHint.current = null;
+      const hint: TutorMessage = { id: `${requestId}_tutor`, role: "assistant", phase: session.currentPhase, text: result.content.join("\n\n"), createdAt: Date.now() };
+      setMessages(current => [...current.filter(message => message.id !== hint.id), hint]);
+      await refreshMessages();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Support could not be unlocked.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
   }
 
   async function saveDraftAndScore() {
-    if (!session) return;
+    if (!session || busy.current || loading) return;
+    busy.current = true;
     setLoading(true);
     setError(null);
     try {
       const saved = await saveSessionDraft({ sessionId: session.id, revision: session.revision, draft });
+      setSession(saved.session);
       const scored = await finalizeScorecard(saved.session.id, saved.session.revision);
       setSession(scored.session);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The formative scorecard could not be generated.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
   }
 
   async function submitForReview() {
-    if (!session) return;
+    if (!session || busy.current || loading) return;
+    busy.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -150,6 +244,8 @@ export function SecureSession() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be submitted.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
   }
@@ -164,6 +260,8 @@ export function SecureSession() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The session could not be abandoned.");
     } finally {
+      busy.current = false;
+      setPendingText(null);
       setLoading(false);
     }
   }
@@ -180,30 +278,60 @@ export function SecureSession() {
 
   if (["submitted", "reviewed", "returned", "abandoned", "expired"].includes(session.status)) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6"><div className="max-w-xl rounded-3xl border bg-white p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600">Your authoritative reasoning record and scorecard are saved. Administrator feedback appears in your history.</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
+      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6"><div className="max-w-xl rounded-3xl border bg-white p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600">Your practice reasoning record and scorecard are saved. Administrator feedback appears in your history.</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
     );
   }
 
   const reasoning = isReasoningPhase(session.currentPhase);
   return (
-    <div className="flex-1 bg-slate-50 p-4 md:p-8">
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-wide text-indigo-600">{session.subject} · {session.topic} · {session.difficulty}</p><h1 className="mt-1 text-xl font-bold text-slate-950">{session.originalQuestion}</h1>{session.adaptiveRecommendation && <p className="mt-2 text-xs text-slate-500">Adaptive difficulty: {session.adaptiveRecommendation.reason}</p>}</div><span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-bold text-indigo-700">{progress}%</span></div>
-          <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} /></div>
-          <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4">{SOLVER_STAGES.map((stage) => { const state = session.stageProgress[stage]; return <div key={stage} className={`rounded-lg border p-3 text-xs font-semibold ${state.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state.status === "active" ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 text-slate-400"}`}>{state.status === "completed" ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <LockKeyhole className="mr-1 inline h-3 w-3" />}{SOLVER_STAGE_LABELS[stage]}<span className="mt-1 block font-normal">{state.acceptedGates}/{state.totalGates} reasoning checks</span></div>; })}</div>
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-slate-50 text-slate-800">
+      <header className="shrink-0 border-b border-slate-100 bg-white px-4 py-3 sm:px-6">
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-violet-600 text-sm font-bold text-white">MG</span>
+          <div className="min-w-0 flex-1"><h1 className="text-base font-bold sm:text-lg">Socratic Session: {session.subject}</h1><p className="text-xs text-slate-500">{session.topic}</p></div>
+          <Link to="/student/history" aria-label="Close session and return to history" className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-violet-600"><X className="h-5 w-5" /></Link>
         </div>
+        <div className="mb-1.5 mt-3 flex justify-between gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-500"><span>{SOLVER_STAGE_LABELS[session.currentStage]}</span><span>{progress}%</span></div>
+        <div role="progressbar" aria-label="Learning progress" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} className="h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-violet-600 transition-all" style={{ width: `${progress}%` }} /></div>
+      </header>
 
-        {error && <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{error}</div>}
-        {diagnosis?.category && diagnosis.category !== "none" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="font-bold text-amber-900">Corrective guidance · {diagnosis.category.replace(/_/g, " ")}</p><p className="mt-1 text-sm text-amber-800">{diagnosis.correctivePrompt}</p><p className="mt-2 text-xs font-semibold text-amber-700">Confidence: {diagnosis.confidence} · Severity: {diagnosis.severity}</p></div>}
+      <details className="shrink-0 border-b border-slate-100 bg-white px-4 text-sm sm:px-6">
+        <summary className="cursor-pointer py-2 text-xs font-medium text-slate-500 focus-visible:outline-violet-600">Session details</summary>
+        <div className="max-h-[35dvh] space-y-4 overflow-y-auto pb-4">
+          <div><h2 className="font-semibold">Your problem</h2><MathText text={session.originalQuestion} /><p className="mt-1 text-xs text-slate-500">{session.difficulty}</p></div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SOLVER_STAGES.map(stage => {
+            const state = session.stageProgress[stage];
+            return <div key={stage} className={`rounded-lg border p-3 text-xs ${state.status === "completed" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : state.status === "active" ? "border-violet-200 bg-violet-50 text-violet-700" : "text-slate-500"}`}>
+              {state.status === "completed" ? <CheckCircle2 className="mr-1 inline h-3 w-3" /> : <LockKeyhole className="mr-1 inline h-3 w-3" />}{SOLVER_STAGE_LABELS[stage]}<span className="mt-1 block">{state.acceptedGates}/{state.totalGates} reasoning checks</span>
+            </div>;
+          })}</div>
+          {session.adaptiveRecommendation && <p className="text-xs text-slate-500">Adaptive difficulty: {session.adaptiveRecommendation.reason}</p>}
+          {!!session.supportHistory?.length && <section><h2 className="font-semibold">Support history</h2>{session.supportHistory.map((entry, index) => <div key={index} className="mt-2 rounded-lg bg-slate-50 p-3"><p className="mb-1 text-xs text-slate-500">{PHASE_LABELS[entry.phase]} · {entry.title}</p>{entry.content.map((line, i) => <MathText key={i} text={line} />)}</div>)}</section>}
+          <button onClick={() => void abandonSession()} disabled={loading} className="flex items-center gap-2 rounded-lg py-2 text-xs text-slate-500 hover:text-red-700 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
+        </div>
+      </details>
 
-        {reasoning ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
-            <div><p className="text-xs font-bold uppercase text-indigo-600">{SOLVER_STAGE_LABELS[session.currentStage]} · {PHASE_LABELS[session.currentPhase]}</p><h2 className="mt-2 text-lg font-bold text-slate-950">{prompt}</h2>{session.promptAdjustment !== "maintain" && <p className="mt-2 text-xs font-semibold text-indigo-500">Prompt support: {session.promptAdjustment === "simplify" ? "extra scaffolding" : "deeper reasoning"}</p>}</div>
-            <MathInput value={response} onChange={setResponse} />
-            <button disabled={loading || (!response.plainText.trim() && !response.latex?.trim())} onClick={() => void submitReasoning()} className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">{loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}Submit reasoning</button>
-          </div>
-        ) : (
+      <div ref={scrollRef} onScroll={() => {
+        const viewport = scrollRef.current;
+        if (!viewport) return;
+        nearBottom.current = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 100;
+        setHasNewMessages(!nearBottom.current);
+      }} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 sm:px-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <section aria-label="Socratic tutor conversation" role="log" aria-live="polite" className="space-y-5">
+            {messages.map(message => <TutorMessageBubble key={message.id} role={message.role} text={message.text} />)}
+            {!messages.length && !session.needsOpening && <TutorMessageBubble role="assistant" text={prompt} />}
+            {pendingText && <TutorMessageBubble role="student" text={pendingText} />}
+            {loading && <p role="status" className="flex items-center gap-2 text-sm text-violet-700"><Loader2 className="h-4 w-4 animate-spin" />{slowRequest ? "Your tutor is taking longer than usual. Please keep this session open while we wait for your result…" : "Your tutor is thinking…"}</p>}
+          </section>
+          {session.needsOpening && <button disabled={loading} className="rounded-xl bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50" onClick={async () => {
+            if (busy.current) return;
+            busy.current = true; setLoading(true); setError(null);
+            try { const result = await resumeTutorOpening(session.id, session.revision); setSession(result.session); setPrompt(result.session.currentPrompt); await refreshMessages(); }
+            catch (cause) { setError(cause instanceof Error ? cause.message : "The tutor could not start."); }
+            finally { busy.current = false; setLoading(false); }
+          }}>Start AI conversation</button>}
+          {!reasoning && (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 space-y-5">
             <div><p className="text-xs font-bold uppercase text-indigo-600">Progressive solution unlock</p><h2 className="mt-2 text-lg font-bold">All four Socratic stages are complete.</h2><p className="mt-1 text-slate-600">Complete your final response and reflection. Your scorecard is generated before the worked solution is released.</p></div>
             {!session.scorecard ? (
@@ -215,26 +343,46 @@ export function SecureSession() {
               </>
             ) : (
               <div className="space-y-4">
-                <div className="flex items-center justify-between"><h2 className="text-xl font-bold">Critical Thinking Scorecard</h2><span className="text-3xl font-bold text-indigo-600">{session.scorecard.total}/100</span></div>
-                {Object.values(session.scorecard.criteria).map((criterion) => <div key={criterion.category} className="rounded-xl border border-indigo-100 bg-indigo-50 p-4"><div className="flex justify-between font-bold"><span>{criterion.category.replace(/([A-Z])/g, " $1")}</span><span>{criterion.score}/25</span></div><p className="mt-2 text-sm text-slate-700">{criterion.reason}</p><ul className="mt-2 list-disc pl-5 text-xs text-slate-600">{criterion.evidence.map((item) => <li key={item}>{item}</li>)}</ul><p className="mt-2 text-xs font-semibold text-indigo-700">Improve: {criterion.improvementAdvice}</p></div>)}
-                <p className="rounded-xl bg-slate-50 p-4 text-sm">{session.scorecard.feedback}</p>
-                {session.releasedSolution && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold uppercase text-emerald-700">Unlocked worked solution</p><h3 className="mt-2 font-bold text-emerald-950">Method</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.method}</p><h3 className="mt-4 font-bold text-emerald-950">Why it applies</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.justification}</p><h3 className="mt-4 font-bold text-emerald-950">Steps</h3><ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-emerald-950">{session.releasedSolution.steps.map((step) => <li key={step}>{step}</li>)}</ol><h3 className="mt-4 font-bold text-emerald-950">Final answer</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.answer}</p><h3 className="mt-4 font-bold text-emerald-950">Verification</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.verification}</p><h3 className="mt-4 font-bold text-emerald-950">Interpretation</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.interpretation}</p></div>}
+                <h2 className="text-xl font-bold">Critical Thinking Scorecard</h2>
+                <ScorecardDetails scorecard={session.scorecard} />
+                {session.releasedSolution && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold uppercase text-emerald-700">Unlocked worked solution</p><h3 className="mt-2 font-bold text-emerald-950">Method</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.method}</p><h3 className="mt-4 font-bold text-emerald-950">Why it applies</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.justification}</p><h3 className="mt-4 font-bold text-emerald-950">Steps</h3><ol className="mt-2 list-decimal space-y-2 pl-5 text-sm text-emerald-950">{session.releasedSolution.steps.map((step) => <li key={step}><MathText text={step} /></li>)}</ol><h3 className="mt-4 font-bold text-emerald-950">Final answer</h3><p className="mt-1 text-sm text-emerald-900"><MathText text={session.releasedSolution.answer} /></p><h3 className="mt-4 font-bold text-emerald-950">Verification</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.verification}</p><h3 className="mt-4 font-bold text-emerald-950">Interpretation</h3><p className="mt-1 text-sm text-emerald-900">{session.releasedSolution.interpretation}</p></div>}
                 <p className="text-xs font-semibold text-slate-500">Formative AI-supported feedback only — not an official grade.</p>
                 <button disabled={loading} onClick={() => void submitForReview()} className="w-full rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white disabled:opacity-50">Submit immutable record for administrator review</button>
               </div>
             )}
           </div>
-        )}
-
-        {session.status === "in_progress" && session.allowedSupport.length > 0 && <div className="rounded-2xl border border-slate-200 bg-white p-5"><div className="flex items-center gap-2"><Lightbulb className="h-5 w-5 text-amber-500" /><h2 className="font-bold">Available support</h2></div><div className="mt-3 flex flex-wrap gap-2">{session.allowedSupport.map((level) => <button key={level} onClick={() => void requestSupport(level)} disabled={loading} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold hover:bg-slate-50">{level.replace(/_/g, " ")}</button>)}</div>{support && <div className="mt-4 rounded-xl bg-amber-50 p-4"><p className="font-bold text-amber-900">{support.title}</p><ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">{support.content.map((item) => <li key={item}>{item}</li>)}</ol></div>}</div>}
-        <button onClick={() => void abandonSession()} disabled={loading} className="mx-auto flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-red-700 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
+          )}
+        </div>
       </div>
+      {hasNewMessages && <button onClick={jumpToLatest} className="mx-auto mb-2 flex shrink-0 items-center gap-2 rounded-full border border-violet-200 bg-white px-4 py-2 text-xs font-medium text-violet-700 shadow-sm"><ArrowDown className="h-3 w-3" />Jump to latest</button>}
+      {error && <div role="alert" className="mx-4 mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700"><AlertCircle className="h-4 w-4 shrink-0" /><span className="flex-1">{error}</span><button disabled={loading} onClick={() => void load()} className="underline">Reload saved progress</button></div>}
+      {reasoning && <footer className="shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:pb-6">
+        <div className="mx-auto max-w-2xl">
+          <div className="mb-2 flex items-center justify-between gap-3 text-xs">
+            <button disabled={loading || session.needsOpening || !session.allowedSupport.length} onClick={() => {
+              const level = session.allowedSupport.at(-1);
+              if (level) void requestSupport(level);
+            }} className="flex items-center gap-1.5 rounded-full bg-violet-100/70 px-3 py-1.5 font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-40"><Lightbulb className="h-3.5 w-3.5" />I need a hint</button>
+            <button aria-expanded={showEquation} aria-controls="chat-equation" onClick={() => setShowEquation(!showEquation)} className="rounded-lg px-2 py-1 text-slate-500 hover:text-violet-700">{showEquation ? "Hide equation" : response.latex?.trim() ? "Edit equation •" : "Add equation"}</button>
+          </div>
+          <form onSubmit={event => { event.preventDefault(); void submitReasoning(); }} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100">
+            <div className="flex items-end gap-3">
+              <textarea ref={composerRef} aria-label="Message your tutor" placeholder="Type your response here…" value={response.plainText} maxLength={4000} rows={2} disabled={loading || session.needsOpening}
+                onChange={event => setResponse(current => ({ ...current, plainText: event.target.value }))}
+                onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void submitReasoning(); } }}
+                className="max-h-36 min-h-12 w-full resize-none bg-transparent p-1 text-sm leading-6 outline-none placeholder:text-slate-400 disabled:opacity-60" />
+              <button type="submit" aria-label="Send message" disabled={loading || session.needsOpening || (!response.plainText.trim() && !response.latex?.trim())} className="mb-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white hover:bg-violet-700 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 disabled:opacity-40"><Send className="h-4 w-4" /></button>
+            </div>
+            {showEquation && <fieldset id="chat-equation" disabled={loading || session.needsOpening} className="mt-3 max-h-[25dvh] overflow-y-auto border-t border-slate-100 pt-3"><MathInput notationOnly disabled={loading || session.needsOpening} value={response} onChange={setResponse} /></fieldset>}
+          </form>
+        </div>
+      </footer>}
     </div>
   );
 }
 
 function firestoreProjection(id: string, data: Record<string, any>): SessionProjection {
-  const millis = (value: any) => value?.toMillis?.() ?? Date.now();
+  const millis = (value: any) => value?.toMillis?.() ?? (typeof value === "number" ? value : Date.now());
   const currentPhase = data.currentPhase as SessionProjection["currentPhase"];
   const currentStage = solverStageForPhase(currentPhase);
   const gateStates = data.gateStates ?? {};
@@ -249,10 +397,14 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     }];
   })) as SessionProjection["stageProgress"];
   return {
+    needsOpening: data.needsOpening ?? false,
+    scoringSource: data.scoringSource,
     id,
-    schemaVersion: 4,
+    schemaVersion: SCHEMA_VERSION,
     workflowVersion: WORKFLOW_VERSION,
     revision: Number(data.revision ?? 0),
+    lastDiagnosis: data.lastDiagnosis ?? null,
+    supportHistory: data.supportHistory ?? [],
     studentId: data.studentId,
     subjectId: data.subjectId ?? "",
     topicId: data.topicId ?? "",

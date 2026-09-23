@@ -2,22 +2,22 @@ import { describe, expect, it } from "vitest";
 import { secureErrorMessage } from "@/lib/secure-error";
 
 describe("secure Firebase error messages", () => {
-  it("explains when callable Functions have not been deployed", () => {
+  it("uses the fallback when a document is missing", () => {
     expect(
-      secureErrorMessage({ code: "functions/not-found", message: "not-found" })
-    ).toMatch(/not deployed for this environment/i);
+      secureErrorMessage({ code: "not-found", message: "not-found" })
+    ).toMatch(/could not complete the request/i);
   });
 
   it("does not expose Firebase's raw internal label", () => {
     expect(
-      secureErrorMessage({ code: "functions/internal", message: "internal" })
-    ).toBe("MINDGUIDE could not complete the request. Please try again.");
+      secureErrorMessage({ code: "internal", message: "internal" })
+    ).toBe("Unable to load learning materials.");
   });
 
-  it("preserves typed callable details and their correlation reference", () => {
+  it("preserves structured error details and their correlation reference", () => {
     expect(
       secureErrorMessage({
-        code: "functions/failed-precondition",
+        code: "failed-precondition",
         message: "failed-precondition",
         details: {
           message: "Review the current privacy notice first.",

@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test";
 
+for (const viewport of [{ width: 1280, height: 720 }, { width: 390, height: 844 }]) {
+  test(`protects administrator routes when signed out at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    for (const route of ["dashboard", "users", "progress", "content/problems", "reports", "notifications", "logs", "maintenance", "profile", "settings"]) {
+      await page.goto(`/admin/${route}`);
+      await expect(page).toHaveURL(/\/login$/);
+      await expect(page.getByRole("heading", { name: /welcome back/i })).toBeVisible();
+    }
+  });
+}
+
 test("loads the public landing page and its authentication routes", async ({
   page,
 }) => {
@@ -23,7 +34,7 @@ test("loads the public landing page and its authentication routes", async ({
     })
   ).toBeVisible();
   await expect(
-    page.getByText(/AI-supported feedback is not an official grade/i)
+    page.getByText(/Automated practice feedback is not an official grade/i)
   ).toBeVisible();
 
   await expect(

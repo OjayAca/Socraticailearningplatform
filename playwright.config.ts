@@ -1,5 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const stagingBaseURL = process.env.MINDGUIDE_E2E_BASE_URL?.trim();
+const baseURL = stagingBaseURL || "http://localhost:4173";
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false,
@@ -8,7 +11,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: "http://localhost:4173",
+    baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
   },
@@ -18,10 +21,12 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  webServer: {
-    command: "npm run preview",
-    url: "http://localhost:4173",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: stagingBaseURL
+    ? undefined
+    : {
+        command: "npm run preview",
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+      },
 });

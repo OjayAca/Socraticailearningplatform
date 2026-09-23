@@ -1,3 +1,4 @@
+import { MathText } from "./MathText";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
@@ -7,17 +8,21 @@ import {
   BookOpen,
   CheckCircle2,
   Gauge,
+  Flame,
   Loader2,
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
+import type { LearningProgress } from "@mindguide/contracts";
 import { db } from "@/lib/firebase";
 import { createFollowUpSession } from "@/lib/secure-api";
+import { learnerSessionDestination } from "@/lib/session-compatibility";
 import { useAuthStore } from "@/stores/auth-store";
 import { NotificationContent } from "./student/NotificationContent";
 import { ProfileContent } from "./student/ProfileContent";
 import { SettingsContent } from "./student/SettingsContent";
 import { StudentShell } from "./StudentShell";
+import { ScorecardDetails } from "./ScorecardDetails";
 
 function useLearnerSessions(maximum = 100) {
   const uid = useAuthStore((state) => state.firebaseUser?.uid);
@@ -42,35 +47,54 @@ function useLearnerSessions(maximum = 100) {
 
 export function SecureStudentDashboard() {
   const { sessions, loading, error } = useLearnerSessions(20);
-  const completed = sessions.filter((item) => ["submitted", "reviewed", "returned"].includes(item.status));
-  const average = completed.length ? Math.round(completed.reduce((sum, item) => sum + Number(item.scorecard?.total ?? item.ctScore ?? 0), 0) / completed.length) : 0;
-  const activeSessions = sessions.filter((item) => item.status === "in_progress").length;
+  const uid = useAuthStore((state) => state.firebaseUser?.uid);
+  const [progress, setProgress] = useState<LearningProgress | null>(null);
+  useEffect(() => {
+    if (!db || !uid) return;
+    getDoc(doc(db, "learning_progress", uid)).then((snapshot) => {
+      if (snapshot.exists()) setProgress(snapshot.data() as LearningProgress);
+    }).catch(() => undefined);
+  }, [uid]);
 
   return (
     <StudentShell active="dashboard">
       <div className="space-y-6">
         {error && <Notice message={error} />}
 
-        <section className="grid gap-4 sm:grid-cols-3" aria-label="Learning overview">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Learning overview">
           <Stat
             label="Completed"
-            value={completed.length}
+            value={progress?.sessionsCompleted ?? 0}
             Icon={CheckCircle2}
             iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
           />
           <Stat
             label="Formative average"
-            value={`${average}/100`}
+            value={`${progress?.averageCTScore ?? 0}/100`}
             Icon={Gauge}
             iconClassName="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
           />
           <Stat
-            label="Active"
-            value={activeSessions}
-            Icon={Activity}
+            label="Current streak"
+            value={`${progress?.currentStreak ?? 0} days`}
+            Icon={Flame}
             iconClassName="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
           />
+          <Stat
+            label="Latest scorecard"
+            value={progress?.latestScorecard ? `${progress.latestScorecard.total}/100` : "—"}
+            Icon={Activity}
+            iconClassName="bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400"
+          />
         </section>
+
+        {progress?.latestScorecard && (
+          <section className="rounded-2xl border border-indigo-100 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
+            <p className="text-xs font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">Latest scorecard</p>
+            <h2 className="mt-2 text-lg font-bold text-slate-950 dark:text-white">{progress.latestScorecard.subject} · {progress.latestScorecard.topic}</h2>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{progress.latestScorecard.summary}</p>
+          </section>
+        )}
 
         <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-600 via-violet-600 to-blue-600 px-5 py-6 text-white shadow-xl shadow-indigo-600/20 sm:px-7">
           <div className="pointer-events-none absolute -right-12 -top-20 h-52 w-52 rounded-full bg-white/10 blur-2xl" />
@@ -116,7 +140,7 @@ export function SecureStudentHistory() {
     <StudentShell active="history">
       <h2 className="text-3xl font-bold text-slate-950 dark:text-white">Learning history</h2>
       <p className="mt-2 text-slate-600 dark:text-slate-400">
-        Submitted v3 records and preserved legacy history remain read-only.
+        Completed records and preserved legacy history remain read-only. Current sessions can be resumed from this list.
       </p>
       {error && <Notice message={error} />}
       <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
@@ -131,6 +155,7 @@ export function SecureStudentReview() {
   const navigate = useNavigate();
   const [session, setSession] = useState<Record<string, any> | null>(null);
   const [responses, setResponses] = useState<Record<string, any>[]>([]);
+  const [conversation, setConversation] = useState<Record<string, any>[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
@@ -139,10 +164,14 @@ export function SecureStudentReview() {
     Promise.all([
       getDoc(doc(db, "sessions", sessionId)),
       getDocs(query(collection(db, "sessions", sessionId, "responses"), orderBy("createdAt", "asc"))),
-    ]).then(([sessionSnapshot, responseSnapshot]) => {
+    ]).then(async ([sessionSnapshot, responseSnapshot]) => {
       if (!active) return;
       setSession(sessionSnapshot.exists() ? { id: sessionSnapshot.id, ...sessionSnapshot.data() } : null);
       setResponses(responseSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+      if (sessionSnapshot.exists() && sessionSnapshot.data()?.workflowVersion === 6) {
+        const messages = await getDocs(query(collection(db!, "sessions", sessionId, "messages"), orderBy("createdAt", "asc")));
+        if (active) setConversation(messages.docs.map(item=>({id:item.id,...item.data()})));
+      }
     }).catch((cause) => setError(cause instanceof Error ? cause.message : "The learning record could not be loaded."))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
@@ -151,7 +180,7 @@ export function SecureStudentReview() {
   if (!sessionId) return <Navigate to="/student/history" replace />;
   if (loading) return <StudentShell active="history"><Spinner /></StudentShell>;
   if (!session) return <StudentShell active="history"><Notice message={error ?? "The learning record was not found."} /><Link to="/student/history" className="mt-5 inline-flex rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Return to history</Link></StudentShell>;
-  return <StudentShell active="history">{error && <Notice message={error} />}<><h2 className="text-3xl font-bold text-slate-950 dark:text-white">Reasoning record</h2><p className="mt-2 text-slate-600 dark:text-slate-400">{session.subject} · {session.topic} · {session.status}</p><div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><h3 className="font-bold text-slate-950 dark:text-white">Problem</h3><p className="mt-2 text-slate-700 dark:text-slate-300">{session.originalQuestion ?? session.problemContext?.promptSnapshot}</p>{session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}</div><div className="mt-5 space-y-3">{responses.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><p className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400">{String(item.phase).replace(/_/g, " ")}</p><p className="mt-2 text-slate-800 dark:text-slate-200">{item.response?.plainText}</p><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{item.evaluation?.evidenceSummary}</p></div>)}</div>{session.releasedSolution && <SolutionDetails solution={session.releasedSolution} />}{session.adminReview && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"><p className="font-bold">Administrator feedback</p><p className="mt-1">{session.adminReview.comment}</p></div>}{session.status === "returned" && !session.followUpSessionId && <button onClick={() => void retry()} className="mt-5 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Create one linked follow-up</button>}</></StudentShell>;
+  return <StudentShell active="history">{error && <Notice message={error} />}<><h2 className="text-3xl font-bold text-slate-950 dark:text-white">Reasoning record</h2><p className="mt-2 text-slate-600 dark:text-slate-400">{session.subject} · {session.topic} · {session.status}</p><div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><h3 className="font-bold text-slate-950 dark:text-white">Problem</h3><p className="mt-2 text-slate-700 dark:text-slate-300">{session.originalQuestion ?? session.problemContext?.promptSnapshot}</p>{session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}</div>{session.workflowVersion !== 6 && <p className="mt-4 text-sm text-slate-600">Preserved historical practice record. Start a new session for AI tutoring.</p>}{session.draft && <section className="mt-4 rounded-xl border p-4"><h3 className="font-bold">Saved final draft</h3><MathText text={session.draft.answer?.plainText} latex={session.draft.answer?.latex} /><p>{session.draft.methodology}</p><p>{session.draft.reflection}</p></section>}{conversation.length > 0 && <section aria-label="Saved tutor conversation" className="mt-5 space-y-3"><h3 className="font-bold">Socratic conversation</h3>{conversation.map(message=><article key={message.id} className="rounded-xl border p-4"><p className="text-xs font-semibold">{message.role === "assistant" ? "AI tutor" : "You"}</p><div className="whitespace-pre-wrap"><MathText text={message.text} /></div></article>)}</section>}<div className="mt-5 space-y-3">{responses.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><p className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400">{String(item.phase).replace(/_/g, " ")}</p><p className="mt-2 text-slate-800 dark:text-slate-200"><MathText text={item.response?.plainText} latex={item.response?.latex} /></p><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{item.evaluation?.evidenceSummary}</p></div>)}</div>{session.releasedSolution && <SolutionDetails solution={session.releasedSolution} />}{session.adminReview && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"><p className="font-bold">Administrator feedback</p><p className="mt-1">{session.adminReview.comment}</p></div>}{session.status === "returned" && !session.followUpSessionId && <button onClick={() => void retry()} className="mt-5 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Create one linked follow-up</button>}</></StudentShell>;
 }
 
 export function SecureStudentProfile() { return <StudentShell active="profile"><ProfileContent /></StudentShell>; }
@@ -173,7 +202,12 @@ function SessionRows({ sessions }: { sessions: Record<string, any>[] }) {
       {sessions.map((session) => (
         <Link
           key={session.id}
-          to={session.status === "in_progress" && session.schemaVersion === 3 && session.workflowVersion === 4 ? `/session/${session.id}/learn` : `/student/review/${session.id}`}
+          to={learnerSessionDestination({
+            id: String(session.id),
+            schemaVersion: session.schemaVersion,
+            workflowVersion: session.workflowVersion,
+            status: session.status,
+          })}
           className="grid gap-2 px-5 py-4 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 dark:hover:bg-slate-800/60 md:grid-cols-[1fr_1.5fr_auto_auto] md:items-center"
         >
           <span className="font-semibold text-slate-900 dark:text-slate-100">{session.subject ?? "Legacy record"}</span>
@@ -200,5 +234,4 @@ function Stat({ label, value, Icon, iconClassName }: { label: string; value: Rea
 
 function Spinner() { return <div role="status" aria-label="Loading learning records" className="flex justify-center p-12"><Loader2 className="h-7 w-7 animate-spin text-indigo-600 dark:text-indigo-400" /></div>; }
 function Notice({ message }: { message: string }) { return <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{message}</div>; }
-function ScorecardDetails({ scorecard }: { scorecard: Record<string, any> }) { return <div className="mt-4"><p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{scorecard.total}/100</p><div className="mt-3 grid gap-2 sm:grid-cols-2">{Object.values(scorecard.criteria ?? {}).map((criterion: any) => <div key={criterion.category} className="rounded-lg bg-indigo-50 p-3 text-sm text-slate-900 dark:bg-indigo-950/40 dark:text-indigo-100"><div className="flex justify-between font-bold"><span>{String(criterion.category).replace(/([A-Z])/g, " $1")}</span><span>{criterion.score}/25</span></div><p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{criterion.reason}</p></div>)}</div></div>; }
 function SolutionDetails({ solution }: { solution: Record<string, any> }) { return <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"><p className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-400">Unlocked worked solution</p><p className="mt-2 text-sm"><strong>Method:</strong> {solution.method}</p><p className="mt-2 text-sm"><strong>Why it applies:</strong> {solution.justification}</p><ol className="mt-3 list-decimal space-y-1 pl-5 text-sm">{(solution.steps ?? []).map((step: string) => <li key={step}>{step}</li>)}</ol><p className="mt-3 text-sm"><strong>Final answer:</strong> {solution.answer}</p><p className="mt-2 text-sm"><strong>Verification:</strong> {solution.verification}</p><p className="mt-2 text-sm"><strong>Interpretation:</strong> {solution.interpretation}</p></div>; }

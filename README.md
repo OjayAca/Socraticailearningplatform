@@ -1,78 +1,79 @@
 # MINDGUIDE
 
-MINDGUIDE is a secure, formative reasoning platform for Quantitative Methods and Discrete Mathematics capstone acceptability evaluation. Its six core learning capabilities are the step-by-step Socratic solver, formula/theorem justification, misconception diagnosis, adaptive difficulty, progressive solution unlocking, and a four-criterion critical-thinking scorecard. It is not an official grading system and does not claim permanent improvement in critical thinking.
+MINDGUIDE is a formative Socratic learning platform for Quantitative Methods and Discrete Mathematics. The application runs in **Next.js → native /api/learning → Firebase Admin / Firestore + Gemini**. Firebase browser authentication, the existing React Router interface, and workflow v6 are preserved.
 
-## Secure architecture
+Use the existing Firebase project configured in .env. Do not seed a demo database, connect an emulator, manufacture approvals, or run data migrations for this backend move.
 
-- React renders learner-safe projections and sends bounded input to callable APIs.
-- Firebase Functions Gen 2 owns problem validation, progression, diagnosis, support, scoring, adaptation, statistics, notifications, administrative mutations, retention, and anonymization.
-- Firebase Auth custom claims are the role authority (`student` or `admin`). App Check is enforced outside the emulator.
-- Firestore separates public learning records from private references, evaluator configuration, raw AI interactions, rate limits, and audit evidence.
-- Gemini runs only in Functions with `GEMINI_API_KEY` stored in Secret Manager. The production-bundle scan rejects client AI code and known private instructional material.
-- MathLive provides keyboard input, KaTeX renders notation, and CortexJS Compute Engine performs server-side parsing and equivalence checks.
+## Local development
 
-Learners see four stages: Problem Understanding, Method Selection, Computation, and Interpretation. Seven internal reasoning gates retain separate checks for relevant information, formula/theorem justification, and verification. Diagnosis runs after every response, the scorecard is generated before the worked solution is released, and existing dashboards, history, notifications, administration, review, and privacy features remain available as supporting capabilities.
+Use Node.js 22:
 
-## Workspaces
-
-- `packages/contracts`: canonical schema-v4 types and workflow order.
-- `functions`: trusted Gen 2 callables and scheduled retention.
-- `src`: React learner and System Administrator interfaces.
-- `scripts/migrate-v4.ts`: faculty-gated 99-problem schema-v4 dry-run/apply/verify/rollback migration.
-- `tests`: unit, migration, rules, and Playwright coverage.
-- `docs/mindguide-secure-release`: architecture, data dictionary, deployment, verification, and progress evidence.
-
-## Local verification
-
-Requires Node.js 22, Java for the Firestore emulator, and Firebase CLI.
-
-```bash
+```sh
 npm install
-copy .env.example .env
+npm run dev
+```
+
+Open http://localhost:5173. Existing public VITE_FIREBASE_* values in .env remain supported through an explicit allowlist in next.config.mjs. New installations may use the equivalent NEXT_PUBLIC_FIREBASE_* identifiers. These must identify the same project as the server.
+
+Set private backend values in ignored .env.local using the empty placeholders in .env.example: GEMINI_API_KEY, GEMINI_MODEL, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY. The private key accepts quoted escaped newlines. Preserve existing AI_ENABLED, AI_FREE_TIER_CONFIRMED, GEMINI_RPM, GEMINI_TPM, GEMINI_RPD, and optional OPERATOR_UID settings. Missing enablement defaults to disabled. Never prefix secrets with NEXT_PUBLIC_ or VITE_.
+
+## Verification
+
+```sh
 npm run check
+npm run test:e2e -- tests/e2e/public.spec.ts
+npm run ai:preflight
+npm run ai:health
 ```
 
-Useful focused commands:
+ai:preflight reads the real learning configuration using the signed-in Firebase operator. ai:health authenticates the existing operator account and checks the running backend, defaulting to localhost:5173; use MINDGUIDE_BASE_URL for another deployment. It does not create learning records. Add -- --probe to health to test structured Gemini output. npm run ai:probe -- --free-tier-confirmed tests Gemini directly without student data or database writes. Probes consume provider quota.
 
-```bash
-npm run typecheck
-npm run lint
-npm run deadcode
-npm run test
+Unit/component tests use in-memory fixtures only. Public browser tests cover navigation, login-page rendering, and signed-out route protection. Authenticated learning verification requires an existing admitted account, current consent, and genuinely approved content.
+
+## Source layout
+
+```text
+app/
+  layout.tsx                    Existing page metadata, fonts and styles
+  client-app.tsx                Browser-only host for the existing interface
+  [[...slug]]/page.tsx          Existing client route entrypoint
+  api/learning/route.ts        Authenticated Node.js API
+server/
+  auth.ts                      Firebase ID-token verification
+  config.ts                    Private configuration and project guards
+  firebase.ts                  Reused Firebase Admin app
+  firestore.ts                 Atomic, version-checked Firestore adapter
+  gemini.ts                    Existing prompts, Tutor and Zod output schemas
+  platform.ts                  Service contracts and errors
+  services/LearningService.ts  Existing learning workflow
+src/                          Existing interface and browser Firebase services
+packages/contracts/           Shared types and workflow ordering
+```
+
+All nine learning mutations, activity checks and verified-problem previews remain available. Backend membership, consent, content approval, ownership, quota, idempotency and progress checks remain authoritative. Historical records retain their original workflow/scoring versions.
+
+## Deployment
+
+Build and run on a Node.js Next.js host:
+
+```sh
+npm ci
+npm run check
+npm start
+```
+
+Configure the same public Firebase identifiers before building and private backend secrets through the host's secret store. Run one Next.js service for both interface and API. npm start listens on port 3000 by default; pass -- --port PORT if required. Allow at least 120 seconds for API requests at the hosting/proxy layer. Existing learner request deadlines and lease protections remain in place.
+
+Use a region supported by the configured Gemini project. Add the application hostname to Firebase Authentication's authorized domains and any enabled App Check configuration. Keep existing Firebase rules and indexes. firebase.json now contains only Firestore deployment targets; plain Firebase Hosting static deployment cannot run this backend. Do not deploy the obsolete dist directory or use static export.
+
+Publish the repository's current Firestore rules to the existing project as part of the backend migration. Older rules deny the browser's tutor-message reads even when the server can save a session:
+
+```sh
 npm run test:rules
-npm run build
-npm run scan:bundle
-npm run test:e2e
+npx firebase deploy --only firestore:rules --project socratic-ai-a7765
+npm run test:rules -- --deployed
 ```
 
-For interactive localhost development, `npm run dev` starts the callable Functions
-emulator and Vite together. Auth and Firestore still use the Firebase project from
-`.env`; only callable Functions are routed to `localhost:5001`. Use `npm run dev:web`
-only when the callable Functions are already deployed and configured for the target
-project.
+The rules tests use Firebase's hosted rules simulator and do not create database records. They check that active learners can read their own conversations while other learners, signed-out users, and suspended users cannot.
 
-Automated AI tests use deterministic logic and fixtures. Live Firebase sign-in tests run only when their documented environment credentials are supplied.
-
-## Schema-v4 migration
-
-Migration is dry-run by default and requires an authenticated Admin SDK environment plus the target project ID. It upgrades an existing schema-v3 project; it also seeds missing managed references defensively, but production must still follow the staged export/restore procedure.
-
-```bash
-set FIREBASE_PROJECT_ID=your-staging-project
-npm run migrate:v4
-npm run migrate:v4 -- --apply
-npm run migrate:v4:verify
-npm run release:preflight -- --project=your-staging-project --output=preflight.json
-```
-
-Rollback requires the exact manifest created by the apply operation:
-
-```bash
-npm run migrate:v4:rollback -- --backup=".local-backups/<backup>.json" --project="your-project-id"
-```
-
-Do not run apply in production before a managed Firestore export and verified staging rehearsal. See [Deployment and rollback](docs/mindguide-secure-release/DEPLOYMENT.md).
-
-## Release status
-
-Schema-v4 repository implementation is complete. The learner catalog remains intentionally closed until all 99 problem variants have recorded external faculty-validation evidence. Production also remains closed until a Firebase project owner completes billing/API enablement, dedicated service-account IAM, App Check registration, Secret Manager configuration, credential rotation, staging migration/smoke testing, privacy-date configuration, and the controlled deployment checklist.
+See [migration details and acceptance checks](docs/NEXT_BACKEND_MIGRATION.md). Older deployment/audit documents are historical evidence and must not be used to redeploy the retired architecture.

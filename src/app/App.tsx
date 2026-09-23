@@ -20,8 +20,6 @@ import {
 import { Toaster } from "./components/ui/sonner";
 import { toast } from "sonner";
 
-import { ThemeProvider } from "next-themes";
-
 /**
  * The top-level App component.
  *
@@ -85,9 +83,9 @@ export default function App() {
   ]);
 
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+    <>
       <RouterProvider router={router} />
       <Toaster richColors closeButton position="top-right" />
-    </ThemeProvider>
+    </>
   );
 }

@@ -86,7 +86,7 @@ export function SignUp() {
 
         <form onSubmit={handleSignUp} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 block">
+            <label htmlFor="signup-name" className="text-sm font-medium text-slate-700 block">
               Full Name
             </label>
             <div className="relative">
@@ -94,6 +94,7 @@ export function SignUp() {
                 <User className="h-5 w-5" />
               </div>
               <input
+                id="signup-name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -105,7 +106,7 @@ export function SignUp() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 block">
+            <label htmlFor="signup-email" className="text-sm font-medium text-slate-700 block">
               Email
             </label>
             <div className="relative">
@@ -113,6 +114,7 @@ export function SignUp() {
                 <Mail className="h-5 w-5" />
               </div>
               <input
+                id="signup-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -124,7 +126,7 @@ export function SignUp() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 block">
+            <label htmlFor="signup-password" className="text-sm font-medium text-slate-700 block">
               Password
             </label>
             <div className="relative">
@@ -132,6 +134,7 @@ export function SignUp() {
                 <Lock className="h-5 w-5" />
               </div>
               <input
+                id="signup-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -144,7 +147,7 @@ export function SignUp() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-slate-700 block">
+            <label htmlFor="signup-confirm-password" className="text-sm font-medium text-slate-700 block">
               Confirm Password
             </label>
             <div className="relative">
@@ -152,6 +155,7 @@ export function SignUp() {
                 <Lock className="h-5 w-5" />
               </div>
               <input
+                id="signup-confirm-password"
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

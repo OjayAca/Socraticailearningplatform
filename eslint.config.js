@@ -9,6 +9,8 @@ export default tseslint.config(
     ignores: [
       "coverage/**",
       "dist/**",
+      ".next/**",
+      "next-env.d.ts",
       "functions/lib/**",
       "migration-backups/**",
       "node_modules/**",
@@ -51,7 +53,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**/*.mjs"],
+    files: ["scripts/**/*.mjs", "*.config.mjs"],
     languageOptions: {
       globals: globals.node,
     },
@@ -65,7 +67,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/app/routes.tsx"],
+    files: ["src/app/routes.tsx", "app/**/*.tsx"],
     rules: {
       "react-refresh/only-export-components": "off",
     },
