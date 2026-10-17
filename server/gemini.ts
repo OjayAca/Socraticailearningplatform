@@ -183,7 +183,7 @@ export function exposesAnswer(turn: Turn, reference: any, response?: MathRespons
   if (!answer || response && checkMath(response, reference.answerSpecification) === "correct") return false;
   const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const text = `${turn.feedback} ${turn.question}`;
-  return new RegExp(`(?:the (?:final |correct )?(?:answer|result|solution) is|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?![\\w.])`, "i").test(text)
+  return new RegExp(`(?:the (?:final |correct )?(?:answer|result|solution) is|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`, "i").test(text)
     || (answer.length > 25 && text.toLowerCase().includes(answer.toLowerCase()));
 }
 export function allowedSupport(gates: any, history: any[] = []) {

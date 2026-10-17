@@ -208,7 +208,7 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
   }
 }
 
-export async function previewVerifiedProblem(input: { topicId: string; question: string; requestedDifficulty: string }): Promise<{ confirmationHash: string; description: string }> {
+export async function previewVerifiedProblem(input: { topicId: string; question: string; questionLatex?: string; requestedDifficulty: string }): Promise<{ confirmationHash: string; description: string }> {
   return call("previewVerifiedProblem", { ...input, requestId: newRequestId() });
 }
 

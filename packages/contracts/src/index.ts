@@ -287,6 +287,8 @@ export interface SessionProjection {
   difficulty: Difficulty;
   problemId: string | null;
   originalQuestion: string;
+  originalProblemText?: string;
+  originalProblemLatex?: string;
   status: SessionStatus;
   currentPhase: WorkflowPhase;
   currentStage: SolverStage;
@@ -339,6 +341,7 @@ export interface FreeFormLearningSessionInput {
   mode: "free_form";
   topicId: string;
   question: string;
+  questionLatex?: string;
   requestedDifficulty: Difficulty;
   confirmationHash?: string;
 }

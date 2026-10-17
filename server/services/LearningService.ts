@@ -1,7 +1,7 @@
 import { isValidatedTopic } from "../../src/data/validated-curriculum";
 import "server-only";
 import { REASONING_PHASES, SCHEMA_VERSION, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase } from "../../packages/contracts/src/index";
-import { solveVerifiedProblem, verifiedConfirmation } from "../../src/lib/learning/verified-problems";
+import { ProblemInputError, solveVerifiedProblem, verifiedConfirmation } from "../../src/lib/learning/verified-problems";
 import { validateOperation } from "../../src/lib/learning/validation";
 import { contentHash } from "../../src/lib/learning/content-hash";
 import { nextLearningProgress } from "../../src/lib/learning/session-state";
@@ -15,6 +15,10 @@ const mutationNames = new Set(["startLearningSession", "createFollowUpSession", 
 const stamp = () => new Date();
 export class LearningService {
   constructor(private db: Store, private tutor: Tutor, private env: Env, private uid: string) {}
+  private verify(input: any) {
+    try { return verifiedConfirmation(input.question, input.topicId, input.questionLatex, input.requestedDifficulty); }
+    catch (error) { if (error instanceof ProblemInputError) throw new ServiceError(422, 'invalid-problem', error.message); throw error; }
+  }
   private async member() {
     const profile = await this.db.get(`users/${this.uid}`);
     ensure(profile.data?.status === "active", "Your account is not active.", 403);
@@ -73,8 +77,10 @@ export class LearningService {
     if (name === "previewVerifiedProblem") {
       const topic = await this.db.get(`topics/${input.topicId}`);
       ensure(isValidatedTopic(input.topicId, topic.data) && topic.data?.status === "approved", "This topic is unavailable.");
-      const result = verifiedConfirmation(input.question, input.topicId);
-      return { confirmationHash: result.confirmationHash, description: result.description };
+      const subject = await this.db.get(`subjects/${topic.data.subjectId}`);
+      ensure(subject.data?.status === "approved", "This subject is unavailable.");
+      const result = this.verify(input);
+      return { confirmationHash: await digest(result.confirmationHash), description: result.description };
     }
     if (name === "checkLearningSessionActivity") {
       const doc = await this.session(input.sessionId);
@@ -117,10 +123,18 @@ export class LearningService {
       }
       ensure(/^[\w -]{1,160}$/.test(input.topicId), "Invalid topic identifier.");
       await this.assertPilot(input.topicId, input.mode);
+      const customPrepared = input.mode === "free_form" ? await this.prepare(input, profile) : undefined;
       assignment = await this.db.get(`learning_progress/${this.uid}/assignment_state/${input.topicId}`);
       if (assignment.data?.activeSessionId) {
         const existing = await this.db.get(`sessions/${assignment.data.activeSessionId}`);
         if (existing.data?.workflowVersion === AI_WORKFLOW_VERSION && ["in_progress","ready_for_submission"].includes(existing.data.status)) {
+          if (input.mode === "free_form") {
+            ensure(existing.data.problemMode === "free_form"
+              && (existing.data.originalProblemText ?? existing.data.originalQuestion) === input.question
+              && (existing.data.originalProblemLatex ?? "") === (input.questionLatex ?? "")
+              && existing.data.difficulty === input.requestedDifficulty,
+            "A different problem is already active for this topic. Finish or abandon that session before starting this problem.", 409);
+          }
           if (!existing.data.needsOpening) return {session:projection(idOf(existing),existing.data)};
           session = existing;
           reference = (await this.db.get(`${session.path}/private/reference`)).data;
@@ -128,7 +142,7 @@ export class LearningService {
         }
       }
       if (!session!) {
-        const prepared = await this.prepare(input, profile);
+        const prepared = customPrepared ?? await this.prepare(input, profile);
         reference = prepared.reference;
         session = empty(`sessions/${this.uid}_${input.requestId}`);
         session.data = prepared.session;
@@ -347,14 +361,15 @@ export class LearningService {
       ensure(problem && reference, "No unanswered, approved question with matching validated references is available. Ask your administrator to review the learning content.", 422);
       if (problem.data.difficulty !== rec.recommendedDifficulty) rec.reason += ` The nearest available approved level is ${problem.data.difficulty}; the recommended level has no unanswered questions.`;
     } else {
-      const verified = verifiedConfirmation(input.question,input.topicId);
-      ensure(verified.confirmationHash === input.confirmationHash, "Confirm your problem givens again before starting.");
+      const verified = this.verify(input);
+      ensure(await digest(verified.confirmationHash) === input.confirmationHash, "Confirm your problem givens again before starting.", 422);
       reference = solveVerifiedProblem(verified.givens);
     }
     const now = stamp();
     return {reference,session:{schemaVersion:SCHEMA_VERSION,workflowVersion:AI_WORKFLOW_VERSION,revision:0,scoringSource:"ai_formative",studentId:this.uid,studentName:profile.displayName ?? "Learner",
       subjectId:topic.data.subjectId,topicId:input.topicId,subject:subject.data.name,topic:topic.data.name,difficulty:problem?.data.difficulty ?? input.requestedDifficulty,
-      problemId:problem ? idOf(problem) : null,problemMode:input.mode,originalQuestion:problem?.data.problemText ?? input.question,status:"in_progress",currentPhase:REASONING_PHASES[0],currentStep:"questioning",
+      problemId:problem ? idOf(problem) : null,problemMode:input.mode,originalQuestion:problem?.data.problemText ?? (input.questionLatex ? input.question.replace("[math]", () => input.questionLatex) : input.question),
+      ...(input.mode === "free_form" ? {originalProblemText:input.question,originalProblemLatex:input.questionLatex ?? ""} : {}),status:"in_progress",currentPhase:REASONING_PHASES[0],currentStep:"questioning",
       currentPrompt:"",needsOpening:true,gateStates:initialGates(),gateEvaluations:{},diagnosisSummary:[],lastDiagnosis:null,allowedSupport:["socratic_prompt"],supportHistory:[],supportUsage:0,responseCount:0,
       draft:null,scorecard:null,releasedSolution:null,adaptiveRecommendation:rec,promptAdjustment:"maintain",configurationVersions:null,model:this.env.GEMINI_MODEL,promptVersion:PROMPT_VERSION,rubricVersion:RUBRIC_VERSION,
       createdAt:now,updatedAt:now,lastActivityAt:now,learningCompletedAt:null,submittedAt:null,statsCommittedAt:null}};

@@ -79,6 +79,7 @@ describe("P1 subject-first task start", () => {
   });
 
   it("validates the screenshot question and starts directly with the problem givens", async () => {
+    mocks.getLearningCatalog.mockResolvedValue({ subjects: VALIDATED_SUBJECTS, topics: VALIDATED_TOPICS.filter(t => t.id === "quantitative-methods-descriptive-statistics"), generatedAt: 1 });
     const question = "what is the mean for 23, 41,9,56";
     const preview = verifiedConfirmation(question, "Descriptive Statistics");
     mocks.previewVerifiedProblem.mockImplementation(async ({ question }) =>
@@ -89,7 +90,7 @@ describe("P1 subject-first task start", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: question } });
     fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
     await waitFor(() => expect(mocks.startLearningSession).toHaveBeenCalledWith({
-      mode: "free_form", topicId: "quantitative-methods-introduction-to-probability", question, requestedDifficulty: "Basic",
+      mode: "free_form", topicId: "quantitative-methods-descriptive-statistics", question, requestedDifficulty: "Basic",
       confirmationHash: preview.confirmationHash,
     }));
     expect(confirm).not.toHaveBeenCalled();
@@ -149,4 +150,40 @@ describe("P1 subject-first task start", () => {
     fireEvent.click(screen.getByRole("button", { name: /discrete mathematics/i }));
     expect(screen.getByRole("option", { name: "Logic" })).toBeVisible();
   });
+
+it('changes custom guidance with topic and accurately disables unsupported topics', async () => {
+  clearViews();
+  mocks.getLearningCatalog.mockResolvedValue({subjects:VALIDATED_SUBJECTS,topics:VALIDATED_TOPICS,generatedAt:1});
+  mocks.getDoc.mockReset().mockResolvedValueOnce({exists:()=>false}).mockResolvedValueOnce({exists:()=>true});
+  render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'My own problem'}));
+  expect(screen.getByText(/Function evaluation with/)).toBeVisible();
+  fireEvent.change(screen.getByRole('combobox',{name:/Validated topic/}),{target:{value:'quantitative-methods-descriptive-statistics'}});
+  expect(screen.getByText(/population\/sample variance/)).toBeVisible();
+  fireEvent.change(screen.getByRole('combobox',{name:/Validated topic/}),{target:{value:'quantitative-methods-probability-distributions'}});
+  expect(screen.getByText(/Custom problems are not supported/)).toBeVisible();
+  expect(screen.getByRole('button',{name:'Validate and start'})).toBeDisabled();
+  cleanup();
+});
+it('passes optional notation unchanged and prevents duplicate in-flight starts', async () => {
+  clearViews();
+  mocks.getLearningCatalog.mockResolvedValue({subjects:VALIDATED_SUBJECTS,topics:VALIDATED_TOPICS,generatedAt:1});
+  mocks.getDoc.mockReset().mockResolvedValueOnce({exists:()=>false}).mockResolvedValueOnce({exists:()=>true});
+  let resolve!: (v: {confirmationHash:string})=>void;
+  mocks.previewVerifiedProblem.mockImplementation(()=>new Promise(r=>{resolve=r;}));
+  mocks.startLearningSession.mockReset().mockResolvedValue({session:{id:'custom'}});
+  render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button',{name:'My own problem'}));
+  fireEvent.change(screen.getByRole('textbox'),{target:{value:'Given f(x) = [math], find f(5).'}});
+  const field=screen.getByLabelText('Mathematical expression editor') as HTMLElement & {value:string};
+  field.value='2x+3'; fireEvent.input(field);
+  const button=screen.getByRole('button',{name:'Validate and start'});
+  fireEvent.click(button);fireEvent.click(button);
+  expect(button).toBeDisabled();
+  resolve({confirmationHash:'confirmed'});
+  await waitFor(()=>expect(mocks.startLearningSession).toHaveBeenCalledOnce());
+  expect(mocks.startLearningSession).toHaveBeenCalledWith(expect.objectContaining({questionLatex:'2x+3',question:'Given f(x) = [math], find f(5).'}));
+  cleanup();
+});
+
 });

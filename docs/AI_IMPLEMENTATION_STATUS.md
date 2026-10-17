@@ -46,3 +46,16 @@ Authority is enforced in the Worker and proposed Firestore rules. The browser ca
 5. Full four-topic sessions, qualitative acceptance of alternative proofs/paraphrases, injection resistance and live assisted scoring remain acceptance work, not completed claims based on mocks.
 
 Follow [AI setup and rollout](AI_TUTOR_SETUP.md). Supply genuine instructor-reviewed questions, worked references and approval evidence; do not manufacture approvals or substitute a sample bank.
+
+## Local custom-problem expansion (2026-10-17)
+
+The native Next.js learning service now validates bounded custom function evaluation, descriptive statistics, counting, classical probability, numerical set operations and Boolean propositions. Optional MathInput notation is bound into preview/start confirmation and references remain server-private. See [supported inputs and limits](CUSTOM_PROBLEM_INPUT.md).
+
+This is a local code change with automated engine, mocked service and component coverage. It does not establish live model reliability, complete real-user end-to-end acceptance, approved content readiness, or deployment. AI activation, rollout blockers, production data and cloud configuration were not changed.
+
+
+### Local follow-up verification (2026-10-17)
+
+The previously failing history and notification tests now reflect the existing real-time cache and optimistic navigation behavior, including subscription disposal and delayed-write failure coverage. A native-route integration harness exercises task input through the real client, POST route and learning service with external authentication, Firestore and Gemini mocked. A confirmed active-assignment defect was fixed: different custom work now returns a conflict instead of silently substituting another session.
+
+All 400 Vitest tests and 9 selected local public/hydration browser tests passed; typecheck, lint, production build and the private-material scan passed. metadataBase still requires a verified deployment origin. This evidence does not demonstrate authenticated live custom-problem sessions, real-model reliability or deployment readiness. No activation, production data or deployment settings changed. See [acceptance coverage and manual prerequisites](CUSTOM_PROBLEM_INPUT.md).

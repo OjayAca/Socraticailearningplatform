@@ -29,6 +29,7 @@ const startSessionSchema = z.discriminatedUnion("mode", [
     mode: z.literal("free_form"),
     topicId: z.string().trim().min(1).max(160),
     question: z.string().trim().min(8).max(2_000),
+    questionLatex: z.string().max(2_000).optional(),
     requestedDifficulty: difficulty,
     confirmationHash: z.string().min(1).max(4000).optional(),
   }),
@@ -365,6 +366,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // Allocated once per isolate to avoid re-creating the schema map on every request.
 const operationSchemas: Record<string, z.ZodType> = {
+  previewVerifiedProblem: z.object({ requestId, topicId: z.string().regex(/^[A-Za-z0-9_-]{1,160}$/), question: z.string().trim().min(8).max(2000), questionLatex: z.string().max(2000).optional(), requestedDifficulty: difficulty }),
   bootstrapProfile: bootstrapProfileSchema,
   startLearningSession: startSessionSchema,
   evaluatePhaseResponse: evaluateResponseSchema,

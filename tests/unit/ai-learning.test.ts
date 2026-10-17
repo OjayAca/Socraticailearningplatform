@@ -2,20 +2,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LearningService } from "../../server/services/LearningService";
 import { AI_WORKFLOW_VERSION, allowedSupport, checkMath, educationalContext, initialGates, numericValue, recommendation, GeminiTutor, type Turn, type Score, type Tutor } from "../../server/gemini";
-import { ServiceError, type Env, type RecordDoc, type Store } from "../../server/platform";
+import { ServiceError, type Env } from "../../server/platform";
 import { REASONING_PHASES } from "@mindguide/contracts";
 
-// In-memory unit fixtures only. Never seed or connect a Firebase project.
-class MemoryStore implements Store {
-  records = new Map<string,{data:any;version:number}>();
-  put(path:string,data:any) {this.records.set(path,{data:structuredClone(data),version:(this.records.get(path)?.version??0)+1});}
-  async get(path:string):Promise<RecordDoc> {const r=this.records.get(path);return{path,data:r?structuredClone(r.data):null,version:r?String(r.version):undefined};}
-  async query(collection:string,field?:string,value?:unknown) {return Promise.all([...this.records].filter(([path,r])=>path.startsWith(collection+"/") && path.split("/").length===collection.split("/").length+1 && (!field||r.data[field]===value)).map(([path])=>this.get(path)));}
-  async commit(writes:Array<{doc:RecordDoc;data:any}>) {
-    for(const {doc} of writes) if(String(this.records.get(doc.path)?.version??"")!==(doc.version??"")) throw new ServiceError(409,"conflict","Stale document");
-    for(const {doc,data} of writes)this.put(doc.path,data);
-  }
-}
+import { MemoryStore } from "../helpers/memory-learning-store";
 const env={GEMINI_API_KEY:"unit-test-only",AI_ENABLED:"true",AI_FREE_TIER_CONFIRMED:"true",GEMINI_MODEL:"gemini-3.6-flash",GEMINI_RPM:"100",GEMINI_TPM:"10000000",GEMINI_RPD:"1000"} as Env;
 const response=(overrides:Partial<Turn>={}):Turn=>({feedback:"Your reasoning identifies the target.",question:"Which information is given?",accepted:false,confidence:"high",category:"none",evidence:["Student identifies the target quantity."],intent:"answer",leaksSolution:false,...overrides});
 let db:MemoryStore, generate:ReturnType<typeof vi.fn>, service:LearningService;
@@ -326,5 +316,76 @@ describe("Mathematics and adaptation",()=>{
   it("rejects malformed or truncated Gemini output",async()=>{
     vi.stubGlobal("fetch",vi.fn().mockResolvedValue(Response.json({candidates:[{finishReason:"MAX_TOKENS",content:{parts:[{text:'{"accepted":'}]}}]})));
     try {await expect(new GeminiTutor(env).generate({session:{},reference:{},messages:[],intent:"opening"})).rejects.toThrow("incomplete");} finally {vi.unstubAllGlobals();}
+  });
+});
+
+describe('custom problem secure integration', () => {
+  const input = (question = 'sample variance: 2, 4, 6') => ({ mode:'free_form', topicId:'quantitative-methods-descriptive-statistics', question, requestedDifficulty:'Basic', requestId:crypto.randomUUID() });
+  it('computes a private reference and preserves the Socratic gates', async () => {
+    const request = input();
+    const preview = await service.operation('previewVerifiedProblem', request);
+    expect(preview).not.toHaveProperty('givens');
+    expect(preview).not.toHaveProperty('finalAnswer');
+    expect(preview.confirmationHash).toHaveLength(43);
+    const {session} = await service.operation('startLearningSession', {...request,...preview,referenceAnswer:'999',answerSpecification:{kind:'number',value:999}});
+    expect((await db.get(`sessions/${session.id}/private/reference`)).data.finalAnswer).toBe('4');
+    expect(session).not.toHaveProperty('answerSpecification');
+    expect(session.releasedSolution).toBeNull();
+    expect(session.currentPhase).toBe('problem_understanding');
+    expect(generate.mock.calls[0][0].reference.finalAnswer).toBe('4');
+    expect(generate.mock.calls[0][0].reference.answerSpecification).toMatchObject({kind:'number',value:4});
+    await expect(service.operation('finalizeScorecard',{sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID()})).rejects.toThrow();
+  });
+  it.each(['mean: 2, garbage', 'Given f(x) = x+1, find f(2).', 'variance: 2, 4'])('rejects %s without writes', async question => {
+    await expect(service.operation('previewVerifiedProblem',input(question))).rejects.toMatchObject({status:422});
+    await expect(service.operation('startLearningSession',{...input(question),confirmationHash:'invented'})).rejects.toMatchObject({status:422});
+    expect(await db.query('sessions')).toHaveLength(0);
+    expect(generate).not.toHaveBeenCalled();
+  });
+  it.each([{question:'mean: 2, 3'}, {requestedDifficulty:'Advanced'}, {questionLatex:'2, 8'}])('rejects changed confirmed inputs %j', async change => {
+    const request = input('mean: [math]'); request.question = 'mean: [math]';
+    const full = {...request,questionLatex:'2, 4'};
+    const preview = await service.operation('previewVerifiedProblem',full);
+    await expect(service.operation('startLearningSession',{...full,...preview,...change})).rejects.toMatchObject({status:422});
+    expect(await db.query('sessions')).toHaveLength(0);
+  });
+  it('preserves both original forms and expands notation for the tutor', async () => {
+    const request = {...input('mean: [math]'),questionLatex:'2, 4'};
+    const preview = await service.operation('previewVerifiedProblem',request);
+    const {session} = await service.operation('startLearningSession',{...request,...preview});
+    expect(session.originalQuestion).toBe('mean: 2, 4');
+    expect(session.originalProblemText).toBe('mean: [math]');
+    expect(session.originalProblemLatex).toBe('2, 4');
+    expect((await db.get(`sessions/${session.id}/private/reference`)).data.finalAnswer).toBe('3');
+  });
+  it('blocks a leaking custom opening without releasing a solution', async () => {
+    const request=input(); const preview=await service.operation('previewVerifiedProblem',request);
+    generate.mockResolvedValue(response({feedback:'The final answer is 4.'}));
+    await expect(service.operation('startLearningSession',{...request,...preview})).rejects.toMatchObject({status:503});
+    const sessions=await db.query('sessions');
+    expect(sessions[0].data.releasedSolution).toBeNull();
+    expect(sessions[0].data.gateStates.problem_understanding.status).not.toBe('accepted');
+    expect(await db.query(`${sessions[0].path}/messages`)).toHaveLength(0);
+  });
+  it('resumes identical custom work but refuses to silently substitute a different active problem', async () => {
+    const request=input(); const preview=await service.operation('previewVerifiedProblem',request);
+    const first=await service.operation('startLearningSession',{...request,...preview});
+    const retry=await service.operation('startLearningSession',{...request,...preview,requestId:crypto.randomUUID()});
+    expect(retry.session.id).toBe(first.session.id);
+    const changed=input('mean: 2, 4, 6');
+    const confirmed=await service.operation('previewVerifiedProblem',changed);
+    await expect(service.operation('startLearningSession',{...changed,...confirmed})).rejects.toMatchObject({status:409});
+    expect(await db.query('sessions')).toHaveLength(1);
+    expect(generate).toHaveBeenCalledOnce();
+  });
+  it('does not bypass validation when another assignment is active', async () => {
+    await start();
+    await expect(service.operation('startLearningSession',{...input('mean: invalid'),confirmationHash:'old'})).rejects.toMatchObject({status:422});
+    expect(await db.query('sessions')).toHaveLength(1);
+  });
+  it('rejects malformed preview contracts and unapproved subjects', async () => {
+    await expect(service.operation('previewVerifiedProblem',{...input(),question:'x'.repeat(2001)})).rejects.toMatchObject({status:400});
+    db.put('subjects/quantitative-methods',{status:'draft'});
+    await expect(service.operation('previewVerifiedProblem',input())).rejects.toThrow('subject');
   });
 });

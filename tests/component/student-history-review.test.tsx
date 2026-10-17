@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { clearViews } from "@/lib/view-cache";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { SecureStudentHistory, SecureStudentReview } from "@/app/components/SecureStudent";
@@ -6,6 +7,8 @@ import { SecureStudentHistory, SecureStudentReview } from "@/app/components/Secu
 const mocks = vi.hoisted(() => ({
   getDoc: vi.fn(),
   getDocs: vi.fn(),
+  onSnapshot: vi.fn(),
+  unsubscribe: vi.fn(),
   createFollowUpSession: vi.fn(),
 }));
 
@@ -14,6 +17,7 @@ vi.mock("firebase/firestore", () => ({
   doc: vi.fn(),
   getDoc: mocks.getDoc,
   getDocs: mocks.getDocs,
+  onSnapshot: mocks.onSnapshot,
   limit: vi.fn(),
   orderBy: vi.fn(),
   query: vi.fn(),
@@ -53,16 +57,19 @@ function docs(records: Array<Record<string, unknown>>) {
 
 describe("student history and review supporting flows", () => {
   beforeEach(() => {
+    clearViews();
+    mocks.onSnapshot.mockReset();
+    mocks.unsubscribe.mockReset();
     mocks.getDoc.mockReset();
     mocks.getDocs.mockReset();
     mocks.createFollowUpSession.mockReset();
   });
 
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); clearViews(); });
 
   it("routes current sessions to learning and terminal or legacy records to review", async () => {
-    mocks.getDocs.mockResolvedValue(
-      docs([
+    mocks.onSnapshot.mockImplementation((_query, next) => {
+      next(docs([
         {
           id: "active-v4",
           schemaVersion: 5,
@@ -79,9 +86,10 @@ describe("student history and review supporting flows", () => {
           subject: "Discrete Mathematics",
           topic: "Graph Theory",
         },
-      ]),
-    );
-    const { container } = render(
+      ]));
+      return mocks.unsubscribe;
+    });
+    const { container, unmount } = render(
       <MemoryRouter>
         <SecureStudentHistory />
       </MemoryRouter>,
@@ -90,6 +98,21 @@ describe("student history and review supporting flows", () => {
     await screen.findByText("Probability");
     expect(container.querySelector('a[href="/session/active-v4/learn"]')).toBeInTheDocument();
     expect(container.querySelector('a[href="/student/review/legacy-v3"]')).toBeInTheDocument();
+    const publish = mocks.onSnapshot.mock.calls[0][1];
+    act(() => publish(docs([{id:'active-v4',schemaVersion:5,workflowVersion:6,status:'submitted',subject:'Quantitative Methods',topic:'Probability'}])));
+    expect(container.querySelector('a[href="/student/review/active-v4"]')).toBeInTheDocument();
+    expect(container.querySelector('a[href="/session/active-v4/learn"]')).not.toBeInTheDocument();
+    expect(screen.queryByText('Graph Theory')).not.toBeInTheDocument();
+    unmount();
+    // Route changes detach the view listener; the authenticated cache owns the stream.
+    expect(mocks.unsubscribe).not.toHaveBeenCalled();
+    const returning = render(<MemoryRouter><SecureStudentHistory /></MemoryRouter>);
+    expect(screen.getByText('Probability')).toBeVisible();
+    expect(mocks.onSnapshot).toHaveBeenCalledOnce();
+    returning.unmount();
+    clearViews(); // Same disposal path used on auth changes.
+    expect(mocks.unsubscribe).toHaveBeenCalledOnce();
+
   });
 
   it("shows a useful missing-record state", async () => {
