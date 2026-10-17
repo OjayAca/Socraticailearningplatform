@@ -16,11 +16,11 @@ export function AchievementGrid({ achievements }: { achievements?: Partial<Recor
         {ORDER.map(({ id, title, description, Icon }) => {
           const award = achievements?.[id];
           return (
-            <div key={id} className={`rounded-2xl border p-4 ${award ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30" : "border-slate-200 bg-slate-50 opacity-60 dark:border-slate-800 dark:bg-slate-900"}`}>
+            <div key={id} className={`rounded-2xl border p-4 ${award ? "border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30" : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900"}`}>
               <Icon className={`h-6 w-6 ${award ? "text-amber-600" : "text-slate-400"}`} />
               <h3 className="mt-3 font-bold text-slate-950 dark:text-white">{title}</h3>
               <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{description}</p>
-              <p className="mt-3 text-xs font-semibold text-slate-500">{award ? "Earned" : "Not yet earned"}</p>
+              <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">{award ? "Earned" : "Not yet earned"}</p>
             </div>
           );
         })}

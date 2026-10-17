@@ -1,3 +1,4 @@
+import { Tooltip } from "./ui/tooltip";
 import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import {
@@ -53,7 +54,7 @@ export function StudentShell({ active, children }: { active: string; children: R
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
+    <div className="app-shell flex h-dvh min-h-0 w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
       <aside className="hidden h-full min-h-0 w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 dark:border-slate-800/80 dark:bg-[#0b1120] md:flex">
         <Brand />
         <nav className="mt-9 space-y-1" aria-label="Primary student navigation">
@@ -71,18 +72,18 @@ export function StudentShell({ active, children }: { active: string; children: R
         <header className="z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
           <div className="mr-3 md:hidden">
             <Sheet>
-              <SheetTrigger asChild>
+              <Tooltip label="Open student navigation"><SheetTrigger asChild>
                 <button
                   type="button"
                   aria-label="Open student navigation"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-              </SheetTrigger>
+              </SheetTrigger></Tooltip>
               <SheetContent
                 side="left"
-                className="flex w-[min(20rem,88vw)] flex-col border-slate-200 bg-white p-5 text-slate-950 dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-100"
+                className="mobile-navigation flex w-[min(20rem,88vw)] flex-col border-slate-200 bg-white p-5 text-slate-950 dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-100"
               >
                 <SheetHeader className="text-left">
                   <SheetTitle className="sr-only">Student navigation</SheetTitle>
@@ -110,17 +111,16 @@ export function StudentShell({ active, children }: { active: string; children: R
             </h1>
           </div>
 
-          <button
+          <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            title={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            className="mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             {isDark ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-          </button>
+          </button></Tooltip>
 
-          <Link
+          <Tooltip label={`Open profile for ${displayName}`}><Link
             to="/student/profile"
             aria-label={`Open profile for ${displayName}`}
             className="flex shrink-0 items-center gap-3 rounded-xl p-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-slate-800"
@@ -136,11 +136,11 @@ export function StudentShell({ active, children }: { active: string; children: R
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30">
               {initials}
             </span>
-          </Link>
+          </Link></Tooltip>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-          <div className="mx-auto w-full max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
+          <div className="responsive-content mx-auto w-full min-w-0 max-w-6xl p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
     </div>

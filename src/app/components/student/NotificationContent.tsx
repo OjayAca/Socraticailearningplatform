@@ -1,5 +1,6 @@
 /** Learner notification center. */
 
+import { toast } from "sonner";
 import { useState } from "react";
 import { AlertCircle, Bell, Loader2, RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -24,21 +25,13 @@ export function NotificationContent() {
   const navigate = useNavigate();
   const [isMarkingAll, setIsMarkingAll] = useState(false);
 
-  async function handleNotificationClick(
-    notificationId: string,
-    isRead: boolean,
-    actionUrl?: string
-  ) {
-    try {
-      if (!isRead) {
-        await markAsRead(notificationId);
-      }
-    } catch {
-      return;
+  function handleNotificationClick(notificationId: string, isRead: boolean, actionUrl?: string) {
+    if (!isRead) {
+      void markAsRead(notificationId).catch((cause) => {
+        if (actionUrl) toast.error(cause instanceof Error ? cause.message : "Could not mark the notification as read.");
+      });
     }
-    if (actionUrl) {
-      navigate(actionUrl);
-    }
+    if (actionUrl) navigate(actionUrl);
   }
 
   async function handleMarkAllAsRead() {
@@ -124,7 +117,7 @@ export function NotificationContent() {
                       actionUrl
                     )
                   }
-                  className={`w-full p-6 flex flex-col sm:flex-row sm:items-center gap-4 transition-colors cursor-pointer text-left ${
+                  className={`w-full p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center gap-4 transition-colors cursor-pointer text-left ${
                     notification.read
                       ? "bg-transparent text-slate-500 dark:text-slate-400"
                       : "bg-indigo-50/50 dark:bg-indigo-900/10 text-slate-900 dark:text-white"

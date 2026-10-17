@@ -1,3 +1,4 @@
+import { Tooltip } from "./ui/tooltip";
 import {
   AlertCircle,
   ArrowRight,
@@ -108,7 +109,7 @@ export function LandingPage() {
   }
 
   return (
-    <div className="flex min-h-full w-full shrink-0 flex-col bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
+    <div className="public-page flex min-h-full w-full shrink-0 flex-col bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
       <header className="sticky top-0 z-50 shrink-0 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0b1120]/90">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
           <a
@@ -145,11 +146,10 @@ export function LandingPage() {
           </nav>
 
           <div className="ml-auto flex items-center gap-2 lg:ml-5">
-            <button
+            <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
               aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-              title={isDark ? "Switch to light theme" : "Switch to dark theme"}
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               {isDark ? (
@@ -157,7 +157,7 @@ export function LandingPage() {
               ) : (
                 <Moon className="h-4.5 w-4.5" />
               )}
-            </button>
+            </button></Tooltip>
             <Link
               to="/login"
               className="inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"

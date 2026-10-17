@@ -1,3 +1,5 @@
+import { VALIDATED_SUBJECTS, VALIDATED_TOPICS } from "@/data/validated-curriculum";
+import { clearViews } from "@/lib/view-cache";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
@@ -32,6 +34,7 @@ vi.mock("@/app/components/StudentShell", () => ({ StudentShell: ({ children }: {
 
 describe("P1 subject-first task start", () => {
   beforeEach(() => {
+    clearViews();
     mocks.startLearningSession.mockReset();
     mocks.previewVerifiedProblem.mockReset();
     mocks.startLearningSession.mockResolvedValue({ session: { id: "new-session" } });
@@ -42,8 +45,8 @@ describe("P1 subject-first task start", () => {
         { id: "discrete-mathematics", name: "Discrete Mathematics", description: "Practice logic and proof.", status: "approved", version: 2 },
       ],
       topics: [
-        { id: "probability", subjectId: "quantitative-methods", subject: "Quantitative Methods", name: "Probability", status: "approved", version: 2, ready: true },
-        { id: "logic", subjectId: "discrete-mathematics", subject: "Discrete Mathematics", name: "Logic and Propositions", status: "approved", version: 2, ready: true },
+        { id: "quantitative-methods-introduction-to-probability", subjectId: "quantitative-methods", subject: "Quantitative Methods", name: "Introduction to Probability", status: "approved", version: 2, ready: true },
+        { id: "discrete-mathematics-logic", subjectId: "discrete-mathematics", subject: "Discrete Mathematics", name: "Logic", status: "approved", version: 2, ready: true },
       ],
       generatedAt: 1,
     });
@@ -54,18 +57,39 @@ describe("P1 subject-first task start", () => {
   });
   afterEach(cleanup);
 
+  it("shows the exact curriculum and nested subtopics using stable selection IDs", async () => {
+    mocks.getLearningCatalog.mockResolvedValue({ subjects: VALIDATED_SUBJECTS.map(item => ({ ...item, status: "approved", version: 1 })), topics: VALIDATED_TOPICS.map(item => ({ ...item, status: "approved", version: 1, ready: true })), generatedAt: 1 });
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    await screen.findByText("Images and Pre-images");
+    expect(screen.getAllByRole("option").map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(0, 6).map(item => item.name));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "quantitative-methods-descriptive-statistics" } });
+    expect(screen.getByText("Descriptive Measures")).toBeInTheDocument();
+    expect(screen.getByText("Kurtosis")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Discrete Mathematics/ }));
+    expect(screen.getAllByRole("option").map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(6).map(item => item.name));
+  });
+  it("reuses setup immediately when returning to the page", async () => {
+    const view = render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    await screen.findByRole("button", { name: "Assign my prepared problem" });
+    view.unmount();
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "Assign my prepared problem" })).toBeVisible();
+    await waitFor(() => expect(mocks.getDoc).toHaveBeenCalledTimes(2));
+    expect(mocks.getLearningCatalog).toHaveBeenCalledOnce();
+  });
+
   it("validates the screenshot question and starts directly with the problem givens", async () => {
     const question = "what is the mean for 23, 41,9,56";
-    const preview = verifiedConfirmation(question, "Measures of Central Tendency");
+    const preview = verifiedConfirmation(question, "Descriptive Statistics");
     mocks.previewVerifiedProblem.mockImplementation(async ({ question }) =>
-      verifiedConfirmation(question, "Measures of Central Tendency"));
+      verifiedConfirmation(question, "Descriptive Statistics"));
     const confirm = vi.spyOn(window, "confirm");
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
     fireEvent.click(await screen.findByRole("button", { name: "My own problem" }));
     fireEvent.change(screen.getByRole("textbox"), { target: { value: question } });
     fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
     await waitFor(() => expect(mocks.startLearningSession).toHaveBeenCalledWith({
-      mode: "free_form", topicId: "probability", question, requestedDifficulty: "Basic",
+      mode: "free_form", topicId: "quantitative-methods-introduction-to-probability", question, requestedDifficulty: "Basic",
       confirmationHash: preview.confirmationHash,
     }));
     expect(confirm).not.toHaveBeenCalled();
@@ -113,7 +137,7 @@ describe("P1 subject-first task start", () => {
     const start = await screen.findByRole("button", { name: "Assign my prepared problem" });
     expect(screen.queryByText("Complete your academic profile")).not.toBeInTheDocument();
     fireEvent.click(start);
-    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", topicId: "probability" });
+    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", topicId: "quantitative-methods-introduction-to-probability" });
   });
 
   it("shows descriptions and personalized progress before topic selection", async () => {
@@ -123,6 +147,6 @@ describe("P1 subject-first task start", () => {
     expect(screen.getByText("84/100")).toBeVisible();
     expect(screen.getByText("Intermediate")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: /discrete mathematics/i }));
-    expect(screen.getByRole("option", { name: "Logic and Propositions" })).toBeVisible();
+    expect(screen.getByRole("option", { name: "Logic" })).toBeVisible();
   });
 });

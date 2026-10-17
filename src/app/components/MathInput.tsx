@@ -1,6 +1,9 @@
+import { Tooltip } from "./ui/tooltip";
 import { useEffect, useId, useMemo, useRef } from "react";
 import katex from "katex";
 import "katex/dist/katex.min.css";
+// Bundle MathLive's fonts with Next.js and enable its static-font loading mode.
+import "mathlive/fonts.css";
 import "mathlive";
 import type { MathResponse } from "@mindguide/contracts";
 
@@ -12,18 +15,18 @@ type MathFieldElement = HTMLElement & {
 };
 
 const SYMBOLS = [
-  ["Fraction", "\\frac{#0}{#?}"],
-  ["Exponent", "^{#?}"],
-  ["Radical", "\\sqrt{#0}"],
-  ["Subscript", "_{#?}"],
-  ["≤", "\\le"],
-  ["≥", "\\ge"],
-  ["≠", "\\ne"],
-  ["∧", "\\land"],
-  ["∨", "\\lor"],
-  ["¬", "\\neg"],
-  ["∈", "\\in"],
-  ["⊆", "\\subseteq"],
+  ["Fraction", "Fraction", "\\frac{#0}{#?}"],
+  ["Exponent", "Exponent", "^{#?}"],
+  ["Radical", "Radical", "\\sqrt{#0}"],
+  ["Subscript", "Subscript", "_{#?}"],
+  ["≤", "less than or equal to", "\\le"],
+  ["≥", "greater than or equal to", "\\ge"],
+  ["≠", "not equal to", "\\ne"],
+  ["∧", "logical AND", "\\land"],
+  ["∨", "logical OR", "\\lor"],
+  ["¬", "logical NOT", "\\neg"],
+  ["∈", "element of", "\\in"],
+  ["⊆", "subset of or equal to", "\\subseteq"],
 ] as const;
 
 export function MathInput({
@@ -73,7 +76,7 @@ export function MathInput({
   return (
     <div className="space-y-4">
       {!notationOnly && <div>
-        <label className="mb-2 block text-sm font-bold text-slate-800" htmlFor={explanationId}>
+        <label className="mb-2 block text-sm font-bold text-slate-800 dark:text-slate-100" htmlFor={explanationId}>
           {label}
         </label>
         <textarea
@@ -84,15 +87,15 @@ export function MathInput({
           maxLength={4000}
           rows={5}
           placeholder={explanationPlaceholder}
-          className="w-full rounded-xl border border-slate-300 bg-white p-4 text-slate-900 outline-none focus:ring-2 focus:ring-indigo-600"
+          className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-600"
         />
       </div>}
 
       <div className="space-y-2">
-        <span className="block text-sm font-bold text-slate-800">Mathematical notation (optional)</span>
+        <span className="block text-sm font-bold text-slate-800 dark:text-slate-100">Mathematical notation (optional)</span>
         <div className="flex flex-wrap gap-2" role="toolbar" aria-label="Mathematical symbols">
-          {SYMBOLS.map(([name, command]) => (
-            <button
+          {SYMBOLS.map(([name, description, command]) => (
+            <Tooltip key={name} label={`Insert ${description}`}><button
               key={name}
               type="button"
               disabled={disabled}
@@ -100,11 +103,11 @@ export function MathInput({
                 fieldRef.current?.insert(command);
                 fieldRef.current?.focus();
               }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-indigo-600"
-              aria-label={`Insert ${name}`}
+              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-indigo-600"
+              aria-label={`Insert ${description}`}
             >
               {name}
-            </button>
+            </button></Tooltip>
           ))}
         </div>
         <math-field
@@ -114,15 +117,15 @@ export function MathInput({
           value={value.latex ?? ""}
           aria-label="Mathematical expression editor"
           virtual-keyboard-mode="onfocus"
-          className="block min-h-14 w-full rounded-xl border border-slate-300 bg-white p-3 text-xl focus-within:ring-2 focus-within:ring-indigo-600"
+          className="block min-h-14 min-w-0 max-w-full w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-slate-900 dark:text-slate-100 text-xl focus-within:ring-2 focus-within:ring-indigo-600"
         />
         {preview.error ? (
-          <p className="text-sm font-medium text-red-600" role="alert">{preview.error}</p>
+          <p className="text-sm font-medium text-red-600 dark:text-red-400" role="alert">{preview.error}</p>
         ) : preview.html ? (
-          <div className="overflow-x-auto rounded-xl bg-slate-50 p-3" aria-label="Rendered equation preview" dangerouslySetInnerHTML={{ __html: preview.html }} />
+          <div className="overflow-x-auto rounded-xl bg-slate-50 dark:bg-slate-950 p-3" aria-label="Rendered equation preview" dangerouslySetInnerHTML={{ __html: preview.html }} />
         ) : null}
       </div>
-      {!notationOnly && <p className="text-xs text-slate-500">Keyboard-entered text and LaTeX are supported. Images, handwriting, OCR, and graphical input are not accepted.</p>}
+      {!notationOnly && <p className="text-xs text-slate-500 dark:text-slate-400">Keyboard-entered text and LaTeX are supported. Images, handwriting, OCR, and graphical input are not accepted.</p>}
     </div>
   );
 }

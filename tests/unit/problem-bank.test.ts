@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mindGuideProblems } from "@/data/mindguide-problems";
 import {
-  SUBJECT_TOPICS,
   type MindGuideDifficulty,
   type Topic,
 } from "@/types";
@@ -12,9 +11,9 @@ const DIFFICULTIES: MindGuideDifficulty[] = [
   "Advanced",
 ];
 
-const topics = Object.values(SUBJECT_TOPICS).flat() as Topic[];
+const topics = [...new Set(mindGuideProblems.map(problem => problem.topic))] as Topic[];
 
-describe("MINDGUIDE curated problem bank", () => {
+describe("Retired sample bank (historical migration fixtures only)", () => {
   it("contains exactly one problem for every topic and difficulty", () => {
     expect(topics).toHaveLength(11);
     expect(mindGuideProblems).toHaveLength(33);
@@ -55,12 +54,7 @@ describe("MINDGUIDE curated problem bank", () => {
     }
   });
 
-  it("keeps each problem under the subject that owns its topic", () => {
-    for (const problem of mindGuideProblems) {
-      expect(
-        SUBJECT_TOPICS[problem.subject].includes(problem.topic as never),
-        `${problem.id} subject/topic pairing`
-      ).toBe(true);
-    }
+  it("does not represent approved current curriculum content", () => {
+    expect(mindGuideProblems.every(problem => !("validationRecordId" in problem))).toBe(true);
   });
 });

@@ -1,6 +1,6 @@
 import { MathText } from "./MathText";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from "firebase/firestore";
+import { useEffect, useState, type ReactNode } from "react";
+import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import {
   Activity,
@@ -13,7 +13,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from "lucide-react";
-import type { LearningProgress } from "@mindguide/contracts";
+import { dashboardProgress, sessionTime } from "@/lib/learning/dashboard-progress";
+import { peekView, watchView } from "@/lib/view-cache";
 import { db } from "@/lib/firebase";
 import { createFollowUpSession } from "@/lib/secure-api";
 import { learnerSessionDestination } from "@/lib/session-compatibility";
@@ -24,59 +25,69 @@ import { SettingsContent } from "./student/SettingsContent";
 import { StudentShell } from "./StudentShell";
 import { ScorecardDetails } from "./ScorecardDetails";
 
-function useLearnerSessions(maximum = 100) {
+type SessionsState = { sessions: Record<string, any>[]; loading: boolean; error: string | null };
+function useLearnerSessions(maximum?: number, attempt = 0) {
   const uid = useAuthStore((state) => state.firebaseUser?.uid);
-  const [sessions, setSessions] = useState<Record<string, any>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const load = useCallback(async () => {
+  const key = `sessions:${uid}`;
+  const [result, setResult] = useState<{ key: string; state: SessionsState }>(() => ({
+    key, state: peekView<SessionsState>(key) ?? { sessions: [], loading: true, error: null },
+  }));
+  useEffect(() => {
     if (!db || !uid) return;
-    setLoading(true);
-    try {
-      const snapshot = await getDocs(query(collection(db, "sessions"), where("studentId", "==", uid), orderBy("updatedAt", "desc"), limit(maximum)));
-      setSessions(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Learning records could not be loaded.");
-    } finally {
-      setLoading(false);
-    }
-  }, [maximum, uid]);
-  useEffect(() => { const timer = window.setTimeout(() => void load(), 0); return () => window.clearTimeout(timer); }, [load]);
-  return { sessions, loading, error };
+    const database = db;
+    return watchView<SessionsState>(key, (next, error) => onSnapshot(
+      query(collection(database, "sessions"), where("studentId", "==", uid)), snapshot => {
+        const sessions = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
+        sessions.sort((a: Record<string, any>, b: Record<string, any>) => sessionTime(b.updatedAt ?? b.createdAt) - sessionTime(a.updatedAt ?? a.createdAt));
+        next({ sessions, loading: false, error: null });
+      }, error), state => setResult({ key, state }), () => setResult({ key, state: {
+        sessions: [], loading: false, error: "Learning progress could not be loaded. Please try again.",
+      } }));
+  }, [uid, key, attempt]);
+  const state = result.key === key ? result.state : { sessions: [], loading: true, error: null };
+  return { ...state, sessions: maximum ? state.sessions.slice(0, maximum) : state.sessions };
 }
 
 export function SecureStudentDashboard() {
-  const { sessions, loading, error } = useLearnerSessions(20);
   const uid = useAuthStore((state) => state.firebaseUser?.uid);
-  const [progress, setProgress] = useState<LearningProgress | null>(null);
+  return <StudentDashboardMetrics key={uid ?? "signed-out"} uid={uid} />;
+}
+
+function StudentDashboardMetrics({ uid }: { uid: string | undefined }) {
+  const [attempt, setAttempt] = useState(0);
+  const [now, setNow] = useState(() => new Date());
+  const { sessions, loading, error } = useLearnerSessions(undefined, attempt);
   useEffect(() => {
-    if (!db || !uid) return;
-    getDoc(doc(db, "learning_progress", uid)).then((snapshot) => {
-      if (snapshot.exists()) setProgress(snapshot.data() as LearningProgress);
-    }).catch(() => undefined);
-  }, [uid]);
+    const refresh = () => setNow(new Date());
+    const timer = window.setInterval(refresh, 30000);
+    window.addEventListener("focus", refresh);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refresh); };
+  }, []);
+  const unavailable = !db || !uid;
+  const progress = !loading && !error && !unavailable ? dashboardProgress(sessions, now) : null;
+  const pendingValue = loading && !unavailable ? "Loading…" : "—";
 
   return (
     <StudentShell active="dashboard">
       <div className="space-y-6">
-        {error && <Notice message={error} />}
+        {(error || unavailable) && <div role="alert"><Notice message={error ?? "Sign in to load your learning progress."} />{error && <button type="button" className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 font-semibold text-white" onClick={() => { setAttempt(value => value + 1); }}>Retry learning progress</button>}</div>}
 
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Learning overview">
           <Stat
             label="Completed"
-            value={progress?.sessionsCompleted ?? 0}
+            value={progress?.sessionsCompleted ?? pendingValue}
             Icon={CheckCircle2}
             iconClassName="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
           />
           <Stat
             label="Formative average"
-            value={`${progress?.averageCTScore ?? 0}/100`}
+            value={progress ? progress.averageCTScore === null ? "—" : `${progress.averageCTScore}/100` : pendingValue}
             Icon={Gauge}
             iconClassName="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
           />
           <Stat
             label="Current streak"
-            value={`${progress?.currentStreak ?? 0} days`}
+            value={progress ? `${progress.currentStreak} ${progress.currentStreak === 1 ? "day" : "days"}` : pendingValue}
             Icon={Flame}
             iconClassName="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400"
           />
@@ -127,7 +138,7 @@ export function SecureStudentDashboard() {
               Resume active work or review your preserved learning evidence.
             </p>
           </div>
-          {loading ? <Spinner /> : <SessionRows sessions={sessions.slice(0, 10)} />}
+          {!unavailable && (loading ? <Spinner /> : !error && <SessionRows sessions={sessions.slice(0, 10)} />)}
         </section>
       </div>
     </StudentShell>
@@ -138,7 +149,7 @@ export function SecureStudentHistory() {
   const { sessions, loading, error } = useLearnerSessions();
   return (
     <StudentShell active="history">
-      <h2 className="text-3xl font-bold text-slate-950 dark:text-white">Learning history</h2>
+      <h2 className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">Learning history</h2>
       <p className="mt-2 text-slate-600 dark:text-slate-400">
         Completed records and preserved legacy history remain read-only. Current sessions can be resumed from this list.
       </p>
@@ -180,7 +191,7 @@ export function SecureStudentReview() {
   if (!sessionId) return <Navigate to="/student/history" replace />;
   if (loading) return <StudentShell active="history"><Spinner /></StudentShell>;
   if (!session) return <StudentShell active="history"><Notice message={error ?? "The learning record was not found."} /><Link to="/student/history" className="mt-5 inline-flex rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Return to history</Link></StudentShell>;
-  return <StudentShell active="history">{error && <Notice message={error} />}<><h2 className="text-3xl font-bold text-slate-950 dark:text-white">Reasoning record</h2><p className="mt-2 text-slate-600 dark:text-slate-400">{session.subject} · {session.topic} · {session.status}</p><div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><h3 className="font-bold text-slate-950 dark:text-white">Problem</h3><p className="mt-2 text-slate-700 dark:text-slate-300">{session.originalQuestion ?? session.problemContext?.promptSnapshot}</p>{session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}</div>{session.workflowVersion !== 6 && <p className="mt-4 text-sm text-slate-600">Preserved historical practice record. Start a new session for AI tutoring.</p>}{session.draft && <section className="mt-4 rounded-xl border p-4"><h3 className="font-bold">Saved final draft</h3><MathText text={session.draft.answer?.plainText} latex={session.draft.answer?.latex} /><p>{session.draft.methodology}</p><p>{session.draft.reflection}</p></section>}{conversation.length > 0 && <section aria-label="Saved tutor conversation" className="mt-5 space-y-3"><h3 className="font-bold">Socratic conversation</h3>{conversation.map(message=><article key={message.id} className="rounded-xl border p-4"><p className="text-xs font-semibold">{message.role === "assistant" ? "AI tutor" : "You"}</p><div className="whitespace-pre-wrap"><MathText text={message.text} /></div></article>)}</section>}<div className="mt-5 space-y-3">{responses.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><p className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400">{String(item.phase).replace(/_/g, " ")}</p><p className="mt-2 text-slate-800 dark:text-slate-200"><MathText text={item.response?.plainText} latex={item.response?.latex} /></p><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{item.evaluation?.evidenceSummary}</p></div>)}</div>{session.releasedSolution && <SolutionDetails solution={session.releasedSolution} />}{session.adminReview && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"><p className="font-bold">Administrator feedback</p><p className="mt-1">{session.adminReview.comment}</p></div>}{session.status === "returned" && !session.followUpSessionId && <button onClick={() => void retry()} className="mt-5 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Create one linked follow-up</button>}</></StudentShell>;
+  return <StudentShell active="history">{error && <Notice message={error} />}<><h2 className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">Reasoning record</h2><p className="mt-2 text-slate-600 dark:text-slate-400">{session.subject} · {session.topic} · {session.status}</p><div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><h3 className="font-bold text-slate-950 dark:text-white">Problem</h3><p className="mt-2 text-slate-700 dark:text-slate-300">{session.originalQuestion ?? session.problemContext?.promptSnapshot}</p>{session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}</div>{session.workflowVersion !== 6 && <p className="mt-4 text-sm text-slate-600">Preserved historical practice record. Start a new session for AI tutoring.</p>}{session.draft && <section className="mt-4 rounded-xl border p-4"><h3 className="font-bold">Saved final draft</h3><MathText text={session.draft.answer?.plainText} latex={session.draft.answer?.latex} /><p>{session.draft.methodology}</p><p>{session.draft.reflection}</p></section>}{conversation.length > 0 && <section aria-label="Saved tutor conversation" className="mt-5 space-y-3"><h3 className="font-bold">Socratic conversation</h3>{conversation.map(message=><article key={message.id} className="rounded-xl border p-4"><p className="text-xs font-semibold">{message.role === "assistant" ? "AI tutor" : "You"}</p><div className="whitespace-pre-wrap"><MathText text={message.text} /></div></article>)}</section>}<div className="mt-5 space-y-3">{responses.map((item) => <div key={item.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/80"><p className="text-xs font-bold uppercase text-indigo-600 dark:text-indigo-400">{String(item.phase).replace(/_/g, " ")}</p><p className="mt-2 text-slate-800 dark:text-slate-200"><MathText text={item.response?.plainText} latex={item.response?.latex} /></p><p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{item.evaluation?.evidenceSummary}</p></div>)}</div>{session.releasedSolution && <SolutionDetails solution={session.releasedSolution} />}{session.adminReview && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"><p className="font-bold">Administrator feedback</p><p className="mt-1">{session.adminReview.comment}</p></div>}{session.status === "returned" && !session.followUpSessionId && <button onClick={() => void retry()} className="mt-5 rounded-lg bg-indigo-600 px-4 py-2 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Create one linked follow-up</button>}</></StudentShell>;
 }
 
 export function SecureStudentProfile() { return <StudentShell active="profile"><ProfileContent /></StudentShell>; }
@@ -227,7 +238,7 @@ function Stat({ label, value, Icon, iconClassName }: { label: string; value: Rea
         <Icon className="h-5 w-5" />
       </span>
       <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">{value}</p>
+      <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">{value}</p>
     </div>
   );
 }

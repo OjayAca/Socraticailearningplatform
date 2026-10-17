@@ -47,9 +47,9 @@ function seed() {
   memory.records.set("system_settings/privacy", { currentConsentVersion: "notice" });
   memory.records.set("policy_documents/notice", { status: "active" });
   memory.records.set("users/alice/consents/notice", { version: "notice" });
-  memory.records.set("subjects/math", { name: "Quantitative Methods", status: "approved" });
-  memory.records.set("topics/mean", { name: "Measures of Central Tendency", subject: "Quantitative Methods", subjectId: "math", status: "approved" });
-  memory.records.set("problems/first", { topicId: "mean", difficulty: "Basic", status: "approved", version: 1, validationRecordId: "approval", problemText: "Find the mean of 4, 8, and 12." });
+  memory.records.set("subjects/quantitative-methods", { name: "Quantitative Methods", status: "approved" });
+  memory.records.set("topics/quantitative-methods-descriptive-statistics", { name: "Descriptive Statistics", subject: "Quantitative Methods", subjectId: "quantitative-methods", status: "approved" });
+  memory.records.set("problems/first", { topicId: "quantitative-methods-descriptive-statistics", difficulty: "Basic", status: "approved", version: 1, validationRecordId: "approval", problemText: "Find the mean of 4, 8, and 12." });
   memory.records.set("problem_scoring/first", { ...reference, problemVersion: 1, validationRecordId: "approval" });
 }
 beforeEach(() => { memory.records.clear(); memory.uid = "alice"; memory.failCommit = false; memory.queue = Promise.resolve(); seed(); });
@@ -58,33 +58,33 @@ describe("Spark assignment and persistence", () => {
   it("reads approved topics without requiring three variants or pilot admission", async () => {
     memory.records.set("topics/draft", { status: "draft" });
     const catalog = await learningOperation("getLearningCatalog", {});
-    expect(catalog.topics.map((item: any) => item.id)).toEqual(["mean"]);
-    expect((await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" })).session.problemId).toBe("first");
+    expect(catalog.topics.map((item: any) => item.id)).toEqual(["quantitative-methods-descriptive-statistics"]);
+    expect((await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" })).session.problemId).toBe("first");
   });
   it("resumes one assignment when two tabs start concurrently", async () => {
-    const results = await Promise.all(["one", "two"].map(requestId => learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId })));
+    const results = await Promise.all(["one", "two"].map(requestId => learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId })));
     expect(results[0].session.id).toBe(results[1].session.id);
     expect([...memory.records.keys()].filter(path => /^sessions\/[^/]+$/.test(path))).toHaveLength(1);
   });
   it("excludes historical answers even when responseCount is missing", async () => {
-    memory.records.set("sessions/old", { studentId: "alice", topicId: "mean", problemId: "first", status: "abandoned" });
+    memory.records.set("sessions/old", { studentId: "alice", topicId: "quantitative-methods-descriptive-statistics", problemId: "first", status: "abandoned" });
     memory.records.set("sessions/old/responses/answer", { phase: "problem_understanding" });
-    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" })).rejects.toThrow("No available questions");
+    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" })).rejects.toThrow("No available questions");
   });
   it("distinguishes missing scoring material from an exhausted pool", async () => {
     memory.records.delete("problem_scoring/first");
-    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" })).rejects.toThrow("Validated scoring material is unavailable");
+    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" })).rejects.toThrow("Validated scoring material is unavailable");
   });
   it("persists a single attempt when the same request is retried", async () => {
-    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     const input = { sessionId: session.id, requestId: "answer", revision: 0, expectedPhase: "problem_understanding", response: { plainText: "I need to determine the mean of the given values." } };
     await learningOperation("evaluatePhaseResponse", input);
     await learningOperation("evaluatePhaseResponse", input);
     expect(memory.records.get(`sessions/${session.id}`).responseCount).toBe(1);
-    expect(memory.records.get(`learning_progress/alice/assignment_state/mean`).answeredProblemIds).toEqual(["first"]);
+    expect(memory.records.get(`learning_progress/alice/assignment_state/quantitative-methods-descriptive-statistics`).answeredProblemIds).toEqual(["first"]);
   });
   it("retries an interrupted write without leaving partial responses", async () => {
-    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     const input = { sessionId: session.id, requestId: "answer", revision: 0, expectedPhase: "problem_understanding", response: { plainText: "I need to determine the mean of these given values." } };
     memory.failCommit = true;
     await expect(learningOperation("evaluatePhaseResponse", input)).rejects.toThrow("Connection interrupted");
@@ -93,16 +93,16 @@ describe("Spark assignment and persistence", () => {
     expect(memory.records.get(`sessions/${session.id}`).responseCount).toBe(1);
   });
   it("releases an unanswered abandoned assignment but never an answered question", async () => {
-    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     await learningOperation("abandonLearningSession", { sessionId: session.id, requestId: "abandon" });
-    ({ session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "again" }));
+    ({ session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "again" }));
     expect(session.problemId).toBe("first");
     await learningOperation("evaluatePhaseResponse", { sessionId: session.id, requestId: "answer", revision: 0, expectedPhase: "problem_understanding", response: { plainText: "I need to determine the mean of these given values." } });
     await learningOperation("abandonLearningSession", { sessionId: session.id, requestId: "abandon-after-answer" });
-    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "third" })).rejects.toThrow("No available questions");
+    await expect(learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "third" })).rejects.toThrow("No available questions");
   });
   it("keeps an incorrect first answer as adaptive evidence after a successful retry", async () => {
-    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     const record = memory.records.get(`sessions/${session.id}`);
     memory.records.set(`sessions/${session.id}`, { ...record, currentPhase: "guided_computation_or_proof" });
     ({ session } = await learningOperation("evaluatePhaseResponse", { sessionId: session.id, requestId: "wrong", revision: 0, expectedPhase: "guided_computation_or_proof", response: { plainText: "9" } }));
@@ -112,12 +112,12 @@ describe("Spark assignment and persistence", () => {
     expect(memory.records.get(`sessions/${session.id}`).firstAnswerCorrect).toBe(false);
   });
   it("does not let another signed-in account mutate the previous account's session", async () => {
-    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    const { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     memory.uid = "bob";
     await expect(learningOperation("abandonLearningSession", { sessionId: session.id, requestId: "abandon" })).rejects.toThrow("unavailable");
   });
   it("finishes the guided workflow and commits progress exactly once", async () => {
-    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "mean", requestId: "start" });
+    let { session } = await learningOperation("startLearningSession", { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: "start" });
     const answers = ["I need to determine the mean of the given values.", "The given values are 4, 8, and 12; the mean is unknown.", "The mean formula applies to this dataset.", "The mean formula applies because the given numeric data satisfy its conditions.", "8", "I verify by recalculating the sum and dividing by three.", "The mean represents the average value of this given dataset in context."];
     for (let index = 0; index < REASONING_PHASES.length; index++) {
       const result = await learningOperation("evaluatePhaseResponse", { sessionId: session.id, requestId: `answer-${index}`, revision: session.revision, expectedPhase: REASONING_PHASES[index], response: { plainText: answers[index] } });
@@ -133,8 +133,8 @@ describe("Spark assignment and persistence", () => {
     await learningOperation("submitLearningSession", submit);
     const progress = memory.records.get("learning_progress/alice");
     expect(progress.sessionsCompleted).toBe(1);
-    expect(progress.accuracyEvidence.mean[0].correct).toBe(true);
-    expect(progress.topicRecommendations.measures_of_central_tendency.recommendedDifficulty).toBe("Intermediate");
+    expect(progress.accuracyEvidence["quantitative-methods-descriptive-statistics"][0].correct).toBe(true);
+    expect(progress.topicRecommendations.descriptive_statistics.recommendedDifficulty).toBe("Intermediate");
     expect(progress.achievements.first_step).toBeDefined();
   });
 });

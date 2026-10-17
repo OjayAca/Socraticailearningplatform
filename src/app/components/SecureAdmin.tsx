@@ -1,3 +1,4 @@
+import { Tooltip } from "./ui/tooltip";
 import { AdminPrivacySettings } from "./AdminPrivacySettings";
 import { PilotControls } from "./PilotControls";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -174,7 +175,7 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
   }
 
   return (
-    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
+    <div className="app-shell flex h-dvh min-h-0 w-full overflow-hidden bg-slate-50 text-slate-950 dark:bg-[#050816] dark:text-slate-100">
       <aside className="hidden h-full min-h-0 w-64 shrink-0 flex-col overflow-y-auto border-r border-slate-200 bg-white px-4 py-5 dark:border-slate-800/80 dark:bg-[#0b1120] md:flex">
         <AdminBrand />
         <nav className="mt-8 space-y-1" aria-label="Primary administrator navigation">
@@ -193,18 +194,18 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
         <header className="z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
           <div className="mr-3 md:hidden">
             <Sheet>
-              <SheetTrigger asChild>
+              <Tooltip label="Open administrator navigation"><SheetTrigger asChild>
                 <button
                   type="button"
                   aria-label="Open administrator navigation"
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-              </SheetTrigger>
+              </SheetTrigger></Tooltip>
               <SheetContent
                 side="left"
-                className="flex w-[min(20rem,88vw)] flex-col border-slate-200 bg-white p-5 text-slate-950 dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-100"
+                className="mobile-navigation flex w-[min(20rem,88vw)] flex-col border-slate-200 bg-white p-5 text-slate-950 dark:border-slate-800 dark:bg-[#0b1120] dark:text-slate-100"
               >
                 <SheetHeader className="text-left">
                   <SheetTitle className="sr-only">Administrator navigation</SheetTitle>
@@ -232,17 +233,16 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
             </h1>
           </div>
 
-          <button
+          <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            title={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            className="mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            className="mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             {isDark ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-          </button>
+          </button></Tooltip>
 
-          <Link
+          <Tooltip label={`Open profile for ${displayName}`}><Link
             to="/admin/profile"
             aria-label={`Open profile for ${displayName}`}
             className="flex shrink-0 items-center gap-3 rounded-xl p-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-slate-800"
@@ -258,11 +258,11 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700 ring-1 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30">
               {initials}
             </span>
-          </Link>
+          </Link></Tooltip>
         </header>
 
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain">
-          <div className="mx-auto w-full max-w-7xl p-4 sm:p-6 lg:p-8">{children}</div>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-y-contain">
+          <div className="responsive-content mx-auto w-full min-w-0 max-w-7xl p-4 sm:p-6 lg:p-8">{children}</div>
         </main>
       </div>
     </div>
@@ -490,7 +490,7 @@ export function SecureAdminUsers() {
         <Spinner />
       ) : (
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="User accounts table (scroll horizontally)" tabIndex={0} className="table-scroll max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-indigo-500">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 <tr>
@@ -653,7 +653,7 @@ export function SecureAdminReports() {
       />
       {error && <ErrorBox message={error} />}
       <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <select disabled={reportBusy}
             value={kind}
             onChange={(event) => { clearReport(); setKind(event.target.value as ReportKind); }}
@@ -680,7 +680,7 @@ export function SecureAdminReports() {
             placeholder="Audit reason"
             className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               disabled={reportBusy}
               onClick={() => void run()}
@@ -688,22 +688,22 @@ export function SecureAdminReports() {
             >
               Preview
             </button>
-            <button
+            <Tooltip label="Export CSV"><button
               disabled={reportBusy}
               onClick={() => void output("csv")}
               className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               aria-label="Export CSV"
             >
               <Download className="h-5 w-5" />
-            </button>
-            <button
+            </button></Tooltip>
+            <Tooltip label="Open print report"><button
               disabled={reportBusy}
               onClick={() => void output("print")}
               className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               aria-label="Open print report"
             >
               <Printer className="h-5 w-5" />
-            </button>
+            </button></Tooltip>
           </div>
         </div>
         <div className="mt-4 flex flex-wrap gap-4 pt-4 border-t border-slate-200 dark:border-slate-800 text-sm">
@@ -765,7 +765,7 @@ export function SecureAdminReportPrint() {
   return (
     <AdminShell active="reports">
       <div className="print-report">
-        <div className="flex items-start justify-between gap-4 print:hidden">
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row print:hidden">
           <Link
             to="/admin/reports"
             className="rounded-xl border border-slate-200 bg-white px-4 py-2 font-bold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -781,7 +781,7 @@ export function SecureAdminReportPrint() {
           </button>
         </div>
         <header className="mt-8 border-b border-slate-200 pb-5 dark:border-slate-800">
-          <h1 className="text-3xl font-bold text-slate-950 dark:text-white">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-950 dark:text-white">
             MINDGUIDE {report.kind.replace(/_/g, " ")} report
           </h1>
           <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
@@ -927,7 +927,7 @@ export function SecureAdminProgress() {
         <Spinner />
       ) : (
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          <div className="overflow-x-auto">
+          <div role="region" aria-label="Learner progress table (scroll horizontally)" tabIndex={0} className="table-scroll max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-indigo-500">
             <table className="w-full text-left text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-300">
                 <tr>
@@ -1246,7 +1246,7 @@ export function SecureAdminReview() {
             placeholder="Required exception reason"
             className="mt-3 w-full rounded-xl border border-amber-300 bg-white p-3 text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:border-amber-800 dark:bg-slate-900 dark:text-slate-100"
           />
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <button
               disabled={overrideReason.trim().length < 8}
               onClick={() => void overrideSupport("worked_explanation")}
@@ -1275,7 +1275,7 @@ export function SecureAdminReview() {
               className="mt-2 w-full rounded-xl border border-slate-200 bg-white p-3 font-normal text-slate-950 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               disabled={!comment.trim()}
               onClick={() => void review("returned")}
@@ -1327,7 +1327,7 @@ function AdminStat({
         <Icon className="h-5 w-5" />
       </span>
       <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-1 text-3xl font-bold tracking-tight text-slate-950 dark:text-white">{value}</p>
+      <p className="mt-1 text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">{value}</p>
     </div>
   );
 }
@@ -1426,7 +1426,7 @@ function JsonTable({ rows }: { rows: Record<string, unknown>[] }) {
   const headers = Object.keys(rows[0]);
   return (
     <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-      <div className="overflow-x-auto">
+      <div role="region" aria-label="Report results table (scroll horizontally)" tabIndex={0} className="table-scroll max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-indigo-500">
         <table className="min-w-full text-left text-xs">
           <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60">
             <tr>
@@ -1441,7 +1441,7 @@ function JsonTable({ rows }: { rows: Record<string, unknown>[] }) {
             {rows.map((row, index) => (
               <tr key={index} className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50">
                 {headers.map((header) => (
-                  <td key={header} className="max-w-xs truncate p-3.5 text-slate-800 dark:text-slate-200">
+                  <td key={header} className="max-w-xs whitespace-normal break-words p-3.5 text-slate-800 dark:text-slate-200">
                     {String(row[header] ?? "")}
                   </td>
                 ))}

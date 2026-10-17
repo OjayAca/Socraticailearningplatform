@@ -52,16 +52,14 @@ beforeEach(() => {
 });
 describe("actual administrator service with in-memory Firestore", () => {
   it.each([
-    ["subjects", { name: "Quantitative Methods", description: "Approved scope description", status: "draft" }],
-    ["topics", { subjectId: "subject", subject: "Quantitative Methods", name: "Mean", status: "draft" }],
     ["formula_theorem_references", { kind: "formula", statement: "sum / count", domain: "Quantitative Methods", status: "draft" }],
     ["socratic_prompt_bank", { problemId: "question", phase: "problem_understanding", prompt: "What is requested?", status: "draft" }],
     ["misconception_categories", { name: "Calculation", correctivePrompt: "Check the calculation.", status: "draft" }],
     ["difficulty_policies", { minimumCompletedSessions: 2, increaseScoreThreshold: 80, decreaseScoreThreshold: 50, maxHintsForIncrease: 1, arithmeticErrorAloneLowersDifficulty: false, status: "draft" }],
-    ["problems", { subjectId: "subject", topicId: "topic", subject: "Quantitative Methods", topic: "Mean", difficulty: "Basic", variant: 1, problemText: "Find the mean of the given values.", supportedResponseFormats: ["text"], formulaTheoremReferenceIds: ["formula"], status: "draft", privateSolution: { expectedConcepts: ["mean"], workedSteps: ["Sum then divide."], finalAnswer: "8", interpretation: "The mean is 8.", answerSpecification: { kind: "number", value: 8 } } }],
+    ["problems", { subjectId: "quantitative-methods", topicId: "quantitative-methods-descriptive-statistics", subject: "Quantitative Methods", topic: "Descriptive Statistics", difficulty: "Basic", variant: 1, problemText: "Find the mean of the given values.", supportedResponseFormats: ["text"], formulaTheoremReferenceIds: ["formula"], status: "draft", privateSolution: { expectedConcepts: ["mean"], workedSteps: ["Sum then divide."], finalAnswer: "8", interpretation: "The mean is 8.", answerSpecification: { kind: "number", value: 8 } } }],
   ])("creates and updates %s with versioning and audit, then archives", async (collection, value) => {
-    memory.records.set("subjects/subject", { name: "Quantitative Methods", status: "approved" });
-    memory.records.set("topics/topic", { name: "Mean", subjectId: "subject", status: "approved" });
+    memory.records.set("subjects/quantitative-methods", { name: "Quantitative Methods", status: "approved" });
+    memory.records.set("topics/quantitative-methods-descriptive-statistics", { name: "Descriptive Statistics", subjectId: "quantitative-methods", status: "approved" });
     memory.records.set("formula_theorem_references/formula", { status: "approved" });
     memory.records.set("problems/question", { status: "draft" });
     await invoke("adminUpsertContent", { collection, id: "created", value });
@@ -71,6 +69,13 @@ describe("actual administrator service with in-memory Firestore", () => {
     await invoke("adminArchiveContent", { collection, id: "created" });
     expect(memory.records.get(`${collection}/created`).status).toBe("archived");
     expect(audits()).toHaveLength(3);
+  });
+  it("saves the fixed curriculum and prevents duplicate IDs or removal", async () => {
+    await invoke("adminUpsertContent", { collection: "subjects", id: "quantitative-methods", value: { name: "Quantitative Methods", description: "Validated subject", status: "approved" } });
+    await invoke("adminUpsertContent", { collection: "topics", id: "quantitative-methods-descriptive-statistics", value: { subjectId: "quantitative-methods", subject: "Quantitative Methods", name: "Descriptive Statistics", status: "approved" } });
+    expect(memory.records.get("topics/quantitative-methods-descriptive-statistics").subtopics).toHaveLength(4);
+    await expect(invoke("adminArchiveContent", { collection: "topics", id: "quantitative-methods-descriptive-statistics" })).rejects.toThrow("fixed");
+    await expect(invoke("adminUpsertContent", { collection: "subjects", id: "duplicate", value: { name: "Quantitative Methods", description: "Duplicate", status: "approved" } })).rejects.toThrow("validated subject");
   });
   it("requires an active administrator before any operation", async () => {
     memory.records.get("users/admin").role = "student";
@@ -145,10 +150,10 @@ describe("actual administrator service with in-memory Firestore", () => {
     expect(audits()).toHaveLength(1);
   });
   it("records validation and publishes scoring atomically from explicit evidence", async () => {
-    memory.records.set("subjects/math", { status: "approved" });
-    memory.records.set("topics/mean", { status: "approved", subjectId: "math" });
+    memory.records.set("subjects/quantitative-methods", { name: "Quantitative Methods", status: "approved" });
+    memory.records.set("topics/quantitative-methods-descriptive-statistics", { name: "Descriptive Statistics", subject: "Quantitative Methods", status: "approved", subjectId: "quantitative-methods" });
     memory.records.set("formula_theorem_references/formula", { status: "approved" });
-    memory.records.set("problems/question", { status: "pending_validation", version: 1, subjectId: "math", topicId: "mean", formulaTheoremReferenceIds: ["formula"] });
+    memory.records.set("problems/question", { status: "pending_validation", version: 1, subject: "Quantitative Methods", topic: "Descriptive Statistics", subjectId: "quantitative-methods", topicId: "quantitative-methods-descriptive-statistics", formulaTheoremReferenceIds: ["formula"] });
     memory.records.set("problems/question/private/solution", { answerSpecification: { kind: "number", value: 8 }, expectedConcepts: ["mean"], solutionSteps: ["Sum and divide"], finalAnswer: "8", interpretation: "Mean is 8" });
     const input = { problemId: "question", syllabusReference: "unit-test-only", contentMatrixItem: "unit-test-only", validatorName: "Test validator", validatorRole: "Test", validationDate: 1, evidenceReference: "in-memory-only", evidenceHash: "0123456789abcdef", decision: "approved" };
     memory.failCommit = true;

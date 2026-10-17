@@ -22,7 +22,10 @@ export interface CatalogSubject {
   version: number;
 }
 
+export interface CatalogSubtopic { id: string; name: string; children?: CatalogSubtopic[] }
+
 export interface CatalogTopic {
+  subtopics?: CatalogSubtopic[];
   id: string;
   subjectId: string;
   subject: Subject;

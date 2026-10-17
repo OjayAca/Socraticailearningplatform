@@ -192,6 +192,7 @@ const managedSchemas = {
   }),
   topics: z.object({
     subjectId: z.string().trim().min(1).max(160),
+    subtopics: z.array(z.object({ id: z.string(), name: z.string(), children: z.array(z.object({ id: z.string(), name: z.string() })).optional() })).optional(),
     subject: subject.optional(),
     name: z.string().trim().min(1).max(160),
     status: managedStatus,

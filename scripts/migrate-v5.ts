@@ -1,3 +1,4 @@
+if (process.argv.includes("--apply")) throw new Error("Legacy sample-content migration retired. Use npm run migrate:curriculum -- --apply; import real content through faculty validation.");
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { initializeApp } from "firebase-admin/app";

@@ -13,7 +13,7 @@ const VERIFY = process.argv.includes("--verify");
 const ROLLBACK = process.argv.includes("--rollback");
 const BACKUP_DIRECTORY = path.resolve(".local-backups");
 const descriptions: Record<Subject, string> = {
-  "Quantitative Methods": "Practice interpreting data, probability, correlation, and descriptive statistics through justified calculations.",
+  "Quantitative Methods": "Functions, Descriptive Statistics, Introduction to Probability, Probability Distributions, Introduction to Decision Making, and Decision Analysis.",
   "Discrete Mathematics": "Practice logic, counting, proof, and combinatorial reasoning through explicit, verifiable steps.",
 };
 

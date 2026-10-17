@@ -9,8 +9,8 @@ export function AnswerSpecificationEditor({ value, onChange, scalarOnly = false,
   const kind = value?.kind ?? "";
   const inputClass = "mt-1 w-full rounded-lg border p-2 dark:bg-slate-800";
   const change = (field: string, next: unknown) => onChange({ ...value, [field]: next });
-  return <fieldset className="mt-4 rounded-xl border p-4 space-y-3">
-    <legend className="font-bold">{label}</legend>
+  return <fieldset className="mt-4 min-w-0 rounded-xl border p-3 sm:p-4 space-y-3">
+    <legend className="max-w-full break-words font-bold">{label}</legend>
     <label className="block">Answer type<select className={inputClass} value={kind} onChange={event => {
       const next = event.target.value;
       onChange(next === "proof" ? { kind: next, conclusion: "", requirements: [] } : next === "parts" ? { kind: next, parts: {} } : next === "set" ? { kind: next, values: [] } : next === "expression" ? { kind: next, expression: "" } : next === "truth" ? { kind: next, value: true } : { kind: next, value: "" });

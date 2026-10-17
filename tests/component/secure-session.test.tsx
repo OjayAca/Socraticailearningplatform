@@ -6,6 +6,7 @@ import { SecureSession } from "@/app/components/SecureSession";
 const mocks = vi.hoisted(() => ({
   firebaseUser: { uid: "student-1" },
   getDoc: vi.fn(),
+  finalizeScorecard: vi.fn(),
   submitLearningSession: vi.fn(),
   evaluatePhaseResponse: vi.fn(),
   getDocs: vi.fn(),
@@ -29,7 +30,7 @@ vi.mock("@/lib/secure-api", () => ({
   checkLearningSessionActivity: vi.fn().mockResolvedValue(undefined),
   abandonLearningSession: mocks.abandonLearningSession,
   evaluatePhaseResponse: mocks.evaluatePhaseResponse,
-  finalizeScorecard: vi.fn(),
+  finalizeScorecard: mocks.finalizeScorecard,
   requestSessionSupport: mocks.requestSessionSupport,
   resumeTutorOpening: mocks.resumeTutorOpening,
   saveSessionDraft: vi.fn(),
@@ -116,6 +117,7 @@ function renderSession(id = "new-session") {
 describe("SecureSession AI workflow v6 workflow", () => {
   beforeEach(() => {
     mocks.getDoc.mockReset();
+    mocks.finalizeScorecard.mockReset();
     mocks.submitLearningSession.mockReset();
     mocks.evaluatePhaseResponse.mockReset();
     mocks.getDocs.mockReset().mockResolvedValue({docs:[]});
@@ -126,6 +128,38 @@ describe("SecureSession AI workflow v6 workflow", () => {
   });
 
   afterEach(cleanup);
+
+  it("replaces the repeated form and retains the reveal request across retries and remounts", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", { currentPhase:"controlled_solution_release", revision:4, draft:{answer:{plainText:"legacy answer"},methodology:"saved",reflection:"saved"} }));
+    mocks.finalizeScorecard.mockRejectedValue(new Error("Please retry generation."));
+    const view = renderSession();
+    const reveal = await screen.findByRole("button", {name:"View step-by-step solution"});
+    expect(screen.queryByLabelText("Final answer")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Methodology")).not.toBeInTheDocument();
+    fireEvent.click(reveal);
+    await screen.findByText("Please retry generation.");
+    const first = mocks.finalizeScorecard.mock.calls[0];
+    expect(first).toEqual(["new-session",4,expect.any(String)]);
+    view.unmount();
+    renderSession();
+    fireEvent.click(await screen.findByRole("button", {name:"View step-by-step solution"}));
+    await waitFor(()=>expect(mocks.finalizeScorecard).toHaveBeenCalledTimes(2));
+    expect(mocks.finalizeScorecard.mock.calls[1]).toEqual(first);
+    expect(mocks.submitLearningSession).not.toHaveBeenCalled();
+  });
+
+  it("disables the reveal button while generating", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {currentPhase:"controlled_solution_release"}));
+    let reject!: (error: Error) => void;
+    mocks.finalizeScorecard.mockImplementation(()=>new Promise((_resolve, fail)=>{reject=fail;}));
+    renderSession();
+    fireEvent.click(await screen.findByRole("button", {name:"View step-by-step solution"}));
+    const pending = screen.getByRole("button", {name:"Preparing solution and scorecard…"});
+    expect(pending).toBeDisabled();
+    fireEvent.click(pending);
+    expect(mocks.finalizeScorecard).toHaveBeenCalledTimes(1);
+    await act(async()=>reject(new Error("Retry later.")));
+  });
 
   it("reloads saved conversation and sends a natural question without a message selector",async()=>{
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session"));
@@ -175,6 +209,8 @@ describe("SecureSession AI workflow v6 workflow", () => {
     fireEvent.keyDown(composer, { key: "Enter" });
     fireEvent.keyDown(composer, { key: "Enter" });
     expect(mocks.evaluatePhaseResponse).toHaveBeenCalledTimes(1);
+    expect(composer).toHaveValue("");
+    expect(screen.getByText("I need help understanding the problem.")).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent("Your tutor is thinking");
     expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
     await act(async () => reject(new Error("Try again shortly.")));
@@ -282,7 +318,9 @@ describe("SecureSession AI workflow v6 workflow", () => {
     expect(await screen.findByRole("progressbar", { name: "Learning progress" })).toHaveAttribute("aria-valuenow", "25");
     expect(screen.getByText("Session details").parentElement).not.toHaveAttribute("open");
     fireEvent.click(screen.getByText("Session details"));
-    expect(screen.getByText("2/2 reasoning checks")).toBeVisible();
+    expect(screen.getByText("Completed")).toBeVisible();
+    expect(screen.getByText("In progress")).toBeVisible();
+    expect(screen.queryByText(/reasoning checks/)).not.toBeInTheDocument();
   });
 
   it("keeps an incompatible schema-v3 session out of the current workflow", async () => {
@@ -378,7 +416,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
 
     expect(await screen.findByText("84/100")).toBeVisible();
     const submit = screen.getByRole("button", {
-      name: /submit immutable record for administrator review/i,
+      name: /finish session/i,
     });
     fireEvent.click(submit);
 

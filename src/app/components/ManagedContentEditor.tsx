@@ -1,3 +1,5 @@
+import { VALIDATED_SUBJECTS, VALIDATED_TOPICS } from "@/data/validated-curriculum";
+import { Tooltip } from "./ui/tooltip";
 import { AnswerSpecificationEditor } from "./AnswerSpecificationEditor";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
@@ -270,6 +272,15 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
 
   return (
     <div>
+      {(collectionName === "subjects" || collectionName === "topics") && <section className="mt-5 rounded-2xl border p-4">
+        <h2 className="font-bold">Validated curriculum</h2>
+        {VALIDATED_SUBJECTS.map(subject => <details key={subject.id} open><summary className="mt-3 font-bold">{subject.name}</summary>
+          {VALIDATED_TOPICS.filter(topic => topic.subjectId === subject.id).map(topic => <details key={topic.id} className="ml-4 mt-2"><summary>{topic.name}</summary>
+            <p className="text-xs">{topic.id}</p><ul className="ml-5 list-disc">{topic.subtopics.map(subtopic => <li key={subtopic.id}>{subtopic.name}{subtopic.children && <ul className="ml-5 list-disc">{subtopic.children.map(child => <li key={child.id}>{child.name}</li>)}</ul>}</li>)}</ul>
+          </details>)}
+        </details>)}
+        <p className="mt-3 text-sm">Curriculum structure is fixed. Archived records below remain available for historical references. Learning content requires separate validation.</p>
+      </section>}
       {readiness && (
         <div className={`mt-5 rounded-2xl border p-4 ${readiness.ready ? "border-emerald-200 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950" : "border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-950"}`}>
           <div className="flex items-center gap-2 font-bold"><CheckCircle2 className="h-5 w-5" />Prepared-practice availability</div>
@@ -277,9 +288,9 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
         </div>
       )}
       {message && <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm font-semibold text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">{message}</div>}
-      {deleteTarget && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><h2 className="font-bold text-red-950">Permanently delete {deleteTarget.id}</h2><p className="mt-1 text-sm text-red-800">Deletion succeeds only when no managed record or historical session references this draft/rejected record.</p><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`Type ${deleteTarget.id}`} className="mt-3 w-full rounded-lg border border-red-300 p-3" /><input value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Required audit reason" className="mt-3 w-full rounded-lg border border-red-300 p-3" /><div className="mt-3 flex gap-2"><button onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }} className="rounded-lg border px-3 py-2 font-bold">Cancel</button><button disabled={deleteConfirmation !== deleteTarget.id || deleteReason.trim().length < 8} onClick={() => void permanentlyDelete()} className="rounded-lg bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50">Permanently delete</button></div></div>}
+      {deleteTarget && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4"><h2 className="font-bold text-red-950">Permanently delete {deleteTarget.id}</h2><p className="mt-1 text-sm text-red-800">Deletion succeeds only when no managed record or historical session references this draft/rejected record.</p><input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} placeholder={`Type ${deleteTarget.id}`} className="mt-3 w-full rounded-lg border border-red-300 p-3" /><input value={deleteReason} onChange={(event) => setDeleteReason(event.target.value)} placeholder="Required audit reason" className="mt-3 w-full rounded-lg border border-red-300 p-3" /><div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"><button onClick={() => { setDeleteTarget(null); setDeleteConfirmation(""); }} className="rounded-lg border px-3 py-2 font-bold">Cancel</button><button disabled={deleteConfirmation !== deleteTarget.id || deleteReason.trim().length < 8} onClick={() => void permanentlyDelete()} className="rounded-lg bg-red-700 px-3 py-2 font-bold text-white disabled:opacity-50">Permanently delete</button></div></div>}
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
-        <div className="rounded-2xl border bg-white p-5 dark:bg-slate-900 dark:border-slate-700">
+        <div className="min-w-0 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-slate-900 dark:border-slate-700">
           <h2 className="font-bold dark:text-slate-100">Typed content editor</h2>
           <label className="mt-4 block text-sm font-bold dark:text-slate-200">Stable record ID
             <input value={recordId} onChange={(event) => setRecordId(event.target.value)} className="mt-2 w-full rounded-lg border p-3 font-normal dark:bg-slate-800 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400" />
@@ -307,7 +318,7 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
                   setImportProblems(records);
                 }).catch(showError);
               }} className="mt-3 block w-full text-sm" />
-              {importProblems.length > 0 && <div className="mt-3 flex gap-2">
+              {importProblems.length > 0 && <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <button type="button" onClick={() => void runImport(true)} className="rounded-lg border px-3 py-2 text-sm font-bold">Validate {importProblems.length} drafts</button>
                 <button type="button" onClick={() => void runImport(false)} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-bold text-white">Import drafts</button>
               </div>}
@@ -339,16 +350,16 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
             </div>
           )}
         </div>
-        <div className="rounded-2xl border bg-white p-5 dark:bg-slate-900 dark:border-slate-700">
+        <div className="min-w-0 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-slate-900 dark:border-slate-700">
           <h2 className="font-bold dark:text-slate-100">Existing records ({items.length})</h2>
           <div className="mt-3 max-h-[48rem] divide-y overflow-auto dark:divide-slate-700">
             {items.map((item) => (
-              <div key={item.id} className="flex items-start justify-between gap-3 py-3">
-                <button className="min-w-0 text-left" onClick={() => void selectItem(item).catch(showError)}>
+              <div key={item.id} className="flex flex-col items-start justify-between gap-3 py-3 sm:flex-row">
+                <button className="min-w-0 max-w-full text-left sm:flex-1" onClick={() => void selectItem(item).catch(showError)}>
                   <p className="truncate font-semibold dark:text-slate-100">{item.name ?? item.problemText ?? item.id}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{item.id} · v{item.version ?? 0} · {item.status}</p>
                 </button>
-                <div className="flex gap-1"><button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button>{["draft", "rejected"].includes(item.status) && <button onClick={() => { setDeleteTarget(item); setDeleteConfirmation(""); }} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Permanently delete ${item.id}`}><Trash2 className="h-4 w-4" /></button>}</div>
+                <div className="flex gap-1"><Tooltip label={`Archive ${item.id}`}><button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button></Tooltip>{["draft", "rejected"].includes(item.status) && <Tooltip label={`Permanently delete ${item.id}`}><button onClick={() => { setDeleteTarget(item); setDeleteConfirmation(""); }} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Permanently delete ${item.id}`}><Trash2 className="h-4 w-4" /></button></Tooltip>}</div>
               </div>
             ))}
           </div>

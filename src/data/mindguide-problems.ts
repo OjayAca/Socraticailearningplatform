@@ -1,3 +1,4 @@
+// RETIRED SAMPLE BANK: historical migration/test fixtures only. Never seed or expose as validated curriculum.
 import type { MindGuideProblem } from "../types";
 
 type PromptTuple = readonly [string, string, string, string, string, string, string];

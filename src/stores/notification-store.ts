@@ -64,6 +64,7 @@ interface NotificationState {
   clearError: () => void;
 }
 
+const pendingReads = new Map<string, Promise<void>>();
 let listenerGeneration = 0;
 let activeCallbacks: NotificationListenerCallbacks | undefined;
 
@@ -83,6 +84,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   listenToNotifications: (userId, callbacks) => {
     get().unsubscribeSnapshot?.();
     const generation = ++listenerGeneration;
+    pendingReads.clear();
     activeCallbacks = callbacks;
     let receivedInitialSnapshot = false;
 
@@ -136,6 +138,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
           const notifications = snapshot.docs
             .map(normalizeNotification)
+            .map(item => pendingReads.has(item.id) ? { ...item, read: true } : item)
             .sort(compareNotificationsNewestFirst);
           const unreadCount = notifications.filter(
             (notification) => !getNotificationRecord(notification).read
@@ -201,6 +204,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   stopListening: () => {
     ++listenerGeneration;
+    pendingReads.clear();
     get().unsubscribeSnapshot?.();
     activeCallbacks = undefined;
     set({
@@ -226,13 +230,16 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       throw error;
     }
 
-    set({ isPreferenceSaving: true, preferenceError: null });
+    if (get().isPreferenceSaving) return;
+    const generation = listenerGeneration;
+    const previous = get().liveAlertPopups;
+    set({ liveAlertPopups: enabled, isPreferenceSaving: true, preferenceError: null });
     try {
       await updateDoc(doc(requireDb(), "users", userId), {
         "preferences.liveAlertPopups": enabled,
         updatedAt: serverTimestamp(),
       });
-      if (userId === get().listenerUserId) {
+      if (generation === listenerGeneration && userId === get().listenerUserId) {
         set({
           liveAlertPopups: enabled,
           isPreferenceSaving: false,
@@ -244,51 +251,41 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         error,
         "Your live alert preference could not be saved. Try again."
       );
-      set({ isPreferenceSaving: false, preferenceError: message });
+      if (generation === listenerGeneration) set({ liveAlertPopups: previous, isPreferenceSaving: false, preferenceError: message });
       throw new Error(message);
     }
   },
 
-  markAsRead: async (notificationId) => {
-    set({ error: null });
-    try {
-      await updateDoc(doc(requireDb(), "notifications", notificationId), {
-        read: true,
+  markAsRead: (notificationId) => {
+    const pending = pendingReads.get(notificationId);
+    if (pending) return pending;
+    const notification = get().notifications.find(item => item.id === notificationId);
+    if (!notification || notification.read) return Promise.resolve();
+    const generation = listenerGeneration;
+    const updateRead = (read: boolean, error: string | null = null) => set(state => {
+      const notifications = state.notifications.map(item => item.id === notificationId ? { ...item, read } : item);
+      return { notifications, unreadCount: notifications.filter(item => !item.read).length, error };
+    });
+    // Register before writing so latency-compensated snapshots keep this overlay.
+    const request = Promise.resolve().then(() => updateDoc(doc(requireDb(), "notifications", notificationId), { read: true }))
+      .catch(error => {
+        const message = getNotificationErrorMessage(error, "This notification could not be marked as read. Try again.");
+        if (generation === listenerGeneration) updateRead(false, message);
+        throw new Error(message);
+      }).finally(() => {
+        if (pendingReads.get(notificationId) === request) pendingReads.delete(notificationId);
       });
-    } catch (error) {
-      const message = getNotificationErrorMessage(
-        error,
-        "This notification could not be marked as read. Try again."
-      );
-      set({ error: message });
-      throw new Error(message);
-    }
+    pendingReads.set(notificationId, request);
+    updateRead(true);
+    return request;
   },
 
   markAllAsRead: async () => {
-    const unreadNotifications = get().notifications.filter(
-      (notification) => !getNotificationRecord(notification).read
-    );
-    if (unreadNotifications.length === 0) return;
-
-    set({ error: null });
-    try {
-      await Promise.all(
-        unreadNotifications.map((notification) =>
-          updateDoc(
-            doc(requireDb(), "notifications", getNotificationRecord(notification).id),
-            { read: true }
-          )
-        )
-      );
-    } catch (error) {
-      const message = getNotificationErrorMessage(
-        error,
-        "Some notifications could not be marked as read. Retry after the list refreshes."
-      );
-      set({ error: message });
-      throw new Error(message);
-    }
+    const unread = get().notifications.filter(notification => !notification.read);
+    // Each write owns its rollback, so partial failures preserve successful reads.
+    const results = await Promise.allSettled(unread.map(notification => get().markAsRead(notification.id)));
+    const failed = results.find(result => result.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
   },
 
   clearError: () => set({ error: null, preferenceError: null }),

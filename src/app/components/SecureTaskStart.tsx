@@ -1,3 +1,4 @@
+import { loadView, peekView } from "@/lib/view-cache";
 import { useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router";
@@ -21,55 +22,56 @@ import { secureErrorMessage } from "@/lib/secure-error";
 import { useAuthStore } from "@/stores/auth-store";
 import { StudentShell } from "./StudentShell";
 
+async function loadTaskSetup(userId: string) {
+  const [catalog, notice, progress] = await Promise.all([
+    getLearningCatalog(), getCurrentConsentNotice(), getDoc(doc(db!, "learning_progress", userId)),
+  ]);
+  const consent = await getDoc(doc(db!, "users", userId, "consents", notice.version));
+  const progressData = progress.exists() ? progress.data() : {};
+  return { catalog, notice, consented: consent.exists(),
+    topicRecommendations: (progressData.topicRecommendations ?? {}) as Record<string, AdaptiveRecommendation>,
+    subjectProgress: (progressData.subjectProgress ?? {}) as Record<string, SubjectProgress> };
+}
+
 export function SecureTaskStart() {
   const navigate = useNavigate();
   const { firebaseUser, userProfile } = useAuthStore();
+  const cached = peekView<Awaited<ReturnType<typeof loadTaskSetup>>>(`task-setup:${firebaseUser?.uid}`);
   const [mode, setMode] = useState<"curated" | "free_form">("curated");
-  const [catalog, setCatalog] = useState<LearningCatalog | null>(null);
-  const [subjectId, setSubjectId] = useState("");
-  const [topicId, setTopicId] = useState("");
+  const [catalog, setCatalog] = useState<LearningCatalog | null>(cached?.catalog ?? null);
+  const [subjectId, setSubjectId] = useState(cached?.catalog.subjects[0]?.id ?? "");
+  const [topicId, setTopicId] = useState(cached?.catalog.topics.find(topic => topic.subjectId === cached.catalog.subjects[0]?.id)?.id ?? "");
   const [difficulty, setDifficulty] = useState<Difficulty>("Basic");
   const [question, setQuestion] = useState("");
-  const [consented, setConsented] = useState<boolean | null>(null);
-  const [notice, setNotice] = useState<GetCurrentConsentNoticeResponse | null>(null);
-  const [topicRecommendations, setTopicRecommendations] = useState<Record<string, AdaptiveRecommendation>>({});
-  const [subjectProgress, setSubjectProgress] = useState<Record<string, SubjectProgress>>({});
+  const [consented, setConsented] = useState<boolean | null>(cached?.consented ?? null);
+  const [notice, setNotice] = useState<GetCurrentConsentNoticeResponse | null>(cached?.notice ?? null);
+  const [topicRecommendations, setTopicRecommendations] = useState<Record<string, AdaptiveRecommendation>>(cached?.topicRecommendations ?? {});
+  const [subjectProgress, setSubjectProgress] = useState<Record<string, SubjectProgress>>(cached?.subjectProgress ?? {});
   const [acknowledge, setAcknowledge] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [error, setError] = useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const userId = firebaseUser?.uid;
 
   useEffect(() => {
     if (!db || !userId) return;
-    const database = db;
     let active = true;
     const timer = window.setTimeout(() => {
-    setLoading(true);
+    const key = `task-setup:${userId}`;
+    if (!peekView(key)) setLoading(true);
     setError(null);
-    setConsented(null);
-    setCatalog(null);
-    Promise.all([
-      getLearningCatalog(),
-      getCurrentConsentNotice(),
-      getDoc(doc(database, "learning_progress", userId)),
-    ])
-      .then(async ([nextCatalog, currentNotice, progressSnapshot]) => {
-        const consentSnapshot = await getDoc(
-          doc(database, "users", userId, "consents", currentNotice.version)
-        );
+    loadView(key, () => loadTaskSetup(userId))
+      .then(({ catalog: nextCatalog, notice: currentNotice, consented: nextConsented, topicRecommendations: recommendations, subjectProgress: progress }) => {
         if (!active) return;
         setCatalog(nextCatalog);
         const firstSubject = nextCatalog.subjects[0]?.id ?? "";
         const firstTopic = nextCatalog.topics.find((topic) => topic.subjectId === firstSubject)?.id ?? "";
         setSubjectId((current) => current || firstSubject);
         setTopicId((current) => current || firstTopic);
-        setConsented(consentSnapshot.exists());
+        setConsented(nextConsented);
         setNotice(currentNotice);
-        setTopicRecommendations(
-          progressSnapshot.exists() ? progressSnapshot.data().topicRecommendations ?? {} : {}
-        );
-        setSubjectProgress(progressSnapshot.exists() ? progressSnapshot.data().subjectProgress ?? {} : {});
+        setTopicRecommendations(recommendations);
+        setSubjectProgress(progress);
       })
       .catch((cause) => active && setError(secureErrorMessage(cause, "Unable to load learning materials.")))
       .finally(() => active && setLoading(false));
@@ -146,7 +148,7 @@ export function SecureTaskStart() {
   if (consented === false) {
     return (
       <StudentShell active="task">
-        <div className="mx-auto max-w-2xl rounded-3xl border border-indigo-100 bg-white p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+        <div className="mx-auto max-w-2xl rounded-3xl border border-indigo-100 bg-white p-4 sm:p-8 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           <ShieldCheck className="h-12 w-12 text-indigo-600 dark:text-indigo-400" />
           <h1 className="mt-4 text-2xl font-bold text-slate-950 dark:text-white">Privacy and Responsible AI Notice</h1>
           <p className="mt-3 text-slate-600 dark:text-slate-300">{notice?.summary}</p>
@@ -187,7 +189,7 @@ export function SecureTaskStart() {
                   }} className={`rounded-2xl border p-5 text-left transition ${selected ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600/20 dark:bg-indigo-950/30" : "border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900"}`}>
                     <h3 className="font-bold text-slate-950 dark:text-white">{subject.name}</h3>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{subject.description}</p>
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+                    <div className="mt-4 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
                       <span><strong className="block text-slate-950 dark:text-white">{progress?.sessionsCompleted ?? 0}</strong>Completed</span>
                       <span><strong className="block text-slate-950 dark:text-white">{progress?.averageCTScore ?? 0}/100</strong>Average</span>
                       <span><strong className="block text-indigo-700 dark:text-indigo-300">{progress?.recommendedDifficulty ?? "Basic"}</strong>Recommended</span>
@@ -198,7 +200,7 @@ export function SecureTaskStart() {
             </div>
           </section>
         )}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <ModeButton active={mode === "curated"} onClick={() => setMode("curated")} icon={<BookOpen className="mx-auto mb-2 h-5 w-5" />} label="Prepared problem" />
           <ModeButton active={mode === "free_form"} onClick={() => setMode("free_form")} icon={<CheckCircle2 className="mx-auto mb-2 h-5 w-5" />} label="My own problem" />
         </div>
@@ -210,6 +212,7 @@ export function SecureTaskStart() {
                   <select value={topicId} onChange={(event) => setTopicId(event.target.value)} className="mt-2 w-full rounded-lg border p-3 font-normal">
                     {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>)}
                   </select>
+                  {selectedTopic?.subtopics && <details className="mt-2 text-sm"><summary>Subtopics</summary><ul className="ml-5 list-disc">{selectedTopic.subtopics.map(item => <li key={item.id}>{item.name}{item.children && <ul className="ml-5 list-disc">{item.children.map(child => <li key={child.id}>{child.name}</li>)}</ul>}</li>)}</ul></details>}
                 </label>
                 {mode === "free_form" && (
                   <label className="text-sm font-bold">Intrinsic complexity
@@ -226,7 +229,7 @@ export function SecureTaskStart() {
                 </div>
               ) : (
                 <label className="block text-sm font-bold">Keyboard-entered problem
-                  <span className="block text-sm font-normal">Use mean, median, or mode followed by a numeric dataset; or product, permutation, or combination followed by integer parameters.</span>
+                  <span className="block text-sm font-normal">Typed problems currently support mean, median, or mode in Descriptive Statistics, and product, permutation, or combination in Combinatorics. Other topics require separately validated prepared problems.</span>
                   <textarea required value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={5} placeholder="Examples: mean: 4, 8, 12 or combination: 8, 3" className="mt-2 w-full rounded-lg border p-3 font-normal" />
                 </label>
               )}
@@ -251,11 +254,11 @@ function CenteredLoader() {
 }
 
 function ErrorMessage({ message }: { message: string }) {
-  return <div role="alert" className="mt-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" />{message}</div>;
+  return <div role="alert" className="mt-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"><AlertCircle className="h-5 w-5 shrink-0" />{message}</div>;
 }
 
 function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return <button type="button" onClick={onClick} className={`rounded-xl border p-4 font-bold ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white"}`}>{icon}{label}</button>;
+  return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-xl border p-4 font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/50 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"}`}>{icon}{label}</button>;
 }
 
 function topicKey(value: string): string {
