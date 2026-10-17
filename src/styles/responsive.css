@@ -1,0 +1,149 @@
+/* Flexible content must be allowed to shrink inside the app's scrolling shells. */
+.responsive-content,
+.auth-page,
+.public-page,
+.session-viewport {
+  overflow-wrap: anywhere;
+}
+
+:where(.responsive-content, .auth-page, .public-page, .session-viewport) :where(.flex, .grid) > * {
+  min-width: 0;
+}
+
+:where(.responsive-content, .auth-page, .session-viewport) :where(input, select, textarea, fieldset) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-shell {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.responsive-content {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .responsive-content {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-content {
+    padding-bottom: max(2rem, env(safe-area-inset-bottom));
+  }
+}
+
+.public-page > header {
+  padding-top: env(safe-area-inset-top);
+}
+
+.mobile-navigation {
+  padding-top: max(1.25rem, env(safe-area-inset-top));
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+  padding-left: max(1.25rem, env(safe-area-inset-left));
+}
+
+.mobile-navigation > * {
+  flex-shrink: 0;
+}
+
+.mobile-navigation [data-slot="sheet-header"] {
+  padding-left: 0;
+  padding-right: 1.5rem;
+}
+
+.table-scroll table {
+  min-width: 40rem;
+  overflow-wrap: normal;
+}
+
+.table-scroll :where(td, th) {
+  overflow-wrap: anywhere;
+}
+
+.session-viewport {
+  height: var(--session-height, 100dvh);
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.session-viewport > footer {
+  max-height: 45%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.session-viewport > details {
+  max-height: 25%;
+  overflow-y: auto;
+}
+
+.session-viewport > [role="alert"] {
+  max-height: 20%;
+  overflow-y: auto;
+}
+
+/* In a short landscape/keyboard viewport, allow reaching every panel even
+   when the header, controls, and errors together exceed the available height. */
+.session-viewport[data-compact="true"] {
+  overflow-y: auto;
+}
+
+.session-viewport[data-compact="true"] > .session-conversation {
+  min-height: 4rem;
+}
+
+@media screen and (max-height: 479px) {
+  .session-viewport {
+    overflow-y: auto;
+  }
+  .session-viewport > .session-conversation {
+    min-height: 4rem;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  /* Avoid focus zoom in portrait and landscape; leave browser zoom enabled. */
+  #root :where(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+    font-size: 1rem;
+  }
+
+  .session-viewport {
+    position: fixed;
+    top: var(--session-top, 0px);
+    left: 0;
+    width: 100%;
+  }
+}
+
+@media screen and (max-width: 639px) {
+  :where(.responsive-content, .auth-page, .public-page, .session-viewport, .mobile-navigation) button {
+    min-height: 2.75rem;
+  }
+
+  .public-page,
+  .auth-page {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .public-page {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+@media print {
+  .table-scroll {
+    overflow: visible;
+  }
+  .table-scroll table {
+    min-width: 0;
+  }
+}

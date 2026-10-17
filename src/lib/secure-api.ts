@@ -1,3 +1,4 @@
+import { invalidateViews, loadView } from "./view-cache";
 import { validateOperation } from "./learning/validation";
 import type {
   AdminBulkImportProblemsRequest,
@@ -49,7 +50,7 @@ export async function getCurrentConsentNotice(): Promise<GetCurrentConsentNotice
 }
 
 export async function getLearningCatalog(): Promise<LearningCatalog> {
-  return call("getLearningCatalog", {});
+  return loadView(`catalog:${auth?.currentUser?.uid ?? "anonymous"}`, () => call("getLearningCatalog", {}));
 }
 
 export async function startLearningSession(
@@ -76,8 +77,8 @@ export async function saveSessionDraft(
   return call("saveSessionDraft", { ...input, requestId: input.requestId ?? newRequestId() });
 }
 
-export async function finalizeScorecard(sessionId: string, revision: number): Promise<SessionMutationResponse> {
-  return call("finalizeScorecard", { sessionId, revision, requestId: newRequestId() });
+export async function finalizeScorecard(sessionId: string, revision: number, requestId = newRequestId()): Promise<SessionMutationResponse> {
+  return call("finalizeScorecard", { sessionId, revision, requestId });
 }
 
 export async function submitLearningSession(sessionId: string, revision: number): Promise<SessionMutationResponse> {
@@ -195,6 +196,7 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
       : (await import("./learning-service")).learningOperation;
     const result = await operation(name, validateOperation(name, payload ?? input));
     if (pendingKey && !(name == "adminPublishAnnouncement" && result?.complete === false)) sessionStorage.removeItem(pendingKey);
+    if (!/^(get|preview|adminQuery|adminCatalog|check)/.test(name)) invalidateViews();
     return result as TResponse;
   } catch (error) {
     if (AI_OPERATIONS.has(name)) throw error;

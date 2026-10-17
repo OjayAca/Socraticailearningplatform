@@ -1,3 +1,4 @@
+import { VALIDATED_SUBJECTS, VALIDATED_TOPICS, isValidatedTopic } from "../data/validated-curriculum";
 import { collection, doc, getDoc, getDocs, query, where, runTransaction, serverTimestamp, Timestamp, type DocumentData, type Transaction } from "firebase/firestore";
 import { REASONING_PHASES, SCHEMA_VERSION, WORKFLOW_VERSION, type GetCurrentConsentNoticeResponse, type LearningCatalog, type ReasoningPhase, type StartLearningSessionInput, type Difficulty } from "@mindguide/contracts";
 import { currentUser, database, ownSessions, millis, topicKey } from "./firestore-client";
@@ -64,7 +65,7 @@ async function bootstrap(input: any) {
 async function catalog(): Promise<LearningCatalog> {
   try {
     const [subjects, topics] = await Promise.all(["subjects", "topics"].map(name => getDocs(query(collection(database(), name), where("status", "==", "approved")))));
-    return { subjects: subjects.docs.map(item => ({ ...item.data(), id: item.id })), topics: topics.docs.map(item => ({ ...item.data(), id: item.id, ready: true })), generatedAt: Date.now() } as LearningCatalog;
+    return { subjects: VALIDATED_SUBJECTS.flatMap(expected => subjects.docs.filter(item => item.id === expected.id && item.get("name") === expected.name).map(item => ({ ...item.data(), id: item.id }))), topics: VALIDATED_TOPICS.flatMap(expected => topics.docs.filter(item => item.id === expected.id && isValidatedTopic(item.id, item.data()) && subjects.docs.some(subject => subject.id === expected.subjectId && subject.get("name") === expected.subject)).map(item => ({ ...item.data(), id: item.id, subtopics: expected.subtopics, ready: true }))), generatedAt: Date.now() } as LearningCatalog;
   } catch { throw new Error("Unable to load learning materials."); }
 }
 
@@ -105,7 +106,7 @@ async function start(input: StartLearningSessionInput & { requestId: string }) {
   const [topic, profile, notice, sessions] = await Promise.all([
     getDoc(doc(db, "topics", input.topicId)), getDoc(doc(db, "users", user.uid)), consentNotice(), ownSessions(),
   ]);
-  if (!topic.exists() || topic.get("status") !== "approved") throw new Error("This topic is no longer approved.");
+  if (!topic.exists() || !isValidatedTopic(topic.id, topic.data()) || topic.get("status") !== "approved") throw new Error("This topic is no longer approved.");
   if (!(await getDoc(doc(db, "users", user.uid, "consents", notice.version))).exists()) throw new Error("Acknowledge the current privacy notice before starting.");
   const subject = await getDoc(doc(db, "subjects", topic.get("subjectId")));
   if (!subject.exists()) throw new Error("The topic subject is unavailable.");
@@ -128,7 +129,7 @@ async function start(input: StartLearningSessionInput & { requestId: string }) {
     }
     if (!candidates.length && unavailable) throw new Error(missingReference);
   } else {
-    const preview = verifiedConfirmation(input.question, topic.get("name"));
+    const preview = verifiedConfirmation(input.question, input.topicId);
     if (preview.confirmationHash !== input.confirmationHash) throw new Error("Confirm the problem givens again before starting.");
     freeReference = solveVerifiedProblem(preview.givens);
   }
@@ -275,8 +276,8 @@ export async function learningOperation(name: string, input: any): Promise<any> 
     case "checkLearningSessionActivity": return checkActivity(input.sessionId);
     case "previewVerifiedProblem": {
       const topic = await getDoc(doc(database(), "topics", input.topicId));
-      if (!topic.exists() || topic.get("status") !== "approved") throw new Error("This topic is unavailable.");
-      const { confirmationHash, description } = verifiedConfirmation(input.question, topic.get("name"));
+      if (!topic.exists() || !isValidatedTopic(topic.id, topic.data()) || topic.get("status") !== "approved") throw new Error("This topic is unavailable.");
+      const { confirmationHash, description } = verifiedConfirmation(input.question, input.topicId);
       return { confirmationHash, description };
     }
     case "createFollowUpSession": {

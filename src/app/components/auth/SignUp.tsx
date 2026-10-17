@@ -63,11 +63,11 @@ export function SignUp() {
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col items-center bg-slate-50 p-6">
+    <div className="auth-page flex min-h-full flex-1 flex-col items-center bg-slate-50 p-4 sm:p-6">
       <motion.div
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="my-auto w-full max-w-md shrink-0 space-y-8 rounded-3xl bg-white p-8 shadow-xl shadow-slate-200/50"
+        className="my-auto w-full max-w-md shrink-0 space-y-8 rounded-3xl bg-white p-5 sm:p-8 shadow-xl shadow-slate-200/50"
       >
         <div className="text-center">
           <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />

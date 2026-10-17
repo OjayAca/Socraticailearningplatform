@@ -1,3 +1,4 @@
+if (process.argv.includes("--apply")) throw new Error("Legacy sample-content migration retired. Use npm run migrate:curriculum -- --apply; import real content through faculty validation.");
 import { observedWriter } from "./lib/observed-writer.ts";
 
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";

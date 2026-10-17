@@ -11,7 +11,7 @@ function parseVerifiedProblem(question: string, topic: string): VerifiedGivens {
   const operation = match[1].toLowerCase() as VerifiedGivens["operation"];
   const values = match[2].split(",").map(Number);
   const central = ["mean", "median", "mode"].includes(operation);
-  if ((central ? "Measures of Central Tendency" : "Counting Principles") !== topic || values.length > 50 || values.some(value => !Number.isFinite(value) || Math.abs(value) > 1_000_000)) throw callableError("invalid-argument", "unsupported_problem", "The operation must match the enabled topic and contain at most 50 bounded values.");
+  if (!(central ? ["Descriptive Statistics", "quantitative-methods-descriptive-statistics", "Measures of Central Tendency"] : ["Combinatorics", "discrete-mathematics-combinatorics", "Counting Principles"]).includes(topic) || values.length > 50 || values.some(value => !Number.isFinite(value) || Math.abs(value) > 1_000_000)) throw callableError("invalid-argument", "unsupported_problem", "The operation must match the enabled topic and contain at most 50 bounded values.");
   if (!central && (values.some(value => !Number.isInteger(value) || value < 0 || value > 100) || (operation !== "product" && (values.length !== 2 || values[1] > values[0])))) throw callableError("invalid-argument", "invalid_counting_inputs", "Counting requires integers from 0 to 100; permutation and combination require n, r with r ≤ n.");
   return { operation, values } as VerifiedGivens;
 }

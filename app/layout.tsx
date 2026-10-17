@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   icons: { icon: "/mindguide-logo.png", apple: "/mindguide-logo.png" },
   openGraph: { title: "MINDGUIDE — Reason Before Reveal", description: "Build your reasoning through guided Quantitative Methods and Discrete Mathematics practice.", type: "website", images: ["/mindguide-logo.png"] },
 };
-export const viewport: Viewport = { themeColor: "#4f46e5" };
+export const viewport: Viewport = { themeColor: "#4f46e5", width: "device-width", initialScale: 1, viewportFit: "cover" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return <html lang="en" style={{ height: "100%" }} suppressHydrationWarning>

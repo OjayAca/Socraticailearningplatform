@@ -1,9 +1,12 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { clearViews } from "@/lib/view-cache";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
 import { SecureStudentDashboard } from "@/app/components/SecureStudent";
 
 const mocks = vi.hoisted(() => ({
+  onSnapshot: vi.fn(),
+  unsubscribe: vi.fn(),
   getDocs: vi.fn(),
   getDoc: vi.fn(),
   setTheme: vi.fn(),
@@ -11,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("firebase/firestore", () => ({
+  onSnapshot: mocks.onSnapshot,
   collection: vi.fn(),
   doc: vi.fn(),
   getDoc: mocks.getDoc,
@@ -70,6 +74,13 @@ function renderDashboard() {
 
 describe("SecureStudentDashboard", () => {
   beforeEach(() => {
+    clearViews();
+    mocks.onSnapshot.mockReset();
+    mocks.unsubscribe.mockReset();
+    mocks.onSnapshot.mockImplementation((_query, next, error) => {
+      mocks.getDocs().then(next, error);
+      return mocks.unsubscribe;
+    });
     mocks.getDocs.mockReset();
     mocks.getDoc.mockReset();
     mocks.getDoc.mockResolvedValue({ exists: () => false });
@@ -114,22 +125,6 @@ describe("SecureStudentDashboard", () => {
         ctScore: 70,
       },
     ]));
-    mocks.getDoc.mockResolvedValue({
-      exists: () => true,
-      data: () => ({
-        sessionsCompleted: 2,
-        averageCTScore: 75,
-        currentStreak: 3,
-        latestScorecard: {
-          sessionId: "submitted-session",
-          total: 80,
-          subject: "Discrete Mathematics",
-          topic: "Logic and Propositions",
-          summary: "Strong reasoning with clear next steps.",
-        },
-        achievements: {},
-      }),
-    });
 
     const { container } = renderDashboard();
 
@@ -138,7 +133,7 @@ describe("SecureStudentDashboard", () => {
 
     expect(within(screen.getByText("Completed").parentElement!).getByText("2")).toBeVisible();
     expect(within(screen.getByText("Formative average").parentElement!).getByText("75/100")).toBeVisible();
-    expect(within(screen.getByText("Current streak").parentElement!).getByText("3 days")).toBeVisible();
+    expect(within(screen.getByText("Current streak").parentElement!).getByText("0 days")).toBeVisible();
     expect(within(screen.getAllByText("Latest scorecard")[0].parentElement!).getByText("80/100")).toBeVisible();
     expect(screen.queryByRole("region", { name: "Achievements" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /start session/i })).toHaveAttribute("href", "/student/task");
@@ -160,7 +155,39 @@ describe("SecureStudentDashboard", () => {
     renderDashboard();
 
     await waitFor(() => {
-      expect(screen.getByText("Records are temporarily unavailable.")).toBeVisible();
+      expect(screen.getByText("Learning progress could not be loaded. Please try again.")).toBeVisible();
     });
   });
+  it("updates metrics live and retains loaded records across navigation", async () => {
+    let publish: (value: ReturnType<typeof snapshot>) => void = () => {};
+    mocks.onSnapshot.mockImplementation((_query, next) => { publish = next; return mocks.unsubscribe; });
+    const view = renderDashboard();
+    expect(within(screen.getByText("Completed").parentElement!).getByText("Loading…")).toBeVisible();
+    act(() => publish(snapshot([])));
+    expect(within(screen.getByText("Completed").parentElement!).getByText("0")).toBeVisible();
+    act(() => publish(snapshot([{ id: "new", status: "submitted", submittedAt: new Date(), scorecard: { total: 90 } }])));
+    expect(within(screen.getByText("Completed").parentElement!).getByText("1")).toBeVisible();
+    expect(within(screen.getByText("Formative average").parentElement!).getByText("90/100")).toBeVisible();
+    expect(within(screen.getByText("Current streak").parentElement!).getByText("1 day")).toBeVisible();
+    view.unmount();
+    expect(mocks.unsubscribe).not.toHaveBeenCalled();
+    renderDashboard();
+    expect(within(screen.getByText("Completed").parentElement!).getByText("1")).toBeVisible();
+    expect(mocks.onSnapshot).toHaveBeenCalledOnce();
+    clearViews();
+    expect(mocks.unsubscribe).toHaveBeenCalledOnce();
+  });
+
+  it("hides misleading zeros after an error and retries the listener", async () => {
+    mocks.getDocs.mockRejectedValueOnce(new Error("permission-denied"));
+    renderDashboard();
+    await screen.findByRole("alert");
+    expect(within(screen.getByText("Completed").parentElement!).getByText("—")).toBeVisible();
+    expect(screen.queryByText("No learning records yet.")).not.toBeInTheDocument();
+    mocks.getDocs.mockResolvedValue(snapshot([{ id: "legacy", status: "completed", ctScore: 92 }]));
+    fireEvent.click(screen.getByRole("button", { name: "Retry learning progress" }));
+    await waitFor(() => expect(within(screen.getByText("Completed").parentElement!).getByText("1")).toBeVisible());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
 });

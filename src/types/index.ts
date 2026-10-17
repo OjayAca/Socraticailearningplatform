@@ -45,23 +45,8 @@ export interface UserStats {
   topicPerformance: TopicPerformance[];
 }
 
-export const SUBJECT_TOPICS = {
-  "Quantitative Methods": [
-    "Measures of Central Tendency",
-    "Variance and Standard Deviation",
-    "Data Interpretation",
-    "Probability",
-    "Correlation and Basic Regression",
-  ],
-  "Discrete Mathematics": [
-    "Logic and Propositions",
-    "Truth Tables",
-    "Counting Principles",
-    "Permutations and Combinations",
-    "Pigeonhole Principle",
-    "Basic Proof Reasoning",
-  ],
-} as const;
+import { SUBJECT_TOPICS } from "../data/validated-curriculum";
+export { SUBJECT_TOPICS };
 
 type Subject = keyof typeof SUBJECT_TOPICS;
 export type Topic = (typeof SUBJECT_TOPICS)[Subject][number];

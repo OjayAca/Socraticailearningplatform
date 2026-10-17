@@ -1,3 +1,4 @@
+import { assertCurriculumContent, isValidatedTopic, VALIDATED_SUBJECTS, VALIDATED_TOPICS } from "../data/validated-curriculum";
 import { collection, doc, getDoc, getDocs, query, where, runTransaction, serverTimestamp, writeBatch, setDoc, type DocumentData, type Transaction } from "firebase/firestore";
 import type { Difficulty, ReportKind } from "@mindguide/contracts";
 import { currentUser, database, requireAdmin, millis } from "./firestore-client";
@@ -53,6 +54,7 @@ async function validateLinks(name: string, value: Record<string, any>) {
 async function upsert(input: any) {
   if (findForbiddenPublicKeys(input.value, input.collection === "problems").length) throw new Error("Private fields must be stored in the protected solution, not public content.");
   const value = validateManagedContent(input.collection, input.id, input.value);
+  assertCurriculumContent(input.collection, input.id, value);
   await validateLinks(input.collection, value);
   if (input.collection === "problems" && value.status === "approved") throw new Error("Approve questions through the recorded validation workflow.");
   const ref = doc(database(), input.collection, input.id);
@@ -83,6 +85,7 @@ async function validateProblem(raw: any) {
     if (!problem.exists() || problem.get("status") !== "pending_validation") throw new Error("Submit the question for validation first.");
     let formulaTheoremConditions: string[] = [];
     if (input.decision === "approved") {
+      assertCurriculumContent("problems", problem.id, problem.data());
       const [subject, topic, ...references] = await Promise.all([
         tx.get(doc(database(), "subjects", problem.get("subjectId"))),
         tx.get(doc(database(), "topics", problem.get("topicId"))),
@@ -108,8 +111,8 @@ async function validateProblem(raw: any) {
 async function readiness() {
   const [topics, problems, references] = await Promise.all(["topics", "problems", "problem_scoring"].map(name => getDocs(collection(database(), name))));
   const scoring = new Map(references.docs.map(item => [item.id, item.data()]));
-  const approved = problems.docs.filter(item => item.get("status") === "approved" && item.get("validationRecordId") && scoring.get(item.id)?.problemVersion === item.get("version"));
-  const cells = topics.docs.filter(item => item.get("status") === "approved").flatMap(topic => (["Basic", "Intermediate", "Advanced"] as Difficulty[]).map(difficulty => {
+  const approved = problems.docs.filter(item => VALIDATED_TOPICS.some(topic => topic.id === item.get("topicId")) && item.get("status") === "approved" && item.get("validationRecordId") && scoring.get(item.id)?.problemVersion === item.get("version"));
+  const cells = topics.docs.filter(item => item.get("status") === "approved" && isValidatedTopic(item.id, item.data())).flatMap(topic => (["Basic", "Intermediate", "Advanced"] as Difficulty[]).map(difficulty => {
     const count = approved.filter(item => item.get("topicId") === topic.id && item.get("difficulty") === difficulty).length;
     return { topicId: topic.id, difficulty, approvedVariants: count, ready: count > 0 };
   }));
@@ -134,6 +137,7 @@ async function report(input: any) {
 export async function adminOperation(name: string, input: any): Promise<any> {
   await requireAdmin();
   input = validateOperation(name, input);
+  if (["adminArchiveContent", "adminDeleteContent"].includes(name) && ((input.collection === "subjects" && VALIDATED_SUBJECTS.some(item => item.id === input.id)) || (input.collection === "topics" && VALIDATED_TOPICS.some(item => item.id === input.id)))) throw new Error("The validated curriculum is fixed. Archive or delete learning content separately.");
   const db = database();
   if (name === "adminUpsertContent") return upsert(input);
   if (name === "adminRecordProblemValidation") return validateProblem(input);
@@ -182,6 +186,7 @@ export async function adminOperation(name: string, input: any): Promise<any> {
       if (ids.has(item.id)) throw new Error("Duplicate question IDs in import.");
       ids.add(item.id);
       const value = validateManagedContent("problems", item.id, { ...item, status: "draft" });
+      assertCurriculumContent("problems", item.id, value);
       await validateLinks("problems", value);
     }
     if (!input.dryRun) for (const item of input.problems) await upsert({ collection: "problems", id: item.id, value: { ...item, status: "draft" } });

@@ -92,11 +92,11 @@ export function Login() {
   }
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 h-full p-6">
+    <div className="auth-page flex min-h-full flex-1 flex-col items-center bg-slate-50 p-4 sm:p-6">
       <motion.div
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
-        className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl shadow-slate-200/50 space-y-8"
+        className="my-auto w-full max-w-md shrink-0 bg-white p-5 sm:p-8 rounded-3xl shadow-xl shadow-slate-200/50 space-y-8"
       >
         <div className="space-y-2 text-center">
           <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />

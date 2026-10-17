@@ -43,12 +43,15 @@
     "ai:preflight": "node --import tsx scripts/ai-preflight.ts",
     "ai:probe": "node --conditions=react-server --import tsx scripts/ai-probe.ts",
     "start": "next start",
-    "ai:health": "node --conditions=react-server --import tsx scripts/ai-health.ts"
+    "ai:health": "node --conditions=react-server --import tsx scripts/ai-health.ts",
+    "migrate:curriculum": "node --import tsx scripts/migrate-curriculum.ts",
+    "migrate:curriculum:verify": "node --import tsx scripts/migrate-curriculum.ts --verify"
   },
   "dependencies": {
     "@cortex-js/compute-engine": "^0.84.1",
     "@mindguide/contracts": "file:packages/contracts",
     "@radix-ui/react-dialog": "1.1.6",
+    "@radix-ui/react-tooltip": "^1.2.16",
     "clsx": "2.1.1",
     "firebase": "^12.16.0",
     "katex": "^0.18.0",

@@ -21,7 +21,7 @@ import { AchievementGrid } from "../AchievementGrid";
 
 export function ProfileContent() {
   const { hash } = useLocation();
-  const { userProfile, firebaseUser, sendVerification, refreshVerification, updateDisplayName, error, clearError } = useAuthStore();
+  const { userProfile, firebaseUser, sendVerification, refreshVerification, updateDisplayName, isNameSaving, error, clearError } = useAuthStore();
   const [verificationBusy, setVerificationBusy] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -80,13 +80,16 @@ export function ProfileContent() {
       return;
     }
 
+    if (isSaving || isNameSaving) return;
     setIsSaving(true);
+    setIsEditing(false);
     try {
       await updateDisplayName(newName.trim());
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
       setIsEditing(false);
     } catch (caughtError) {
+      setIsEditing(true);
       setSaveError(
         caughtError instanceof Error
           ? caughtError.message
@@ -118,12 +121,12 @@ export function ProfileContent() {
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Hero Profile Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-8 relative overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-8 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row items-center gap-4 sm:p-8 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-r from-indigo-500 to-purple-500 opacity-10 dark:opacity-20"></div>
         <div className="relative z-10 w-32 h-32 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-4xl font-bold text-indigo-600 dark:text-indigo-400 border-4 border-white dark:border-slate-900 shadow-xl flex-shrink-0">
           {initials}
         </div>
-        <div className="relative z-10 flex-1 text-center md:text-left">
+        <div className="relative z-10 min-w-0 w-full flex-1 text-center md:text-left">
           {isEditing ? (
             <form onSubmit={handleSaveName} className="flex flex-col md:flex-row items-center gap-3">
               <input
@@ -153,8 +156,9 @@ export function ProfileContent() {
             </form>
           ) : (
             <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
               <button
+                disabled={isSaving || isNameSaving}
                 onClick={() => {
                   setNewName(displayName);
                   setSaveError(null);
@@ -162,13 +166,13 @@ export function ProfileContent() {
                 }}
                 className="text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors bg-indigo-50 dark:bg-indigo-950/50 px-3 py-1 rounded-full self-center md:self-auto"
               >
-                Edit Name
+                {isSaving || isNameSaving ? "Saving name…" : "Edit Name"}
               </button>
             </div>
           )}
           <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-4 text-sm font-medium text-slate-500 dark:text-slate-400">
-            <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
-              <Mail className="w-4 h-4 text-slate-400" />
+            <div className="flex min-w-0 max-w-full items-center gap-1.5 bg-slate-50 dark:bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-100 dark:border-slate-800">
+              <Mail className="w-4 h-4 shrink-0 text-slate-400" />
               {userProfile?.email}
             </div>
             <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-1.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50 text-emerald-700 dark:text-emerald-400">
@@ -193,7 +197,7 @@ export function ProfileContent() {
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-950">
           <h3 className="font-bold">Verify your email</h3>
           <p className="mt-2 text-sm">Pilot admission requires a verified email and an administrator invitation.</p>
-          <div className="mt-3 flex gap-3">
+          <div className="mt-3 flex flex-col gap-3 sm:flex-row">
             <button disabled={verificationBusy} onClick={() => void verifyEmail(false)} className="rounded-lg border px-3 py-2">Send verification email</button>
             <button disabled={verificationBusy} onClick={() => void verifyEmail(true)} className="rounded-lg border px-3 py-2">Check verification</button>
           </div>
@@ -209,7 +213,7 @@ export function ProfileContent() {
       )}
 
       {isAdministrator ? (
-        <div className="rounded-3xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-8">
+        <div className="rounded-3xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 sm:p-8">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0">
               <Shield className="w-6 h-6" />
@@ -234,7 +238,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-2xl flex items-center justify-center mb-4">
                 <User className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.sessionsCompleted || 0}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stats?.sessionsCompleted || 0}</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Sessions Completed</div>
             </div>
 
@@ -242,7 +246,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.averageCTScore || 0}%</div>
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stats?.averageCTScore || 0}%</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Avg Scorecard Total</div>
             </div>
 
@@ -250,7 +254,7 @@ export function ProfileContent() {
               <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mb-4">
                 <Sun className="w-6 h-6" />
               </div>
-              <div className="text-3xl font-bold text-slate-900 dark:text-white">{stats?.currentStreak || 0}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{stats?.currentStreak || 0}</div>
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Day Streak</div>
             </div>
           </div>

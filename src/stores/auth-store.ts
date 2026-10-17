@@ -7,6 +7,7 @@
  * @module stores/auth-store
  */
 
+import { clearViews } from "@/lib/view-cache";
 import { create } from "zustand";
 import {
   signInWithEmailAndPassword,
@@ -55,6 +56,7 @@ interface AuthState {
   userProfile: UserProfile | null;
   /** True while the initial auth state is being resolved. */
   isLoading: boolean;
+  isNameSaving: boolean;
   /** Error message from the most recent auth operation. */
   error: string | null;
 
@@ -87,6 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   firebaseUser: null,
   userProfile: null,
   isLoading: true,
+  isNameSaving: false,
   error: null,
 
   initialize: () => {
@@ -101,6 +104,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      clearViews();
+      set({ isNameSaving: false });
       const sequence = ++authStateSequence;
 
       if (!user) {
@@ -299,7 +304,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateDisplayName: async (displayName: string) => {
-    const { firebaseUser } = get();
+    const { firebaseUser, userProfile: previousProfile } = get();
+    if (get().isNameSaving) throw new Error("Your name is already being saved.");
+    const sequence = authStateSequence;
     if (!firebaseUser) {
       const error = new Error("Your session has ended. Sign in again to update your profile.");
       set({ error: error.message, isLoading: false });
@@ -313,14 +320,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw error;
     }
 
-    set({ error: null });
+    set({ error: null, isNameSaving: true, userProfile: previousProfile ? { ...previousProfile, displayName: normalizedName } : null });
     try {
       // 1. Update Firebase Auth Profile
       await updateProfile(firebaseUser, { displayName: normalizedName });
       
+      if (sequence !== authStateSequence || get().firebaseUser?.uid !== firebaseUser.uid) return;
       // 2. Update Firestore Document
       const userRef = doc(requireDb(), "users", firebaseUser.uid);
-      if (isAdminRole(get().userProfile?.role)) {
+      if (isAdminRole(previousProfile?.role)) {
         const batch = writeBatch(requireDb());
         batch.set(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
         batch.set(doc(collection(requireDb(), "audit_logs")), { actorId: firebaseUser.uid, action: "admin_profile_update", target: userRef.path, createdAt: serverTimestamp() });
@@ -329,17 +337,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await setDoc(userRef, { displayName: normalizedName, updatedAt: serverTimestamp() }, { merge: true });
       }
       
-      // 3. Update Local Store State
+      if (sequence !== authStateSequence || get().firebaseUser?.uid !== firebaseUser.uid) return;
+      // 3. Reconcile after both writes succeed
       set((state) => ({
         firebaseUser: auth?.currentUser ?? firebaseUser,
         userProfile: state.userProfile
           ? { ...state.userProfile, displayName: normalizedName }
           : null,
         error: null,
+        isNameSaving: false,
       }));
     } catch (err) {
       const message = getFirebaseErrorMessage(err);
-      set({ error: message });
+      if (sequence === authStateSequence && get().firebaseUser?.uid === firebaseUser.uid) {
+        set(state => ({ error: message, isNameSaving: false, userProfile: state.userProfile && previousProfile ? { ...state.userProfile, displayName: previousProfile.displayName } : state.userProfile }));
+      }
       throw new Error(message);
     }
   },
