@@ -15,6 +15,7 @@ import { REASONING_PHASES } from "@mindguide/contracts";
 import { checkAnswer, hasMathematicalStructure, type AnswerSpecification } from "./answers.js";
 
 export interface PrivateProblemReference {
+  methodReference?: import("./method-references").MethodReference;
   answerSpecification?: AnswerSpecification;
   safeHints?: Partial<Record<ReasoningPhase, Partial<Record<SupportLevel, string[]>>>>;
   rubricVersion?: string;

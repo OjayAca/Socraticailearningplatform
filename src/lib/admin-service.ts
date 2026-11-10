@@ -5,7 +5,8 @@ import { currentUser, database, requireAdmin, millis } from "./firestore-client"
 import { validateManagedContent, findForbiddenPublicKeys, recordProblemValidationSchema, parseInput, validateOperation } from "./learning/validation";
 import { scoringReference } from "./learning/scoring-reference";
 import { contentHash } from "./learning/content-hash";
-import { aggregateReport, toCsv } from "./learning/reporting";
+import { aggregateReport, toCsv, reportHeaders } from "./learning/reporting";
+import { accountActions } from "./account-transitions";
 
 const consoleMessage = "Manage this Firebase Authentication operation in Firebase Console → Authentication → Users. No account was changed by this request.";
 const managedCollections = ["subjects", "topics", "problems", "formula_theorem_references", "socratic_prompt_bank", "misconception_categories", "difficulty_policies"];
@@ -126,7 +127,10 @@ async function report(input: any) {
   const records = snapshot.docs.map(item => ({ ...item.data(), id: item.id } as DocumentData)).filter(item =>
     (eventField === "createdAt" || item.statsCommittedAt) && (!input.subject || item.subject === input.subject) && (!input.topic || item.topic === input.topic)
     && (input.from === undefined || millis(item[eventField]) >= input.from) && (input.to === undefined || millis(item[eventField]) <= input.to));
-  if (!input.includeIdentity) for (const record of records) record.studentId = (await contentHash(record.studentId)).slice(0, 12);
+  if (!input.includeIdentity) for (const record of records) {
+    record.studentId = (await contentHash(record.studentId)).slice(0, 12);
+    record.id = `Session-${(await contentHash(record.id)).slice(0, 16)}`;
+  }
   const rows = aggregateReport(records, { kind: input.kind as ReportKind, includeIdentity: Boolean(input.includeIdentity) });
   const offset = Number(input.cursor ?? 0);
   if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("Invalid report cursor.");
@@ -148,9 +152,23 @@ export async function adminOperation(name: string, input: any): Promise<any> {
     // One immutable browser snapshot per export avoids inconsistent pages while learners submit.
     const result = await report({ ...input, cursor: undefined, limit: Number.MAX_SAFE_INTEGER });
     await audit(name, input.kind, input.exportReason);
-    return input.output === "csv" ? { ...result, output: "csv", csv: toCsv(result.rows), filename: `mindguide-${input.kind}.csv` } : { ...result, output: "print" };
+    return input.output === "csv" ? { ...result, output: "csv", csv: toCsv(result.rows, reportHeaders(input.kind)), filename: `mindguide-${input.kind}.csv` } : { ...result, output: "print" };
   }
   if (name === "adminDeleteUser") throw new Error(consoleMessage);
+  if (name === "adminEditAcademicProfile") {
+    const ref = doc(db, "users", input.userId);
+    const auditRef = doc(db, "audit_logs", `academic_profile_${input.requestId}`);
+    return runTransaction(db, async tx => {
+      const [user, prior] = await Promise.all([tx.get(ref), tx.get(auditRef)]);
+      if (!user.exists() || user.get("role") !== "student" || user.get("status") === "anonymized") throw new Error("Choose an existing, non-anonymized learner.");
+      const previous = user.get("academicProfile");
+      if (!previous || typeof previous !== "object") throw new Error("The learner needs an existing academic profile before these fields can be edited.");
+      if (prior.exists()) throw new Error("This profile edit was already recorded. Reload the profile before editing again.");
+      tx.update(ref, { academicProfile:{...previous, course:input.course, yearLevel:input.yearLevel, section:input.section}, lastAcademicProfileEdit: auditRef.id, updatedAt:serverTimestamp() });
+      tx.set(auditRef, {actorId:currentUser().uid, action:name, target:ref.path, reason:input.reason, fields:["course", "yearLevel", "section"], createdAt:serverTimestamp()});
+      return { userId:input.userId };
+    });
+  }
   if (name === "adminManageUser") {
     if (["promote", "demote", "anonymize", "reset_access"].includes(input.action)) throw new Error(consoleMessage);
     const statuses: Record<string, string> = { suspend: "suspended", activate: "active", deactivate: "deactivated" };
@@ -160,6 +178,7 @@ export async function adminOperation(name: string, input: any): Promise<any> {
     await runTransaction(db, async tx => {
       const target = await tx.get(ref);
       if (target.get("role") === "admin") throw new Error("Manage administrator accounts through Firebase Console.");
+      if (!accountActions(target.get("status"), target.get("role")).includes(input.action)) throw new Error("This account transition is not permitted. Reload the account list.");
       tx.update(ref, { status, updatedAt: serverTimestamp() });
       transactionAudit(tx, name, input.userId, { reason: input.reason, status });
     });

@@ -6,8 +6,9 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
   return (
     <section className="mt-4 space-y-4" aria-label="Critical Thinking Scorecard">
       {scorecard.rubricVersion === "spark-practice-v1" && <p className="text-sm text-slate-600 dark:text-slate-300">Calculated in your browser for practice; this is not an official assessment.</p>}
-      {scorecard.rubricVersion === "ai-formative-v1" && <p className="text-sm text-slate-600 dark:text-slate-300">AI-supported formative feedback based on your saved reasoning. This is not an official grade.</p>}
+      {scorecard.rubricVersion?.startsWith("ai-formative-") && <p className="text-sm text-slate-600 dark:text-slate-300">AI-supported formative feedback based on your saved reasoning. This is not an official grade.</p>}
       <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{scorecard.total}/100</p>
+      <p className="text-xs text-slate-600 dark:text-slate-300">Total = Accuracy + Logical validity + Method selection + Explanation quality. Each criterion is worth 25 points. Assistance is reported separately.</p>
       <p className="text-sm">Rubric: {scorecard.rubricVersion ?? "legacy"} · {scorecard.calibrationStatus ?? "uncalibrated"} · Assistance: {scorecard.assistanceCount ?? "not recorded"}</p>
       <div className="grid gap-2 sm:grid-cols-2">
         {presentation.criteria.map((criterion) => (
@@ -23,11 +24,12 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
       </div>
       {!compact && (
         <div className="grid gap-3 md:grid-cols-2">
-          <Insight title="Strength" text={`${SCORECARD_CATEGORY_LABELS[presentation.strength.category]}: ${presentation.strength.reason}`} />
-          <Insight title="Weakness" text={`${SCORECARD_CATEGORY_LABELS[presentation.weakness.category]}: ${presentation.weakness.reason}`} />
+          <Insight title="Strength" text={presentation.strength ? `${SCORECARD_CATEGORY_LABELS[presentation.strength.category]}: ${presentation.strength.reason}` : "All four criteria have the same score; no single relative strength is identified."} />
+          <Insight title="Area for growth" text={presentation.weakness ? `${SCORECARD_CATEGORY_LABELS[presentation.weakness.category]}: ${presentation.weakness.improvementAdvice}` : presentation.tied ? "All four criteria have the same score. Review the criterion feedback for any shared areas to develop." : "No specific area for growth was identified in the saved feedback."} />
           <Insight title="Session summary" text={presentation.sessionSummary} />
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h3 className="text-sm font-bold text-slate-950 dark:text-white">Improvement plan</h3>
+            {!presentation.improvements.length && <p className="mt-2 text-sm">No specific improvement was identified in the saved feedback.</p>}
             <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
               {presentation.improvements.map((item) => <li key={item}>{item}</li>)}
             </ul>

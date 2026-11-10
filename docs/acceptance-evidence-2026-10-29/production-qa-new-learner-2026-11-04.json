@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-04T15:37:40.020Z",
+  "project": "socratic-ai-a7765",
+  "qaReference": "ea072141dc63",
+  "displayName": "MINDGUIDE QA Remediation",
+  "role": "student",
+  "status": "active",
+  "credentialsProvider": [
+    "password"
+  ],
+  "sessionCount": 0,
+  "admission": "absent",
+  "consented": false
+}

@@ -1,3 +1,4 @@
+import { studentSession } from "@/lib/learning/student-response";
 import { Timestamp } from "firebase/firestore";
 import { REASONING_PHASES, SCHEMA_VERSION, WORKFLOW_VERSION, solverStageForPhase, type SessionProjection, type ReasoningPhase } from "@mindguide/contracts";
 import { projectStageProgress } from "./session-state";
@@ -6,7 +7,7 @@ export function projectSession(id: string, session: Record<string, any>): Sessio
   const currentInternalGate = REASONING_PHASES.includes(currentPhase as ReasoningPhase)
     ? currentPhase as ReasoningPhase
     : null;
-  return {
+  return studentSession({
     id,
     schemaVersion: SCHEMA_VERSION,
     workflowVersion: WORKFLOW_VERSION,
@@ -39,7 +40,7 @@ export function projectSession(id: string, session: Record<string, any>): Sessio
     createdAt: millis(session.createdAt),
     updatedAt: millis(session.updatedAt),
     learningCompletedAt: session.learningCompletedAt ? millis(session.learningCompletedAt) : null,
-  };
+  }) as SessionProjection;
 }
 
 function fallbackPrompt(phase: ReasoningPhase | null): string {

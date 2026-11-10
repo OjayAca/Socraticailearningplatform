@@ -1,0 +1,134 @@
+{
+  "environment": "in-memory; no Firebase calls, no learner completions",
+  "sourceRecords": 84,
+  "selectionFromUnpublishedOnlyAtEntryLevel": [
+    {
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-set-theory",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-logic",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-combinatorics",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-discrete-probability",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-functions",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-probability-distributions",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-decision-analysis",
+      "status": "draft",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-set-theory",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-logic",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-combinatorics",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "discrete-mathematics-discrete-probability",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-functions",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-probability-distributions",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    },
+    {
+      "topicId": "quantitative-methods-decision-analysis",
+      "status": "pending_validation",
+      "result": "question-bank-exhausted"
+    }
+  ],
+  "serverResponseAllowlist": {
+    "result": "FAIL",
+    "unexpectedRootFieldsReturned": [
+      "instructor_only",
+      "sourceGuidance"
+    ],
+    "scope": "Injected fields on an in-memory session. No real data exposure tested or observed."
+  }
+}

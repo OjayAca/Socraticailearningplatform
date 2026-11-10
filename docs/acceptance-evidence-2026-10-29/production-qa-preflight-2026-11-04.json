@@ -1,0 +1,96 @@
+{
+  "at": "2026-11-04T00:53:05.825Z",
+  "project": "socratic-ai-a7765",
+  "scope": "production QA read-only preflight",
+  "firebaseBilling": {
+    "http": 200,
+    "enabled": false
+  },
+  "auth": {
+    "http": 200,
+    "emailPassword": true,
+    "passwordRequired": true,
+    "localhostAuthorized": true,
+    "signUpDisabled": false
+  },
+  "pilot": {
+    "http": 200,
+    "state": "open",
+    "logicEnabled": true
+  },
+  "consent": {
+    "privacyHttp": 200,
+    "policyHttp": 200,
+    "active": true,
+    "geminiFreeNotice": true
+  },
+  "logic": {
+    "http": 200,
+    "approved": true,
+    "problems": [
+      {
+        "id": "DM-04-B01",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Basic"
+      },
+      {
+        "id": "DM-04-B02",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Basic"
+      },
+      {
+        "id": "DM-04-B03",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Basic"
+      },
+      {
+        "id": "DM-04-B04",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Basic"
+      },
+      {
+        "id": "DM-04-I01",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Intermediate"
+      },
+      {
+        "id": "DM-04-I02",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Intermediate"
+      },
+      {
+        "id": "DM-04-I03",
+        "http": 200,
+        "approved": true,
+        "topicMatches": true,
+        "difficulty": "Intermediate"
+      }
+    ]
+  },
+  "tutor": {
+    "localModel": "gemini-3.5-flash-lite",
+    "enabled": true,
+    "freeFlag": true,
+    "rpm": 4,
+    "tpm": 200000,
+    "rpd": 18,
+    "sharedCounterHttp": 200,
+    "counterDay": "2026-11-02",
+    "counterDaily": 14,
+    "keyProjectLookupHttp": 200,
+    "keyProjectBillingHttp": 200,
+    "keyProjectBillingEnabled": false
+  }
+}

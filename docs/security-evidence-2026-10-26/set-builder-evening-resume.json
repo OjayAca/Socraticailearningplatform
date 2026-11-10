@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-10-27T14:10:14.470Z",
+  "projectId": "socratic-ai-a7765",
+  "problemId": "DM-01-B01",
+  "status": "in_progress",
+  "difficulty": "Basic",
+  "currentPhase": "result_interpretation",
+  "originalQuestionMatches": true,
+  "pinnedReferenceMatches": true,
+  "gates": {
+    "problem_understanding": "accepted",
+    "relevant_information_identification": "accepted",
+    "method_selection": "accepted",
+    "formula_theorem_justification": "accepted",
+    "guided_computation_or_proof": "accepted",
+    "verification_and_checking": "accepted",
+    "result_interpretation": "pending"
+  },
+  "responseCount": 4,
+  "responseEvaluations": [
+    {
+      "phase": "guided_computation_or_proof",
+      "status": "accepted",
+      "category": "none"
+    },
+    {
+      "phase": "method_selection",
+      "status": "accepted",
+      "category": "none"
+    },
+    {
+      "phase": "guided_computation_or_proof",
+      "status": "needs_revision",
+      "category": "incorrect_interpretation"
+    },
+    {
+      "phase": "problem_understanding",
+      "status": "accepted",
+      "category": "none"
+    }
+  ],
+  "supportUsage": 1,
+  "solutionReleased": false,
+  "scorecardTotal": null,
+  "persistedScorecards": 0,
+  "scorecardMatchesSavedRecord": null,
+  "statsCommitted": false,
+  "sessionsCompleted": 3
+}

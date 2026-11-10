@@ -1,0 +1,17 @@
+{"at":"2026-11-10T04:09:01.918Z","operation":"startLearningSession","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"problem_understanding","progress":0}
+{"at":"2026-11-10T04:09:32.020Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"method_selection","progress":1}
+{"at":"2026-11-10T04:09:59.453Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"guided_computation_or_proof","progress":2}
+{"at":"2026-11-10T04:10:26.633Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"guided_computation_or_proof","progress":2}
+{"at":"2026-11-10T04:11:15.345Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"result_interpretation","progress":3}
+{"at":"2026-11-10T04:11:42.776Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B01","status":"in_progress","phase":"controlled_solution_release","progress":4}
+{"at":"2026-11-10T04:12:12.128Z","operation":"finalizeScorecard","http":503,"error":{"code":"invalid-request","message":"The scorecard needs assessed learner evidence from the relevant reasoning stage for each criterion. Your progress is preserved; retry scoring.","retryable":true,"retryAfter":0}}
+{"at":"2026-11-10T04:13:20.014Z","operation":"finalizeScorecard","http":503,"error":{"code":"invalid-request","message":"The scorecard needs assessed learner evidence from the relevant reasoning stage for each criterion. Your progress is preserved; retry scoring.","retryable":true,"retryAfter":0}}
+{"at":"2026-11-10T04:17:27.116Z","operation":"finalizeScorecard","http":200,"problem":"DM-04-B01","status":"ready_for_submission","phase":"critical_thinking_scorecard","progress":4,"score":100}
+{"at":"2026-11-10T04:17:36.657Z","operation":"submitLearningSession","http":200,"problem":"DM-04-B01","status":"submitted","phase":"critical_thinking_scorecard","progress":4,"score":100}
+{"at":"2026-11-10T04:18:10.485Z","operation":"startLearningSession","http":200,"problem":"DM-04-B02","status":"in_progress","phase":"problem_understanding","progress":0}
+{"at":"2026-11-10T04:18:40.426Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B02","status":"in_progress","phase":"method_selection","progress":1}
+{"at":"2026-11-10T04:19:07.775Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B02","status":"in_progress","phase":"guided_computation_or_proof","progress":2}
+{"at":"2026-11-10T04:19:35.695Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B02","status":"in_progress","phase":"result_interpretation","progress":3}
+{"at":"2026-11-10T04:20:03.264Z","operation":"evaluatePhaseResponse","http":200,"problem":"DM-04-B02","status":"in_progress","phase":"controlled_solution_release","progress":4}
+{"at":"2026-11-10T04:20:32.143Z","operation":"finalizeScorecard","http":200,"problem":"DM-04-B02","status":"ready_for_submission","phase":"critical_thinking_scorecard","progress":4,"score":100}
+{"at":"2026-11-10T04:20:40.806Z","operation":"submitLearningSession","http":200,"problem":"DM-04-B02","status":"submitted","phase":"critical_thinking_scorecard","progress":4,"score":100}

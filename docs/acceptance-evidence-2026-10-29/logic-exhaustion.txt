@@ -1,0 +1,76 @@
+- complementary:
+  - link "MINDGUIDE":
+    - /url: /student/dashboard
+    - text: MINDGUIDE
+  - navigation "Primary student navigation":
+    - link "Dashboard":
+      - /url: /student/dashboard
+      - text: Dashboard
+    - link "New session":
+      - /url: /student/task
+      - text: New session
+    - link "History":
+      - /url: /student/history
+      - text: History
+    - link "Notifications":
+      - /url: /student/notifications
+      - text: Notifications
+  - navigation "Student account navigation":
+    - link "Profile":
+      - /url: /student/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /student/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Orvin Jay Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Orvin Jay Acasio":
+    - /url: /student/profile
+    - generic: Orvin Jay Acasio
+    - generic: ojayacasio@gmail.com
+    - generic: OJ
+- main:
+  - heading "Start a secure MINDGUIDE session" [level=1]
+  - paragraph: Choose an approved topic. For prepared practice, MINDGUIDE selects an adaptive, non-repeating validated question.
+  - heading "Choose a subject" [level=2]
+  - button "Quantitative Methods Quantitative Methods 3 Completed 100/100 Average Basic Recommended":
+    - heading "Quantitative Methods" [level=3]
+    - paragraph: Quantitative Methods
+    - strong: "3"
+    - text: Completed
+    - strong: 100/100
+    - text: Average
+    - strong: Basic
+    - text: Recommended
+  - button "Discrete Mathematics Discrete Mathematics 2 Completed 100/100 Average Basic Recommended":
+    - heading "Discrete Mathematics" [level=3]
+    - paragraph: Discrete Mathematics
+    - strong: "2"
+    - text: Completed
+    - strong: 100/100
+    - text: Average
+    - strong: Basic
+    - text: Recommended
+  - button "Prepared problem" [pressed]:
+    - text: Prepared problem
+  - button "My own problem":
+    - text: My own problem
+  - text: Validated topic
+  - combobox "Validated topic Subtopics":
+    - option "Speaking Mathematically"
+    - option "Set Theory"
+    - option "Relations and Functions"
+    - option "Logic" [selected]
+    - option "Combinatorics"
+    - option "Discrete Probability"
+  - generic "Subtopics"
+  - paragraph: Adaptive assignment · Basic
+  - paragraph: "maintain_insufficient_evidence: 1/3 required distinct completed Basic sessions in this topic; 100% accuracy, 100% reasoning, 1 with limited assistance. Question availability never changes this recommendation."
+  - alert:
+    - text: No unanswered, approved question with matching validated references is available at Basic. Your recommended level is unchanged. Review a completed session in Learning History, or retry when your administrator adds validated questions at this level.
+  - button "Assign my prepared problem"
+- region "Notifications alt+T"
+- alert

@@ -1,0 +1,112 @@
+{
+  "checkedAt": "2026-10-28T15:08:03.530Z",
+  "projectId": "socratic-ai-a7765",
+  "readOnly": true,
+  "targetPerLevel": 5,
+  "coverage": [
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Functions",
+      "topicId": "quantitative-methods-functions",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Descriptive Statistics",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Introduction to Probability",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Probability Distributions",
+      "topicId": "quantitative-methods-probability-distributions",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Introduction to Decision Making",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Quantitative Methods",
+      "topic": "Decision Analysis",
+      "topicId": "quantitative-methods-decision-analysis",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topicId": "discrete-mathematics-set-theory",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topicId": "discrete-mathematics-logic",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topicId": "discrete-mathematics-combinatorics",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    },
+    {
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "Basic": 1,
+      "Intermediate": 1,
+      "Advanced": 1
+    }
+  ],
+  "excludedActiveQuestions": [],
+  "quota": {
+    "minute": 29885195,
+    "day": "2026-10-27",
+    "requests": 2,
+    "tokens": 64000,
+    "daily": 4
+  }
+}

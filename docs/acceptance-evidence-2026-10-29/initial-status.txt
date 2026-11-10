@@ -1,0 +1,75 @@
+ M eslint.config.js
+ M firestore.rules
+ M next-env.d.ts
+ M package-lock.json
+ M package.json
+ M packages/contracts/src/index.ts
+ M scripts/ai-preflight.ts
+ M scripts/test-spark-rules.ts
+ M server/gemini.ts
+ M server/services/LearningService.ts
+ M src/app/components/ManagedContentEditor.tsx
+ M src/app/components/ScorecardDetails.tsx
+ M src/app/components/SecureAdmin.tsx
+ M src/app/components/SecureSession.tsx
+ M src/data/validated-curriculum.ts
+ M src/lib/admin-service.ts
+ M src/lib/learning/reporting.ts
+ M src/lib/learning/validation.ts
+ M src/lib/learning/verified-problems.ts
+ M src/lib/learning/workflow.ts
+ M src/lib/scorecard-presentation.ts
+ M src/lib/secure-api.ts
+ M tests/component/admin-supporting-features.test.tsx
+ M tests/component/secure-session.test.tsx
+ M tests/unit/admin-service.test.ts
+ M tests/unit/ai-learning.test.ts
+ M tests/unit/scorecard-presentation.test.ts
+ M tests/unit/validated-curriculum.test.ts
+?? docs/CORE_FEATURES_COMPLETION_2026-10-28.md
+?? docs/CORE_FEATURES_TEST_MATRIX_2026-10-28.md
+?? docs/DEPENDENCY_AUDIT_2026-10-24.md
+?? docs/GEMINI_MODEL_FIX_2026-10-27.md
+?? docs/LIVE_QA_REPORT_2026-10-22.md
+?? docs/LIVE_QA_REPORT_2026-10-22_REMEDIATED.md
+?? docs/QA_BASELINE_2026-10-18.md
+?? docs/QUESTION_BANK_APPROVAL_2026-10-25.json
+?? docs/QUESTION_BANK_IMPORT_2026-10-25.json
+?? docs/QUESTION_BANK_INTEGRATION_2026-10-25.md
+?? docs/QUESTION_BANK_RERUN_2026-10-25.json
+?? docs/QUESTION_BANK_STUDENT_CHECKPOINT_2026-10-25.json
+?? docs/QUESTION_BANK_STUDENT_CORRECTION_2026-10-25.json
+?? docs/QUESTION_BANK_STUDENT_FINAL_2026-10-26.json
+?? docs/QUESTION_BANK_STUDENT_HISTORY_2026-10-26.jpg
+?? docs/QUESTION_BANK_STUDENT_RESUME_2026-10-26.json
+?? docs/QUESTION_BANK_VERIFICATION_2026-10-25.json
+?? docs/QUESTION_TEST_MATRIX_2026-10-26.md
+?? docs/RELEASE_PACKAGE_2026-10-24.md
+?? docs/SECURITY_READINESS_2026-10-26.md
+?? docs/core-features-evidence-2026-10-28/
+?? docs/qa-evidence-2026-10-18-live/
+?? docs/release-evidence-2026-10-24/
+?? docs/rules-deployment-2026-10-28/
+?? docs/security-evidence-2026-10-26/
+?? release-audit-after.json
+?? release-audit-before.json
+?? release-audit-final.json
+?? release-audit-plan.json
+?? release-dependency-tree.json
+?? scripts/audit-core-features.ts
+?? scripts/data/
+?? scripts/import-question-bank.ts
+?? scripts/probe-core-tutor.ts
+?? scripts/question-bank-core.ts
+?? scripts/verify-question-bank-session.ts
+?? server/learning-policy.ts
+?? server/mathematical-diagnosis.ts
+?? server/scorecard-rubric.ts
+?? server/tutor-quota.ts
+?? src/lib/account-transitions.ts
+?? src/lib/learning/method-references.ts
+?? src/lib/learning/session-message.ts
+?? tests/unit/learning-policy.test.ts
+?? tests/unit/mathematical-diagnosis.test.ts
+?? tests/unit/method-references.test.ts
+?? tests/unit/question-bank-import.test.ts

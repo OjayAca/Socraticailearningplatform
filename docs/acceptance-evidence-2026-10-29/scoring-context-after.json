@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-10-29T13:32:01.427Z",
+  "contextLength": 11551,
+  "systemLength": 5976,
+  "schemaLength": 3332,
+  "reserve": 4096,
+  "total": 24955,
+  "limit": 32000,
+  "learnerEvidenceCount": 5,
+  "assessedResponseCount": 5,
+  "fullLearnerTextPreserved": true
+}

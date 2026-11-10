@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-10T09:07:08.966Z",
+  "qaReference": "ea072141dc63",
+  "problem": "DM-04-I01",
+  "status": "submitted",
+  "committed": true,
+  "scoresOutOf25": {
+    "accuracy": 25,
+    "logicalValidity": 25,
+    "methodSelection": 25,
+    "explanationQuality": 25
+  },
+  "quotaDay": "2026-11-10",
+  "reservations": 16
+}

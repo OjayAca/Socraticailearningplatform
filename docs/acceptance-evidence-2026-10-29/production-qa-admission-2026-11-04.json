@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-11-04T15:43:35.180Z",
+  "project": "socratic-ai-a7765",
+  "qaReference": "ea072141dc63",
+  "roster": "admitted",
+  "rosterUpdated": "2026-11-04T15:42:43.274229Z",
+  "learner": "MINDGUIDE QA Remediation",
+  "role": "student",
+  "status": "active",
+  "firebaseBillingEnabled": false,
+  "geminiBillingEnabled": false,
+  "dailyLimit": 18,
+  "dailyReservationsBefore": 0,
+  "quotaDay": "2026-11-04"
+}

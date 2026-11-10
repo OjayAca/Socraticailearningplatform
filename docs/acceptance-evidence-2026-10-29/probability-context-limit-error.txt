@@ -1,0 +1,57 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Discrete Probability
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Interpretation
+  - generic: 100%
+  - progressbar "Learning progress"
+- generic "Session details"
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+  - article "You":
+    - generic: You
+    - generic: We need to list all ordered outcomes of two coin tosses and calculate the probability of exactly one head, explaining equal likelihood. The coin is fair, the tosses are independent, H and T mean head and tail, and order is recorded, so HT and TH are different outcomes.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. How does the method you chose connect the given information to what you need to find?
+  - article "You":
+    - generic: You
+    - generic: I will enumerate the ordered pairs HH, HT, TH, TT. Each toss has probabilities one half for H and one half for T because the coin is fair. Independence allows me to multiply the two probabilities for each ordered pair, so all four pairs are equally likely. Exactly one head corresponds to the disjoint outcomes HT and TH, so I can add their probabilities or divide two favorable outcomes by four total outcomes.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "You":
+    - generic: You
+    - generic: "Each ordered outcome has probability (1/2)*(1/2)=1/4. Exactly one head occurs in HT or TH, so I add their probabilities: 1/4+1/4=3/4. The four elementary outcomes each have probability 1/4 and their total is 1. Thus my probability of exactly one head is 3/4."
+  - article "AI tutor":
+    - generic: MG
+    - generic: The two sides of this asserted arithmetic equality have different values when evaluated with the usual order of operations. Check 1/4+1/4=3/4 one operation at a time. Which equality first stops preserving the value?
+  - article "AI tutor":
+    - generic: MG
+    - generic: Apply your justified method one step at a time. Check each operation or logical implication before continuing. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "You":
+    - generic: You
+    - generic: "I made an addition error. The sample space is {HH, HT, TH, TT}. By fairness and independence each ordered outcome has probability (1/2)*(1/2)=1/4. Exactly one head is {HT, TH}; these are disjoint, so 1/4+1/4=(1+1)/4=2/4=1/2. As a check, the complement {HH, TT} also has probability 1/2, and 1/2+1/2=1. All four elementary probabilities sum to 1."
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. What does your result mean in the context of the original problem?
+  - article "You":
+    - generic: You
+    - generic: "The probability of exactly one head is one half, or 50 percent. In many independent repetitions of this two-toss experiment, about half of the ordered pairs are expected to be HT or TH; it is not a guarantee for any individual pair. Fairness and independence make HH, HT, TH, and TT equally likely. Recording order is essential: merging HT and TH would incorrectly treat three categories as equally likely."
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. All four stages are complete. Select View step-by-step solution to see the worked explanation and your scorecard.
+- paragraph: Progressive solution unlock
+- heading "All four Socratic stages are complete." [level=2]
+- paragraph: Your saved conversation provides the reasoning evidence. View your step-by-step solution and formative scorecard when you are ready.
+- button "View step-by-step solution":
+  - text: View step-by-step solution
+- alert:
+  - generic: This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.
+  - button "Reload saved progress"
+- region "Notifications alt+T"
+- alert

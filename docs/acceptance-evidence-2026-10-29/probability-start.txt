@@ -1,0 +1,37 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Discrete Probability
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Problem Understanding
+  - generic: 0%
+  - progressbar "Learning progress"
+- generic "Session details" [active]
+- heading "Your problem" [level=2]
+- text: Toss a fair coin twice independently. List the sample space of ordered outcomes and find the probability of exactly one head. Explain why your elementary outcomes are equally likely. H and T denote head and tail. Toss order is recorded. Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome.
+- paragraph: Basic
+- text: Problem Understanding
+- generic: In progress
+- text: Method Selection
+- generic: Upcoming
+- text: Computation
+- generic: Upcoming
+- text: Interpretation
+- generic: Upcoming
+- paragraph: "Adaptive difficulty: maintain_insufficient_evidence: 0/3 required distinct completed Basic sessions in this topic; 0% accuracy, 0% reasoning, 0 with limited assistance. Question availability never changes this recommendation."
+- button "Abandon and preserve this session":
+  - text: Abandon and preserve this session
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+- contentinfo:
+  - button "I need a hint":
+    - text: I need a hint
+  - button "Add equation"
+  - textbox "Message your tutor":
+    - /placeholder: Type your response here…
+  - button "Send message" [disabled]:
+- region "Notifications alt+T"
+- alert

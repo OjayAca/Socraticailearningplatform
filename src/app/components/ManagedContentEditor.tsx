@@ -59,6 +59,9 @@ const FIELDS: Record<ContentCollection, FieldDefinition[]> = {
     { path: "difficulty", label: "Difficulty", type: "difficulty", required: true },
     { path: "variant", label: "Variant (1–3)", type: "number", required: true },
     { path: "problemText", label: "Learner-visible problem", type: "textarea", required: true },
+    { path: "title", label: "Question title", type: "text" },
+    { path: "questionType", label: "Question type (constructed_response or multiple_choice)", type: "text" },
+    { path: "choices", label: "Answer choices (when supplied)", type: "lines" },
     { path: "supportedResponseFormats", label: "Response formats", type: "csv", required: true },
     { path: "formulaTheoremReferenceIds", label: "Formula/theorem reference IDs", type: "csv", required: true },
     { path: "privateSolution.expectedConcepts", label: "Expected concepts", type: "csv", required: true },
@@ -146,6 +149,9 @@ const DEFAULTS: Record<ContentCollection, Record<string, unknown>> = {
 
 export function ManagedContentEditor({ collectionName }: { collectionName: ContentCollection }) {
   const [items, setItems] = useState<Record<string, any>[]>([]);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState({ subject: "", topic: "", difficulty: "", questionType: "" });
+  const [quality, setQuality] = useState<Record<string, string[]>>({});
   const [recordId, setRecordId] = useState("");
   const [value, setValue] = useState<Record<string, any>>({ ...DEFAULTS[collectionName] });
   const [message, setMessage] = useState<string | null>(null);
@@ -172,6 +178,17 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
       adminCatalogReadiness(),
     ]);
     setItems(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+    if (collectionName === "problems") {
+      const checks = await Promise.all(snapshot.docs.map(async item => {
+        const solution = await getDoc(doc(db!, "problems", item.id, "private", "solution"));
+        const issues = [];
+        if (!solution.get("finalAnswer")) issues.push("missing answer");
+        if (!solution.get("solutionSteps")?.length || !solution.get("interpretation")) issues.push("missing explanation");
+        if (!item.get("subject") || !item.get("topic") || !item.get("difficulty") || !item.get("questionType")) issues.push("missing classification");
+        return [item.id, issues] as const;
+      }));
+      setQuality(Object.fromEntries(checks));
+    }
     setReadiness(nextReadiness);
   }, [collectionName]);
 
@@ -185,6 +202,8 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
   }, [collectionName, load]);
 
   const current = useMemo(() => items.find((item) => item.id === recordId), [items, recordId]);
+  const visibleItems = items.filter(item => [item.id, item.title, item.name, item.problemText].some(text => String(text ?? "").toLowerCase().includes(search.toLowerCase()))
+    && (collectionName !== "problems" || Object.entries(filters).every(([key, selected]) => !selected || item[key] === selected)));
 
   async function save() {
     try {
@@ -352,12 +371,19 @@ export function ManagedContentEditor({ collectionName }: { collectionName: Conte
         </div>
         <div className="min-w-0 rounded-2xl border bg-white p-4 sm:p-5 dark:bg-slate-900 dark:border-slate-700">
           <h2 className="font-bold dark:text-slate-100">Existing records ({items.length})</h2>
+          <label className="mt-3 block">Search records<input className="mt-1 w-full rounded-lg border bg-transparent p-2" value={search} onChange={event => setSearch(event.target.value)} /></label>
+          {collectionName === "problems" && <>
+            <p className="mt-2 text-sm">{items.filter(item => item.importSource).length} imported questions · {Object.values(quality).filter(issues => issues.length).length} records need content review</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">{(["subject", "topic", "difficulty", "questionType"] as const).map(key => <label key={key}>{humanize(key)} filter<select className="mt-1 w-full rounded-lg border bg-transparent p-2" value={filters[key]} onChange={event => setFilters(previous => ({ ...previous, [key]: event.target.value }))}><option value="">All</option>{[...new Set(items.map(item => item[key]).filter(Boolean))].sort().map(option => <option key={option} value={option}>{humanize(option)}</option>)}</select></label>)}</div>
+            <p className="mt-2 text-sm">Showing {visibleItems.length} of {items.length}</p>
+          </>}
           <div className="mt-3 max-h-[48rem] divide-y overflow-auto dark:divide-slate-700">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <div key={item.id} className="flex flex-col items-start justify-between gap-3 py-3 sm:flex-row">
                 <button className="min-w-0 max-w-full text-left sm:flex-1" onClick={() => void selectItem(item).catch(showError)}>
                   <p className="truncate font-semibold dark:text-slate-100">{item.name ?? item.problemText ?? item.id}</p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">{item.id} · v{item.version ?? 0} · {item.status}</p>
+                  {collectionName === "problems" && <p className="text-xs">{item.subject} · {item.topic} · {item.difficulty} · {item.questionType ?? "Unclassified"}{quality[item.id]?.length ? ` · Review: ${quality[item.id].join(", ")}` : ""}</p>}
                 </button>
                 <div className="flex gap-1"><Tooltip label={`Archive ${item.id}`}><button onClick={() => void adminArchiveContent({ collection: collectionName, id: item.id }).then(load).catch(showError)} className="rounded-lg border p-2 text-slate-500" aria-label={`Archive ${item.id}`}><Archive className="h-4 w-4" /></button></Tooltip>{["draft", "rejected"].includes(item.status) && <Tooltip label={`Permanently delete ${item.id}`}><button onClick={() => { setDeleteTarget(item); setDeleteConfirmation(""); }} className="rounded-lg border border-red-200 p-2 text-red-600" aria-label={`Permanently delete ${item.id}`}><Trash2 className="h-4 w-4" /></button></Tooltip>}</div>
               </div>

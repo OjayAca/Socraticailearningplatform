@@ -1,0 +1,117 @@
+{
+  "checkedAt": "2026-11-03T14:14:03.740Z",
+  "origin": "https://mindguide-stg-ojay-0823.web.app",
+  "project": {
+    "http": 200,
+    "projectId": "mindguide-stg-ojay-0823",
+    "displayName": "MINDGUIDE Dashboard Staging",
+    "projectNumber": "206700776816"
+  },
+  "apps": {
+    "http": 200,
+    "webApps": [
+      {
+        "appId": "1:206700776816:web:bf09cc2a884d446ef753b5",
+        "name": "MINDGUIDE Adaptive Assessment Staging"
+      }
+    ]
+  },
+  "sdk": {
+    "http": 200,
+    "projectId": "mindguide-stg-ojay-0823",
+    "appId": "1:206700776816:web:bf09cc2a884d446ef753b5",
+    "authDomain": "mindguide-stg-ojay-0823.firebaseapp.com"
+  },
+  "auth": {
+    "http": 200,
+    "emailPassword": true,
+    "hostingDomainAuthorized": true
+  },
+  "billing": {
+    "http": 200,
+    "billingEnabled": false
+  },
+  "services": [
+    {
+      "service": "firebaseapphosting.googleapis.com",
+      "http": 200,
+      "state": "DISABLED"
+    },
+    {
+      "service": "run.googleapis.com",
+      "http": 200,
+      "state": "DISABLED"
+    },
+    {
+      "service": "cloudbuild.googleapis.com",
+      "http": 200,
+      "state": "DISABLED"
+    },
+    {
+      "service": "cloudfunctions.googleapis.com",
+      "http": 200,
+      "state": "ENABLED"
+    }
+  ],
+  "functions": {
+    "http": 200,
+    "count": 0,
+    "partial": false
+  },
+  "database": {
+    "http": 200,
+    "type": "FIRESTORE_NATIVE",
+    "location": "asia-southeast1"
+  },
+  "prerequisites": [
+    {
+      "path": "system_settings/staging_verification",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "system_settings/pilot",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "system_settings/privacy",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "topics/discrete-mathematics-logic",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "problems/DM-04-I01",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "problems/DM-04-I02",
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    {
+      "path": "problems/DM-04-I03",
+      "http": 404,
+      "error": "NOT_FOUND"
+    }
+  ],
+  "hosting": [
+    {
+      "path": "/",
+      "http": 200,
+      "type": "text/html; charset=utf-8",
+      "stagingIdentity": false
+    },
+    {
+      "path": "/api/staging-identity",
+      "http": 200,
+      "type": "text/html; charset=utf-8",
+      "stagingIdentity": false
+    }
+  ]
+}

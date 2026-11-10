@@ -1,18 +1,22 @@
+import { studentSession } from "../src/lib/learning/student-response";
 import { VALIDATED_TOPICS } from "../src/data/validated-curriculum";
 import "server-only";
+import { recommendDifficulty } from "./learning-policy";
+import { SCORECARD_RUBRIC } from "./scorecard-rubric";
 import { z } from "zod";
 import { REASONING_PHASES, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase, type Difficulty, type MathResponse } from "../packages/contracts/src/index";
 import { ensure, ServiceError, type Env } from "./platform";
 
 export const AI_WORKFLOW_VERSION = 6;
-export const PROMPT_VERSION = "socratic-v3-corrective-dialogue";
-export const RUBRIC_VERSION = "ai-formative-v1";
-const categories = ["none", "conceptual_error", "procedural_error", "wrong_formula", "weak_justification", "skipped_reasoning", "invalid_logic", "misinterpreted_variable", "computational_error", "incorrect_interpretation", "unsupported_response"] as const;
+export const PROMPT_VERSION = "socratic-v6-curriculum-diagnosis";
+export const RUBRIC_VERSION = "ai-formative-v2-evidence";
+const categories = ["none", "conceptual_error", "procedural_error", "wrong_formula", "theorem_condition_violation", "weak_justification", "skipped_reasoning", "invalid_logic", "misinterpreted_variable", "computational_error", "incorrect_interpretation", "unsupported_response", "unrecognized_alternative"] as const;
 const text = z.string().min(1).max(2000);
 export const turnSchema = z.object({
   feedback: text, question: text, accepted: z.boolean(), confidence: z.enum(["low", "medium", "high"]),
   category: z.enum(categories), evidence: z.array(text).max(4),
   intent: z.enum(["answer", "question", "help"]), leaksSolution: z.boolean(),
+  incorrectStep: text.optional(), explanation: text.optional(), recommendedAction: text.optional(),
 });
 const criterion = z.object({ score: z.number().int().min(0).max(25), evidence: z.array(text).min(1).max(4), evidenceIds: z.array(z.string().min(1).max(100)).min(1).max(4), reason: text, improvementAdvice: text, confidence: z.enum(["low", "medium", "high"]) });
 export const scoreSchema = z.object({
@@ -29,19 +33,32 @@ const scoreJsonSchema = providerSchema(scoreSchema);
 export type Turn = z.infer<typeof turnSchema>;
 export type Score = z.infer<typeof scoreSchema>;
 export type Intent = "answer" | "question" | "help";
-export interface TutorContext { session: any; reference: any; messages: any[]; intent: Intent | "opening" | "score"; response?: MathResponse; supportLevel?: string; assessedResponses?: any[] }
+export interface TutorContext { session: any; reference: any; messages: any[]; intent: Intent | "opening" | "score"; response?: MathResponse; supportLevel?: string; assessedResponses?: any[]; reassessIntent?: boolean }
 export interface Tutor { generate(context: TutorContext): Promise<Turn | Score> }
+
+export const stageQuestions = {
+  problem_understanding: "In your own words, what do you need to find, and which given information helps you find it?",
+  method_selection: "How does the method you chose connect the given information to what you need to find?",
+  computation: "Can you show your calculation or proof one step at a time and explain how you checked it?",
+  interpretation: "What does your result mean in the context of the original problem?",
+};
+
+/** Bounded support cannot drift back to a checkpoint already accepted. */
+export function stageSupport(phase: Parameters<typeof solverStageForPhase>[0], level?: string): Pick<Turn, "feedback" | "question"> {
+  const stage = solverStageForPhase(phase);
+  const hints = {
+    problem_understanding: "Separate what the problem asks for from the facts it gives. Include all relevant values or assumptions.",
+    method_selection: "Connect the conditions of your proposed rule to the given facts. Explain why that rule answers the question.",
+    computation: "Apply your justified method one step at a time. Check each operation or logical implication before continuing.",
+    interpretation: "Use the result you have already established. Explain what it represents and how it answers the original question; you do not need to repeat the calculation.",
+  };
+  return {feedback: level === "socratic_prompt" ? "Let's focus on the current checkpoint." : hints[stage], question: stageQuestions[stage]};
+}
 
 /** Resolve conflicting evaluations into answer-free, current-stage dialogue. */
 export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageForPhase>[0], math: "correct" | "incorrect" | "unsupported"): Turn {
   const uncertain = turn.confidence !== "high";
-  const category = math === "incorrect" ? "computational_error" : uncertain ? "none" : turn.category;
-  const stageQuestions = {
-    problem_understanding: "In your own words, what do you need to find, and which given information helps you find it?",
-    method_selection: "How does the method you chose connect the given information to what you need to find?",
-    computation: "Can you show your calculation or proof one step at a time and explain how you checked it?",
-    interpretation: "What does your result mean in the context of the original problem?",
-  };
+  const category = math === "incorrect" ? "computational_error" : turn.category === "unrecognized_alternative" ? turn.category : uncertain ? "none" : turn.category;
   const questions: Partial<Record<Turn["category"], string>> = {
     wrong_formula: "What conditions does your chosen formula require, and which of the given facts meet those conditions?",
     invalid_logic: "Which fact or rule supports the step in your reasoning that leads to your conclusion?",
@@ -49,6 +66,10 @@ export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageF
     computational_error: "Can you retrace your calculation one operation at a time and check each intermediate result?",
     incorrect_interpretation: "What quantity does your result describe, and how does it answer the original question?",
     weak_justification: "Which given fact explains why your chosen method applies here?",
+    theorem_condition_violation: "Which required assumption of the theorem is satisfied by the given information?",
+    procedural_error: "How does your chosen method connect the given quantities to the requested result?",
+    skipped_reasoning: "What intermediate step connects these two statements in your reasoning?",
+    unrecognized_alternative: "Your approach may be valid. Can you state the rule you used and show how its assumptions hold here?",
   };
   return {
     ...turn, accepted: false, category, leaksSolution: false,
@@ -56,6 +77,7 @@ export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageF
     feedback: math === "incorrect" ? "The calculation needs another check. Let's work through it together." : uncertain || category === "none" ? "I'd like to understand your reasoning more clearly before we move on." : "Let's examine this part of your reasoning together.",
     question: questions[category] ?? stageQuestions[solverStageForPhase(phase)],
     evidence: math === "incorrect" ? ["The submitted calculation does not match the verified mathematical reference."] : uncertain ? ["The tutor needs clarification; no specific misconception has been established."] : turn.evidence,
+    ...(uncertain && math !== "incorrect" ? {incorrectStep:undefined,explanation:"No specific mistake has been established from the available evidence.",recommendedAction:"Clarify the rule and reasoning behind your response before continuing."} : {}),
   };
 }
 
@@ -66,16 +88,21 @@ Ask ONE focused, domain-specific question at a time. Respond to the student's ac
 Never reveal the final answer, complete proof, worked solution, or future-stage solutions in tutoring turns, even on request.
 Do not quote private references or evaluation evidence containing unreleased answers. Flag leaksSolution if your proposed turn would reveal them.
 Questions and requests for help are not failed attempts. Identify the actual intent even if the answer button was used.
+When reassessIntent is true, independently reassess the CURRENT response against currentStageCriteria.
+A declarative explanation, interpretation or concise calculation is answer evidence, even when it also asks for confirmation.
+Do not mistake the tutor's next question for the student's intent. A pure question or request for help remains non-answer.
+Acceptance requires nonempty observable learner evidence. Never infer acceptance from earlier praise.
 Accept correct paraphrases, concise valid reasoning and alternative valid methods; reject keyword stuffing and unsupported assertions.
 Justification must link actual givens to required conditions, not merely name a theorem or say 'because it applies'.
-Pigeonhole: identify objects, boxes, mapping and the bound; examine contradiction/counting arguments.
 Mean: explain equal weighting and total/count. Variance: distinguish sample versus population denominator and squared deviations.
-Regression: examine variable roles, fitted relation, assumptions, units and contextual interpretation; association is not causation.
 Proofs: assess assumptions and logical implications rather than demand a numerical final answer or verbatim reference.
 During computation allow incremental work, but accept the gate only when computation/proof is complete and justified.
 Give a small corrective question for wrong formulas, invalid logic, misunderstood variables or results.
 Diagnose the specific misconception from observable student evidence: wrong_formula, invalid_logic,
 misinterpreted_variable, computational_error or incorrect_interpretation, as appropriate.
+Use procedural_error for an inappropriate method, skipped_reasoning for a missing step, weak_justification for unsupported application, and theorem_condition_violation for an unmet assumption.
+Use unrecognized_alternative when an unfamiliar method may be valid; ask for its assumptions, do not label it a confirmed mistake.
+For a diagnosis, include incorrectStep quoting only the learner's relevant statement, explanation of the violated condition, and recommendedAction. Do not put protected answers in any field.
 For a mistake, set accepted=false and ask a corrective Socratic question in the current stage without giving the answer.
 If evidence is uncertain, set accepted=false and category=none; ask for clarification without claiming the student is wrong.
 Never combine accepted=true with a misconception category or low/medium confidence.
@@ -89,11 +116,13 @@ Accept concise evidence appropriate to the problem's difficulty. A bare 'I under
 accepted applies ONLY to mastery of the current stage and an answer with high confidence. If accepted, ask the nextStage's question;
 otherwise ask only about the missing or incorrect understanding in this stage. Do not repeat criteria already demonstrated.
 Never skip a future stage. No acceptance on opening, questions or help. If uncertain, ask for clarification.
+On opening, ask only for the goal and relevant givens in the learner's own words. Do not request a formula, sum, calculation, proof or final answer yet.
 For scoring only: assess the saved learner conversation and assessedResponses using four criteria each 0..25.
 Use accepted responses to identify the learner's final reasoning; distinguish earlier errors from later corrections.
+Score final demonstrated mastery. Corrected earlier mistakes do not create automatic deductions. Disclose assistance separately; never count tutor-provided work as learner evidence. Full marks require fully supported learner evidence for that criterion, not merely completion of all gates.
 Mathematical notation in learner responses is part of their evidence. Never substitute the reference solution for learner work.
 Anchors: 0=no usable evidence, 5=major errors, 10=partial understanding, 15=mostly sound with gaps, 20=sound with minor omissions, 25=fully supported.
-For each score criterion supply evidenceIds only from learnerEvidence. These must identify actual student messages, never tutor messages or invented final-draft fields.
+For each criterion cite at least one exact message ID from its requiredEvidenceOptions. Read the matching learnerEvidence text before scoring. Additional citations must be assessed learner responses. An ID can support multiple criteria.
 Quote learner work as evidence; do not infer reasoning from gate completion. Distinguish assisted from independent reasoning.
 This is formative feedback, not an official grade. Supply a complete verified worked solution only in score mode.
 Stay within the selected subject, topic, curriculumScope, and supplied problem reference. Do not introduce unrelated topics, formulas, theorems, or problem types.
@@ -107,18 +136,33 @@ export function educationalContext(context: TutorContext) {
     curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [],
     subject: session.subject, topic: session.topic, difficulty: session.difficulty, question: session.originalQuestion,
     currentPhase: session.currentPhase, currentStage,
+    currentStageObjective: currentStage ? stageQuestions[currentStage] : undefined,
+    unresolvedDifficulty: session.lastDiagnosis?.resolutionStatus === "open" ? session.lastDiagnosis : undefined,
+    reassessIntent: context.reassessIntent ?? false,
     currentStageCriteria: currentStage ? SOLVER_STAGE_PHASES[currentStage] : [],
     nextStage: nextStage ?? "final reflection",
     nextPhase: nextStage ? SOLVER_STAGE_PHASES[nextStage][0] : "final reflection",
     intent: context.intent, supportLevel: context.supportLevel, response: context.response ? { plainText: context.response.plainText, latex: context.response.latex ?? "" } : undefined,
     reference: {
       expectedConcepts: reference.expectedConcepts, requiredFormula: reference.requiredFormula, requiredTheorem: reference.requiredTheorem,
-      conditions: reference.formulaTheoremConditions, answerSpecification: reference.answerSpecification, solutionSteps: reference.solutionSteps, finalAnswer: reference.finalAnswer, interpretation: reference.interpretation
+      conditions: reference.formulaTheoremConditions, answerSpecification: reference.answerSpecification, solutionSteps: reference.solutionSteps, finalAnswer: reference.finalAnswer, interpretation: reference.interpretation,
+      socraticPrompts: reference.socraticPrompts, methodReference: reference.methodReference,
+      sourceGuidance: reference.sourceGuidance
     },
-    stageEvidence: session.gateEvaluations ?? {},
+    stageEvidence: context.intent === "score" ? undefined : session.gateEvaluations ?? {},
     // No student profile, user ID, email, tokens, database paths or configuration secrets.
-    conversation: messages.slice(-12).map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, 4000) })),
-    ...(context.intent === "score" ? { assistance: session.supportHistory, assessedResponses: context.assessedResponses ?? [], learnerEvidence: messages.filter(m => m.role === "student").map(m => ({ id: m.id, phase: m.phase, text: String(m.text) })) } : {}),
+    // Scoring keeps learner text once, in learnerEvidence. Assessment records link
+    // to it by messageId; duplicating text and gate summaries exhausted the budget
+    // after an ordinary corrected attempt. Preserve tutor context separately.
+    conversation: messages.slice(-12).filter(m => context.intent !== "score" || m.role !== "student").map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, 4000) })),
+    ...(context.intent === "score" ? { rubric:SCORECARD_RUBRIC, assistance: session.supportHistory,
+      requiredEvidenceOptions: Object.fromEntries(Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => [
+        criterion, (context.assessedResponses ?? [])
+          .filter(response => response.status === "accepted" && (rubric.phases as readonly string[]).includes(response.phase))
+          .map(response => response.messageId),
+      ])),
+      assessedResponses: (context.assessedResponses ?? []).map(r => ({messageId:r.messageId,phase:r.phase,status:r.status})),
+      learnerEvidence: messages.filter(m => m.role === "student").map(m => ({ id: m.id, phase: m.phase, text: String(m.text) })) } : {}),
   };
 }
 // Pre-stringify JSON schemas once per server process to avoid per-request serialization.
@@ -166,6 +210,7 @@ export class GeminiTutor implements Tutor {
       const locationBlocked = /(?:location|country|region).*(?:not supported|unavailable)/i.test(providerMessage);
       console.warn(JSON.stringify({ event: "gemini_request_failed", httpStatus: response.status, providerCode: failure.error?.status ?? "unknown", locationBlocked, retried }));
       if (locationBlocked) throw new ServiceError(503, "ai-region-unavailable", "The AI provider does not support this server location. Your administrator needs to adjust the free backend deployment.");
+      if (response.status === 404) throw new ServiceError(503, "ai-model-unavailable", "The configured AI model is unavailable for this project. Your work is preserved; ask your administrator to update the tutor model.");
       if (response.status === 503 && !retried) {
         await new Promise(r => setTimeout(r, 2000)); // wall-clock delay only, no CPU cost
         return this.callGemini(body, true);
@@ -182,7 +227,7 @@ export function exposesAnswer(turn: Turn, reference: any, response?: MathRespons
   const answer = String(reference.finalAnswer ?? "").trim();
   if (!answer || response && checkMath(response, reference.answerSpecification) === "correct") return false;
   const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const text = `${turn.feedback} ${turn.question}`;
+  const text = [turn.feedback,turn.question,...turn.evidence,turn.incorrectStep,turn.explanation,turn.recommendedAction].filter(Boolean).join(" ");
   return new RegExp(`(?:the (?:final |correct )?(?:answer|result|solution) is|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`, "i").test(text)
     || (answer.length > 25 && text.toLowerCase().includes(answer.toLowerCase()));
 }
@@ -196,15 +241,15 @@ export function allowedSupport(gates: any, history: any[] = []) {
 export function projection(id: string, session: any) {
   const currentStage = solverStageForPhase(session.currentPhase);
   const milliseconds = (value: any) => value instanceof Date ? value.getTime() : value ?? null;
-  const { gateStates, ...publicData } = session;
-  return {
-    ...publicData, id, gates: session.gateEvaluations, currentStage, currentInternalGate: REASONING_PHASES.includes(session.currentPhase) ? session.currentPhase : null,
+  const gateStates = session.gateStates ?? {};
+  return studentSession({
+    ...session, id, gates: session.gateEvaluations, currentStage, currentInternalGate: REASONING_PHASES.includes(session.currentPhase) ? session.currentPhase : null,
     createdAt: milliseconds(session.createdAt), updatedAt: milliseconds(session.updatedAt), learningCompletedAt: milliseconds(session.learningCompletedAt),
     stageProgress: Object.fromEntries(SOLVER_STAGES.map(stage => {
       const acceptedGates = SOLVER_STAGE_PHASES[stage].filter(p => gateStates[p]?.status === "accepted").length;
       return [stage, { stage, acceptedGates, totalGates: SOLVER_STAGE_PHASES[stage].length, status: acceptedGates === SOLVER_STAGE_PHASES[stage].length ? "completed" : stage === currentStage ? "active" : "locked" }];
     }))
-  };
+  });
 }
 
 // A small bounded arithmetic parser avoids eval and a large symbolic engine in the backend.
@@ -226,7 +271,12 @@ export function checkMath(response: MathResponse, spec: any): "correct" | "incor
   let answer = (response.latex || response.plainText).trim();
   if (spec.kind === "number") {
     if (spec.unit) { if (!answer.endsWith(spec.unit)) return "unsupported"; answer = answer.slice(0, -spec.unit.length); }
-    const number = numericValue(answer);
+    const parts = answer.split("=");
+    const values = parts.map(numericValue);
+    if (values.some(value=>value === null)) return "unsupported";
+    // Validate every side of a bounded arithmetic equality, not just its final number.
+    if (values.some(value=>Math.abs(value! - values[0]!) > Math.max(spec.tolerance ?? 0, 1e-9))) return "incorrect";
+    const number = values.at(-1)!;
     if (number === null || !Number.isFinite(spec.value)) return "unsupported";
     return Math.abs(number - spec.value) <= (spec.tolerance ?? 0) ? "correct" : "incorrect";
   }
@@ -248,13 +298,6 @@ export function checkMath(response: MathResponse, spec: any): "correct" | "incor
   }
   return "unsupported";
 }
-export function recommendation(current: Difficulty, sessions: any[]) {
-  const recent = sessions.filter(s => s.workflowVersion === AI_WORKFLOW_VERSION && s.statsCommittedAt && s.scorecard).sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()).slice(0, 5);
-  if (recent.length < 3) return { recommendedDifficulty: recent.length ? current : "Basic", confidence: "low", reason: "Begin at Basic; collect at least three completed AI sessions before changing difficulty." };
-  const accuracy = recent.reduce((n, s) => n + s.scorecard.criteria.accuracy.score * 4, 0) / recent.length;
-  const reasoning = recent.reduce((n, s) => n + ["logicalValidity", "methodSelection", "explanationQuality"].reduce((t, k) => t + s.scorecard.criteria[k].score * 4, 0) / 3, 0) / recent.length;
-  const independent = recent.filter(s => !(s.supportHistory ?? []).some((h: any) => ["stronger_hint", "partial_step"].includes(h.level))).length > recent.length / 2;
-  const change = accuracy < 50 || reasoning < 50 ? -1 : accuracy >= 80 && reasoning >= 80 && independent ? 1 : 0;
-  const levels = ["Basic", "Intermediate", "Advanced"];
-  return { recommendedDifficulty: levels[Math.max(0, Math.min(2, levels.indexOf(current) + change))], confidence: "medium", reason: `${Math.round(accuracy)}% accuracy and ${Math.round(reasoning)}% reasoning across ${recent.length} completed AI sessions; ${independent ? "mostly without strong assistance" : "strong assistance still needed"}.` };
+export function recommendation(current: Difficulty, sessions: any[], topicId?: string) {
+  return recommendDifficulty(current, sessions, AI_WORKFLOW_VERSION, topicId);
 }

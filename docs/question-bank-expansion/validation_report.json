@@ -1,0 +1,135 @@
+{
+  "project": "OJAY MINDGUIDE",
+  "created_on": "2026-10-30",
+  "package_version": "0.2.0-expansion-draft",
+  "status": "STRUCTURAL PASS; AUTHOR-CHECKED ONLY; ACADEMIC REVIEW PENDING",
+  "source": {
+    "file": "E_MINDGUIDE_Problem_Bank.json",
+    "sha256": "f1fded3636d0514fb5f09ae29b7a2d2f65cdf3341a6225853a4cad36a5446dc0",
+    "existing_record_count": 36,
+    "existing_records_preserved_verbatim": true
+  },
+  "counts": {
+    "existing_records": 36,
+    "new_candidate_records": 84,
+    "combined_records": 120,
+    "new_by_difficulty": {
+      "Basic": 36,
+      "Intermediate": 24,
+      "Advanced": 24
+    },
+    "combined_by_difficulty": {
+      "Basic": 48,
+      "Intermediate": 36,
+      "Advanced": 36
+    },
+    "new_per_topic": {
+      "1": 7,
+      "2": 7,
+      "3": 7,
+      "4": 7,
+      "5": 7,
+      "6": 7,
+      "7": 7,
+      "8": 7,
+      "9": 7,
+      "10": 7,
+      "11": 7,
+      "12": 7
+    },
+    "combined_per_topic": {
+      "1": 10,
+      "2": 10,
+      "3": 10,
+      "4": 10,
+      "5": 10,
+      "6": 10,
+      "7": 10,
+      "8": 10,
+      "9": 10,
+      "10": 10,
+      "11": 10,
+      "12": 10
+    }
+  },
+  "structural_checks": {
+    "unique_problem_ids": {
+      "status": "PASS",
+      "count": 120
+    },
+    "no_collision_with_existing_ids": {
+      "status": "PASS",
+      "count": 0
+    },
+    "topic_and_difficulty_distribution": {
+      "status": "PASS",
+      "requirement": "3 new Basic, 2 new Intermediate, 2 new Advanced per topic"
+    },
+    "syllabus_subtopics_match_source_taxonomy": {
+      "status": "PASS"
+    },
+    "required_instructor_fields_present": {
+      "status": "PASS"
+    },
+    "six_socratic_stages_per_new_record": {
+      "status": "PASS"
+    },
+    "four_feature_criterion_names_preserved": {
+      "status": "PASS"
+    },
+    "all_new_records_pending_academic_review": {
+      "status": "PASS"
+    },
+    "all_new_records_draft_not_published": {
+      "status": "PASS"
+    },
+    "excluded_topics_absent": {
+      "status": "PASS",
+      "excluded": [
+        "Pigeonhole Principle",
+        "Regression"
+      ]
+    },
+    "student_exports_use_allowlisted_fields": {
+      "status": "PASS",
+      "fields": [
+        "problem_id",
+        "subject",
+        "topic",
+        "topic_number",
+        "syllabus_subtopics",
+        "difficulty",
+        "title",
+        "student_facing"
+      ]
+    },
+    "no_instructor_only_fields_in_student_exports": {
+      "status": "PASS"
+    }
+  },
+  "author_arithmetic_checks": {
+    "status": "PASS",
+    "assertion_count": 85,
+    "additional_finite_case_loops": "Four truth-table assignments and integer parity checks for n=-1000 through 1000, plus residue checks modulo 3.",
+    "scope": "Checks selected numeric calculations and finite cases represented in the new questions. Does not constitute independent academic review or prove every written proof."
+  },
+  "academic_review": {
+    "status": "PENDING",
+    "required": "Independent subject-matter review of all 84 new questions, solutions, difficulty labels, and curriculum alignment.",
+    "numeric_rubric_weights": "UNRESOLVED; not invented",
+    "production_import_compatibility": "NOT VERIFIED"
+  },
+  "approval_status_reconciliation": {
+    "required": true,
+    "note": "Acceptance report describes 36 approved live questions; original source JSON marks its 36 records PENDING REVIEW / DRAFT_NOT_PUBLISHED. Source records were preserved exactly; reconcile authoritative approval evidence before staging import."
+  },
+  "side_effects": {
+    "database_import": false,
+    "publication": false,
+    "policy_changes": false,
+    "learner_history_changes": false,
+    "commit": false,
+    "push": false,
+    "deployment": false
+  }
+}

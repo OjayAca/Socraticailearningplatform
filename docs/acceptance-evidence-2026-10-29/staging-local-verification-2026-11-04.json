@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-11-04T00:34:56.1297943Z",
+  "scope": "Local checks only",
+  "typecheck": "npm run typecheck, exit 0",
+  "lint": "npm run lint, exit 0",
+  "tests": [
+    "Test Files  52 passed (52)",
+    "Tests  552 passed (552)",
+    "Start at  08:32:44",
+    "Duration  90.46s (transform 2.76s, setup 20.48s, collect 34.76s, tests 18.17s, environment 76.54s, prepare 11.08s)"
+  ],
+  "bundleScan": "Browser bundle scan passed: 48 assets checked against 12 markers and 1550 curated private strings.",
+  "seedPlan": {
+    "mode": "plan",
+    "project": "mindguide-stg-ojay-0823",
+    "ids": [
+      "DM-04-B01",
+      "DM-04-B02",
+      "DM-04-B03",
+      "DM-04-B04",
+      "DM-04-I01",
+      "DM-04-I02",
+      "DM-04-I03"
+    ],
+    "documents": 94,
+    "firebaseConnected": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-28T15:16:48.410Z",
+  "case": "method_invalid",
+  "problemId": "QM-07-B01",
+  "model": "gemini-3.5-flash-lite",
+  "liveGemini": true,
+  "liveFirestoreReference": true,
+  "learnerSessionWritten": false,
+  "quotaReservationWritten": true,
+  "passed": true,
+  "initialResponse": "I will use the inverse function to find the preimage because every function has an inverse, even when distinct inputs share the same output.",
+  "result": {
+    "feedback": "You mentioned using an inverse function, but a function does not need to be invertible (or even injective) to have a set preimage for any given subset. Think about how a set preimage is defined directly from the function mapping rather than by inverting the function rule.",
+    "question": "How can you determine the elements in the preimage of a set by testing individual elements of the domain against the function rule, rather than relying on an inverse function?",
+    "accepted": false,
+    "confidence": "high",
+    "category": "conceptual_error",
+    "evidence": [
+      "I will use the inverse function to find the preimage because every function has an inverse, even when distinct inputs share the same output."
+    ],
+    "intent": "answer",
+    "leaksSolution": false,
+    "incorrectStep": "I will use the inverse function to find the preimage because every function has an inverse",
+    "explanation": "The student incorrectly assumes that an inverse function is required or always exists to find a set preimage, confusing the concept of a set preimage with the existence of an inverse function.",
+    "recommendedAction": "Clarify that set preimages are defined for any function by collecting all domain elements that map into the target set, without requiring an inverse function."
+  },
+  "deterministicDiagnosis": null
+}

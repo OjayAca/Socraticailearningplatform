@@ -1,0 +1,63 @@
+
+> mindguide@3.0.0 test:e2e
+> playwright test --workers=2
+
+[WebServer] (node:16728) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:12252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] ⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:4173". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+
+Running 44 tests using 2 workers
+
+  -   1 [chromium] › tests\e2e\live-auth.spec.ts:21:3 › live Firebase authentication › signs a configured student in and signs out cleanly
+  -   2 [chromium] › tests\e2e\live-auth.spec.ts:35:5 › live Firebase authentication › keeps the full student sidebar visible on a standard desktop
+  -   3 [chromium] › tests\e2e\live-auth.spec.ts:35:5 › live Firebase authentication › keeps the full student sidebar visible on a short desktop
+  -   4 [chromium] › tests\e2e\live-auth.spec.ts:67:3 › live Firebase authentication › keeps mobile navigation in the existing drawer
+  -   5 [chromium] › tests\e2e\live-auth.spec.ts:82:5 › live Firebase authentication › opens the Profile achievements anchor on desktop
+  -   6 [chromium] › tests\e2e\live-auth.spec.ts:82:5 › live Firebase authentication › opens the Profile achievements anchor on mobile
+  -   7 [chromium] › tests\e2e\live-auth.spec.ts:106:3 › live Firebase authentication › opens every supporting student screen without page errors
+  -   8 [chromium] › tests\e2e\live-auth.spec.ts:126:3 › live Firebase authentication › redirects a student away from administrator routes
+  -   9 [chromium] › tests\e2e\live-auth.spec.ts:140:3 › live administrator supporting features › signs in, opens every administrator utility, and enforces role routing
+  -  10 [chromium] › tests\e2e\live-auth.spec.ts:168:3 › live administrator supporting features › suspends and restores only the dedicated staging student account
+  -  11 [chromium] › tests\e2e\live-auth.spec.ts:201:6 › Google OAuth requires an interactive provider account and is part of the documented manual live smoke test.
+(node:4304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16372) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 12 [chromium] › tests\e2e\hydration.spec.ts:3:1 › hydrates with extension body attributes and preserves theme selection (15.3s)
+  ok 13 [chromium] › tests\e2e\public.spec.ts:4:3 › protects administrator routes when signed out at 1280px (16.1s)
+  ok 15 [chromium] › tests\e2e\public.spec.ts:4:3 › protects administrator routes when signed out at 390px (8.9s)
+  ok 14 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 320x568 › public and authentication pages fit and remain scrollable (13.1s)
+  -  17 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 320x568 › student screens and navigation fit using a configured real account
+  -  18 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 320x568 › admin screens and navigation fit using a configured real account
+  ok 16 [chromium] › tests\e2e\public.spec.ts:14:1 › loads the public landing page and its authentication routes (7.3s)
+  -  19 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 320x568 › existing learning and review records fit without submitting changes
+  ok 20 [chromium] › tests\e2e\public.spec.ts:53:1 › supports public theme switching and section navigation (1.6s)
+  ok 22 [chromium] › tests\e2e\public.spec.ts:73:1 › keeps the primary public actions available on a mobile viewport (3.7s)
+  ok 21 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 390x844 › public and authentication pages fit and remain scrollable (7.1s)
+  -  24 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 390x844 › student screens and navigation fit using a configured real account
+  -  25 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 390x844 › admin screens and navigation fit using a configured real account
+  -  26 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 390x844 › existing learning and review records fit without submitting changes
+  ok 23 [chromium] › tests\e2e\public.spec.ts:96:3 › keeps the landing topbar visible through the end on desktop (5.1s)
+  ok 28 [chromium] › tests\e2e\public.spec.ts:96:3 › keeps the landing topbar visible through the end on mobile (4.2s)
+  ok 27 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 430x932 › public and authentication pages fit and remain scrollable (8.5s)
+  -  30 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 430x932 › student screens and navigation fit using a configured real account
+  -  31 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 430x932 › admin screens and navigation fit using a configured real account
+  -  32 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 430x932 › existing learning and review records fit without submitting changes
+  ok 29 [chromium] › tests\e2e\public.spec.ts:147:1 › renders a useful catch-all page (3.9s)
+  ok 33 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 768x1024 › public and authentication pages fit and remain scrollable (9.4s)
+  -  34 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 768x1024 › student screens and navigation fit using a configured real account
+  -  35 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 768x1024 › admin screens and navigation fit using a configured real account
+  -  36 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 768x1024 › existing learning and review records fit without submitting changes
+  ok 37 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 1280x720 › public and authentication pages fit and remain scrollable (13.1s)
+  -  38 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 1280x720 › student screens and navigation fit using a configured real account
+  -  39 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 1280x720 › admin screens and navigation fit using a configured real account
+  -  40 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 1280x720 › existing learning and review records fit without submitting changes
+  ok 41 [chromium] › tests\e2e\responsive.spec.ts:32:5 › 667x375 › public and authentication pages fit and remain scrollable (8.8s)
+  -  42 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 667x375 › student screens and navigation fit using a configured real account
+  -  43 [chromium] › tests\e2e\responsive.spec.ts:67:7 › 667x375 › admin screens and navigation fit using a configured real account
+  -  44 [chromium] › tests\e2e\responsive.spec.ts:133:5 › 667x375 › existing learning and review records fit without submitting changes
+
+  29 skipped
+  15 passed (1.6m)

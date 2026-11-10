@@ -1,0 +1,2 @@
+⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:5173". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+{"event":"learning_request_failed","status":429,"code":"invalid-request"}

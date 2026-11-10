@@ -2,6 +2,7 @@ import type { PrivateProblemReference } from './workflow.js';
 import { REASONING_PHASES, type ReasoningPhase } from '@mindguide/contracts';
 import { parseVerifiedProblem, type VerifiedGivens } from './custom-problem-grammar';
 import { bounded, evaluateFunction, evaluateLogic, invalid } from './custom-problem-parser';
+import { METHOD_REFERENCES } from './method-references';
 export { ProblemInputError } from './custom-problem-parser';
 export type { VerifiedGivens } from './custom-problem-grammar';
 function safePilotHints(operation: string): NonNullable<PrivateProblemReference["safeHints"]> {
@@ -53,7 +54,7 @@ export function solveVerifiedProblem(givens: VerifiedGivens): PrivateProblemRefe
   if (typeof result === 'number') { bounded(result, counting ? Number.MAX_SAFE_INTEGER : 1e12); if (counting && !Number.isSafeInteger(result)) invalid('Use smaller counting inputs for an exact result.'); }
   const answer = Array.isArray(result) ? `{${result.join(', ')}}` : String(result);
   const safeHints = safePilotHints(operation);
-  return { expectedConcepts: [operation], requiredFormula: operation, solutionSteps: [setup, `The ${operation} is ${answer}.`], finalAnswer: answer,
+  return { methodReference:METHOD_REFERENCES[operation], formulaTheoremConditions:METHOD_REFERENCES[operation].conditions, expectedConcepts: [operation], requiredFormula: operation, solutionSteps: [setup, `The ${operation} is ${answer}.`], finalAnswer: answer,
     answerSpecification: typeof result === 'boolean' ? { kind: 'truth', value: result } : Array.isArray(result) ? { kind: 'set', values: result } : { kind: 'number', value: result, tolerance: counting ? 0 : 0.000001 },
     interpretation: `This result represents the requested ${operation} for the confirmed givens.`, safeHints,
     socraticPrompts: Object.fromEntries(REASONING_PHASES.map(phase => [phase, safeHints[phase]!.socratic_prompt![0]])), rubricVersion: 'pilot-v5-draft' };

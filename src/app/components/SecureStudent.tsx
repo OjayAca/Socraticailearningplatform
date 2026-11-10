@@ -1,3 +1,4 @@
+import { studentHistory, historyResponse, historyMessage } from "@/lib/learning/student-response";
 import { MathText } from "./MathText";
 import { useEffect, useState, type ReactNode } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
@@ -37,7 +38,7 @@ function useLearnerSessions(maximum?: number, attempt = 0) {
     const database = db;
     return watchView<SessionsState>(key, (next, error) => onSnapshot(
       query(collection(database, "sessions"), where("studentId", "==", uid)), snapshot => {
-        const sessions = snapshot.docs.map(item => ({ ...item.data(), id: item.id }));
+        const sessions = snapshot.docs.map(item => studentHistory(item.id,item.data()));
         sessions.sort((a: Record<string, any>, b: Record<string, any>) => sessionTime(b.updatedAt ?? b.createdAt) - sessionTime(a.updatedAt ?? a.createdAt));
         next({ sessions, loading: false, error: null });
       }, error), state => setResult({ key, state }), () => setResult({ key, state: {
@@ -177,11 +178,11 @@ export function SecureStudentReview() {
       getDocs(query(collection(db, "sessions", sessionId, "responses"), orderBy("createdAt", "asc"))),
     ]).then(async ([sessionSnapshot, responseSnapshot]) => {
       if (!active) return;
-      setSession(sessionSnapshot.exists() ? { id: sessionSnapshot.id, ...sessionSnapshot.data() } : null);
-      setResponses(responseSnapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
+      setSession(sessionSnapshot.exists() ? studentHistory(sessionSnapshot.id,sessionSnapshot.data()) : null);
+      setResponses(responseSnapshot.docs.map((item) => historyResponse.parse({...item.data(),id:item.id})));
       if (sessionSnapshot.exists() && sessionSnapshot.data()?.workflowVersion === 6) {
         const messages = await getDocs(query(collection(db!, "sessions", sessionId, "messages"), orderBy("createdAt", "asc")));
-        if (active) setConversation(messages.docs.map(item=>({id:item.id,...item.data()})));
+        if (active) setConversation(messages.docs.map(item=>historyMessage.parse({...item.data(),id:item.id})));
       }
     }).catch((cause) => setError(cause instanceof Error ? cause.message : "The learning record could not be loaded."))
       .finally(() => active && setLoading(false));

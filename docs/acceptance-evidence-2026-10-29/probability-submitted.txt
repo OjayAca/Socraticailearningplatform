@@ -1,0 +1,6 @@
+- heading "Session submitted" [level=1]
+- paragraph: Your saved reasoning history is preserved. Administrator feedback appears in your history. Your saved scorecard is available in learning history.
+- link "View learning history":
+  - /url: /student/history
+- region "Notifications alt+T"
+- alert

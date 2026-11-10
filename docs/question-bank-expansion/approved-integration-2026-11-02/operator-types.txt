@@ -1,0 +1,1 @@
+Strict TypeScript check passed (importer and read-only history audit).

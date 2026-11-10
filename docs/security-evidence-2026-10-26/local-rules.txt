@@ -1,0 +1,68 @@
+
+> mindguide@3.0.0 test:rules
+> node --import tsx scripts/test-spark-rules.ts --report=docs/security-evidence-2026-10-26/local-summary.json
+
+SUCCESS: approved topics
+SUCCESS: draft topics
+SUCCESS: approved questions
+SUCCESS: draft questions
+SUCCESS: learner cannot edit questions
+SUCCESS: own progress
+SUCCESS: other progress
+SUCCESS: own session
+SUCCESS: other session
+SUCCESS: private solution stays private
+SUCCESS: own response history
+SUCCESS: other response history
+SUCCESS: responses are append-only
+SUCCESS: self promotion
+SUCCESS: admin profile bootstrap forbidden
+SUCCESS: unauthenticated topics
+SUCCESS: student profile creation
+SUCCESS: create own learning session
+SUCCESS: cannot create another learner session
+SUCCESS: append own response with matching session update
+SUCCESS: cannot append another learner response
+SUCCESS: update own session
+SUCCESS: cannot change session owner
+SUCCESS: save own progress
+SUCCESS: cannot save other progress
+SUCCESS: write assignment state
+SUCCESS: record own consent
+SUCCESS: audited academic edit
+SUCCESS: academic edit identity change
+SUCCESS: academic edit role change
+SUCCESS: academic edit empty field
+SUCCESS: academic edit oversized field
+SUCCESS: academic edit absent audit
+SUCCESS: academic edit wrong audit actor
+SUCCESS: learner cannot edit academic fields
+SUCCESS: account transition deactivated to active
+SUCCESS: account transition suspended to active
+SUCCESS: account transition active to deactivated
+SUCCESS: account transition anonymized to active
+SUCCESS: account transition deactivated to suspended
+SUCCESS: learner cannot reactivate self
+SUCCESS: admin lists users
+SUCCESS: admin reads private solutions
+SUCCESS: admin creates audit records
+SUCCESS: admin cannot rewrite audit records
+SUCCESS: admin cannot delete faculty evidence
+SUCCESS: student cannot read audit records
+SUCCESS: student cannot change privacy settings
+SUCCESS: claim alone cannot grant admin access
+SUCCESS: cannot read published answer references
+SUCCESS: cannot read pinned legacy answer references
+SUCCESS: cannot read private AI references
+SUCCESS: cannot write tutor messages
+SUCCESS: cannot fabricate scorecard
+SUCCESS: cannot update quota
+SUCCESS: own tutor history
+SUCCESS: other tutor history
+SUCCESS: list own tutor conversation
+SUCCESS: cannot list another learner conversation
+SUCCESS: signed out cannot list tutor conversation
+SUCCESS: inactive learner cannot list tutor conversation
+SUCCESS: save final draft only
+SUCCESS: cannot smuggle gate change with draft
+Rules compiled; 63 access checks passed without database writes.

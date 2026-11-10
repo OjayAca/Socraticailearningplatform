@@ -1,0 +1,13 @@
+{
+  "checkedAt": "2026-10-29T21:34:39.4454144+08:00",
+  "comparedFiles": 151,
+  "changedSinceSnapshot": [
+    "scripts/ai-preflight.ts",
+    "server/gemini.ts"
+  ],
+  "expectedChangedFiles": [
+    "scripts/ai-preflight.ts",
+    "server/gemini.ts"
+  ],
+  "unexpectedChanges": []
+}

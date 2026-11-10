@@ -1,0 +1,3 @@
+Browser tab: 2012560036, Title: "MINDGUIDE - Reason Before Reveal", URL: "http://localhost:5173/student/history".
+There has been no change in the accessibility tree.
+The focused UI element is 1 AXWebArea MINDGUIDE - Reason Before Reveal, URL: localhost:5173/student/history

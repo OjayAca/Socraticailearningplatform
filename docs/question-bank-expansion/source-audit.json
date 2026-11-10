@@ -1,0 +1,980 @@
+{
+  "scope": "Offline source/schema validation only. Instructor records are not approved.",
+  "hashes": {
+    "expansion": "5579cfa063b1cb640948662f0399acabd51ad8d6b8271d445390508e7cf93ce0",
+    "student": "de12862dc694a41ed88ce965aa6c562ff047486143f08f3400b7d529114af40b",
+    "combined": "ccd672c07a52eff3acd848ea858c2cde428a0adf0352c6ed4d2c1c05bdb8c80c",
+    "original": "f1fded3636d0514fb5f09ae29b7a2d2f65cdf3341a6225853a4cad36a5446dc0",
+    "suppliedReport": "36b48a42e783d384323e611d78763b6c2ccdd665ddbd3e0b0efde6b3da362582"
+  },
+  "counts": {
+    "original": {
+      "Basic": 12,
+      "Intermediate": 12,
+      "Advanced": 12
+    },
+    "new": {
+      "Basic": 36,
+      "Intermediate": 24,
+      "Advanced": 24
+    },
+    "combined": {
+      "Basic": 48,
+      "Intermediate": 36,
+      "Advanced": 36
+    }
+  },
+  "topics": [
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-functions",
+      "topic": "Functions",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "topic": "Descriptive Statistics",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "topic": "Introduction to Probability",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-probability-distributions",
+      "topic": "Probability Distributions",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "topic": "Introduction to Decision Making",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "quantitative-methods",
+      "topicId": "quantitative-methods-decision-analysis",
+      "topic": "Decision Analysis",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "topic": "Speaking Mathematically",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-set-theory",
+      "topic": "Set Theory",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "topic": "Relations and Functions",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-logic",
+      "topic": "Logic",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-combinatorics",
+      "topic": "Combinatorics",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    },
+    {
+      "subjectId": "discrete-mathematics",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "topic": "Discrete Probability",
+      "newCounts": {
+        "Basic": 3,
+        "Intermediate": 2,
+        "Advanced": 2
+      },
+      "total": {
+        "Basic": 4,
+        "Intermediate": 3,
+        "Advanced": 3
+      }
+    }
+  ],
+  "candidateCount": 84,
+  "structurallyRejected": 0,
+  "duplicateNormalizedStatements": [],
+  "collidingOriginalIds": [],
+  "distinctPromptsPerSourceStage": {
+    "A": 1,
+    "B": 1,
+    "C": 1,
+    "D": 1,
+    "E": 1,
+    "F": 1
+  },
+  "failures": [],
+  "records": [
+    {
+      "id": "DM-01-B02",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-B03",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-B04",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-I02",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-I03",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-A02",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-01-A03",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-B02",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-B03",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-B04",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-I02",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-I03",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-A02",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Advanced",
+      "steps": 7,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-02-A03",
+      "topicId": "discrete-mathematics-set-theory",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-B02",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-B03",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-B04",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Basic",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-I02",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-I03",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-A02",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-03-A03",
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-B02",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-B03",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-B04",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-I02",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-I03",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-A02",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Advanced",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-04-A03",
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-B02",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-B03",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-B04",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-I02",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-I03",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-A02",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-05-A03",
+      "topicId": "discrete-mathematics-combinatorics",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-B02",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-B03",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-B04",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-I02",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-I03",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-A02",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "DM-06-A03",
+      "topicId": "discrete-mathematics-discrete-probability",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-B02",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-B03",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Basic",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-B04",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-I02",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-I03",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Intermediate",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-A02",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Advanced",
+      "steps": 7,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-07-A03",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-B02",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-B03",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-B04",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-I02",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Intermediate",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-I03",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-A02",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-08-A03",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-B02",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-B03",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-B04",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-I02",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-I03",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-A02",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-09-A03",
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-B02",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Basic",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-B03",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-B04",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-I02",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-I03",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Intermediate",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-A02",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-10-A03",
+      "topicId": "quantitative-methods-probability-distributions",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-B02",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-B03",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-B04",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-I02",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-I03",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Intermediate",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-A02",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-11-A03",
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "difficulty": "Advanced",
+      "steps": 5,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-B02",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-B03",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Basic",
+      "steps": 3,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-B04",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Basic",
+      "steps": 4,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-I02",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Intermediate",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-I03",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Intermediate",
+      "steps": 7,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-A02",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Advanced",
+      "steps": 6,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    },
+    {
+      "id": "QM-12-A03",
+      "topicId": "quantitative-methods-decision-analysis",
+      "difficulty": "Advanced",
+      "steps": 8,
+      "stages": 6,
+      "misconceptions": 2,
+      "errors": []
+    }
+  ]
+}

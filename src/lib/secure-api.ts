@@ -147,6 +147,10 @@ export async function adminManageUser(input: {
   return call("adminManageUser", { ...input, requestId: newRequestId() });
 }
 
+export async function adminEditAcademicProfile(input: {userId:string; course:string; yearLevel:string; section:string; reason:string}): Promise<Record<string, unknown>> {
+  return call("adminEditAcademicProfile", {...input, requestId:newRequestId()});
+}
+
 export async function adminDeleteContent(
   input: Omit<AdminDeleteContentRequest, "requestId">
 ): Promise<Record<string, unknown>> {

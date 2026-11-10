@@ -164,6 +164,7 @@ export type DiagnosisCategory =
   | "weak_justification"
   | "skipped_reasoning"
   | "unsupported_response"
+  | "unrecognized_alternative"
   | "none";
 
 export type DiagnosisSeverity = "minor" | "moderate" | "major";
@@ -194,6 +195,9 @@ export interface GateEvaluation {
 }
 
 export interface DiagnosisResult {
+  incorrectStep?: string | null;
+  explanation?: string;
+  recommendedAction?: string;
   category: DiagnosisCategory;
   evidence: string[];
   confidence: Confidence;

@@ -1,0 +1,278 @@
+{
+  "checkedAt": "2026-11-02T11:20:57.291Z",
+  "readOnly": true,
+  "projectId": "socratic-ai-a7765",
+  "workflow": 6,
+  "cells": [
+    {
+      "topic": "discrete-mathematics-logic",
+      "difficulty": "Basic",
+      "decision": "advance",
+      "recommended": "Intermediate",
+      "distinctIds": [
+        "DM-04-B03",
+        "DM-04-B02",
+        "DM-04-B01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_08bd2506-7d53-4f50-b5d5-045d6af83708",
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_afab5899-0c98-4929-8084-09c78d8f4d72",
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a"
+      ]
+    },
+    {
+      "topic": "discrete-mathematics-logic",
+      "difficulty": "Intermediate",
+      "decision": "maintain_insufficient_evidence",
+      "recommended": "Intermediate",
+      "distinctIds": [
+        "DM-04-I01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_f9324492-f55f-4d4e-9adc-5f619c2fb849"
+      ]
+    },
+    {
+      "topic": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "decision": "maintain_insufficient_evidence",
+      "recommended": "Basic",
+      "distinctIds": [
+        "QM-08-B01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_343e9f19-b0e0-4db4-aa74-8e88a6c4b797"
+      ]
+    },
+    {
+      "topic": "quantitative-methods-functions",
+      "difficulty": "Basic",
+      "decision": "maintain_insufficient_evidence",
+      "recommended": "Basic",
+      "distinctIds": [
+        "QM-07-B01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_4bc167dd-b7e7-4043-bda2-f2c3476885c7"
+      ]
+    },
+    {
+      "topic": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Basic",
+      "decision": "maintain_insufficient_evidence",
+      "recommended": "Basic",
+      "distinctIds": [
+        "DM-01-B01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_953b97c0-2f7d-48ed-8f82-cfcd491f7272"
+      ]
+    },
+    {
+      "topic": "discrete-mathematics-discrete-probability",
+      "difficulty": "Basic",
+      "decision": "maintain_insufficient_evidence",
+      "recommended": "Basic",
+      "distinctIds": [
+        "DM-06-B01"
+      ],
+      "sessions": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_eb531ce7-e2e7-4aa8-8405-4bcddbe3dc73"
+      ]
+    }
+  ],
+  "curatedSessions": [
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_08bd2506-7d53-4f50-b5d5-045d6af83708",
+      "topic": "discrete-mathematics-logic",
+      "problem": "DM-04-B03",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": "advance",
+      "assignment": {
+        "decision": "maintain_insufficient_evidence",
+        "recommended": "Basic",
+        "sources": [
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_afab5899-0c98-4929-8084-09c78d8f4d72",
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a"
+        ],
+        "distinctProblemIds": [
+          "DM-04-B02",
+          "DM-04-B01"
+        ],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_343e9f19-b0e0-4db4-aa74-8e88a6c4b797",
+      "topic": "quantitative-methods-descriptive-statistics",
+      "problem": "QM-08-B01",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": null,
+      "assignment": {
+        "recommended": "Basic",
+        "sources": [],
+        "distinctProblemIds": [],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_4bc167dd-b7e7-4043-bda2-f2c3476885c7",
+      "topic": "quantitative-methods-functions",
+      "problem": "QM-07-B01",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": null,
+      "assignment": {
+        "recommended": "Basic",
+        "sources": [],
+        "distinctProblemIds": [],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_953b97c0-2f7d-48ed-8f82-cfcd491f7272",
+      "topic": "discrete-mathematics-speaking-mathematically",
+      "problem": "DM-01-B01",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": null,
+      "assignment": {
+        "recommended": "Basic",
+        "sources": [],
+        "distinctProblemIds": [],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_afab5899-0c98-4929-8084-09c78d8f4d72",
+      "topic": "discrete-mathematics-logic",
+      "problem": "DM-04-B02",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": "maintain_insufficient_evidence",
+      "assignment": {
+        "decision": "maintain_insufficient_evidence",
+        "recommended": "Basic",
+        "sources": [
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a"
+        ],
+        "distinctProblemIds": [
+          "DM-04-B01"
+        ],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a",
+      "topic": "discrete-mathematics-logic",
+      "problem": "DM-04-B01",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": "maintain_insufficient_evidence",
+      "assignment": {
+        "decision": "maintain_insufficient_evidence",
+        "recommended": "Basic",
+        "sources": [],
+        "distinctProblemIds": [],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_eb531ce7-e2e7-4aa8-8405-4bcddbe3dc73",
+      "topic": "discrete-mathematics-discrete-probability",
+      "problem": "DM-06-B01",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": "maintain_insufficient_evidence",
+      "assignment": {
+        "decision": "maintain_insufficient_evidence",
+        "recommended": "Basic",
+        "sources": [],
+        "distinctProblemIds": [],
+        "validDistinctSources": true
+      }
+    },
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_f9324492-f55f-4d4e-9adc-5f619c2fb849",
+      "topic": "discrete-mathematics-logic",
+      "problem": "DM-04-I01",
+      "difficulty": "Intermediate",
+      "status": "submitted",
+      "score": 100,
+      "persistedCards": 1,
+      "statsCommitted": true,
+      "solutionReleased": true,
+      "needsOpening": false,
+      "phase": "critical_thinking_scorecard",
+      "decisionAfterSubmission": "maintain_insufficient_evidence",
+      "assignment": {
+        "decision": "advance",
+        "recommended": "Intermediate",
+        "sources": [
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_08bd2506-7d53-4f50-b5d5-045d6af83708",
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_afab5899-0c98-4929-8084-09c78d8f4d72",
+          "MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a"
+        ],
+        "distinctProblemIds": [
+          "DM-04-B03",
+          "DM-04-B02",
+          "DM-04-B01"
+        ],
+        "validDistinctSources": true
+      }
+    }
+  ],
+  "sessionCount": 11,
+  "statsCompletions": 9,
+  "sharedAllowance": {
+    "minute": 29893310,
+    "day": "2026-11-01",
+    "requests": 2,
+    "tokens": 64000,
+    "daily": 18
+  }
+}

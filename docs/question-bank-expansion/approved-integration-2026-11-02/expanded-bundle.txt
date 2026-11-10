@@ -1,0 +1,5 @@
+
+> mindguide@3.0.0 scan:bundle
+> node scripts/scan-browser-bundle.mjs
+
+Browser bundle scan passed: 48 assets checked against 12 markers and 1550 curated private strings.

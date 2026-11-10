@@ -1,0 +1,106 @@
+{
+  "project": "socratic-ai-a7765",
+  "database": "(default)",
+  "checkedAt": "2026-11-01T08:06:33.028Z",
+  "subjectIds": [
+    {
+      "id": "discrete-mathematics",
+      "status": "approved"
+    },
+    {
+      "id": "quantitative-methods",
+      "status": "approved"
+    }
+  ],
+  "topics": [
+    {
+      "id": "discrete-mathematics-combinatorics",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "discrete-mathematics-discrete-probability",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "discrete-mathematics-logic",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "discrete-mathematics-relations-and-functions",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "discrete-mathematics-set-theory",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "discrete-mathematics-speaking-mathematically",
+      "subjectId": "discrete-mathematics",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-decision-analysis",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-descriptive-statistics",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-functions",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-introduction-to-decision-making",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-introduction-to-probability",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    },
+    {
+      "id": "quantitative-methods-probability-distributions",
+      "subjectId": "quantitative-methods",
+      "status": "approved",
+      "matchesCatalog": true,
+      "enabled": true
+    }
+  ],
+  "catalogProblemCount": 36,
+  "originalApprovedCount": 36,
+  "unexpectedProblemIds": [],
+  "candidateScoringIds": [],
+  "candidateValidationIds": []
+}

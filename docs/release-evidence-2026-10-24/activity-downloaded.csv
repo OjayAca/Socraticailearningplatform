@@ -1,0 +1,4 @@
+"kind","sessionId","learner","subject","topic","difficulty","status","scoreSource","createdAt","submittedAt","reviewedAt","assistedFollowUp","currentPhase"
+"activity","Session-6f16b24aa19b4020","Learner-3051f14fe151","Quantitative Methods","Descriptive Statistics","Basic","submitted","ai_formative","2026-10-23T00:25:06.306Z","2026-10-23T02:43:13.945Z","","false","critical_thinking_scorecard"
+"activity","Session-58fa732405009c8b","Learner-3051f14fe151","Quantitative Methods","Descriptive Statistics","Basic","expired","ai_formative","2026-10-18T10:01:08.163Z","","","false","result_interpretation"
+"activity","Session-f89775ed2f33bc90","Learner-3051f14fe151","Discrete Mathematics","Logic","Basic","in_progress","ai_formative","2026-10-18T12:45:00.986Z","","","false","problem_understanding"

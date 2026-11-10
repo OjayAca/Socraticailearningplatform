@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { applicationDefault } from "firebase-admin/app";
 import { loadOperatorCredentials } from "./lib/operator-auth.ts";
 
@@ -53,6 +54,23 @@ scenario("cannot save other progress", "DENY", "learning_progress/rules-bob", "c
 scenario("write assignment state", "DENY", "learning_progress/rules-alice/assignment_state/topic", "create", {}, { request: { time, resource: { data: { activeSessionId: "session", answeredProblemIds: [], updatedAt: time } } }, mocks: [getMock("sessions/session", session, "getAfter")] });
 scenario("record own consent", "ALLOW", "users/rules-alice/consents/notice", "create", {}, { request: { time, resource: { data: { version: "notice", acknowledgedAt: time, source: "web" } } }, mocks: [getMock("users/rules-alice", profile, "getAfter"), getMock("policy_documents/notice", { status: "active" }), getMock("system_settings/privacy", { currentConsentVersion: "notice" })] });
 const adminOptions = { request: { auth: { uid: "rules-admin", token: { role: "admin" } } }, mocks: [getMock("users/rules-admin", { role: "admin", status: "active" })] };
+const academicBefore = {role:"student",status:"active",academicProfile:{studentNumber:"KEEP",course:"IT",yearLevel:"1",section:"A"}};
+const academicAfter = {...academicBefore,academicProfile:{...academicBefore.academicProfile,yearLevel:"2"},lastAcademicProfileEdit:"edit",updatedAt:time};
+const academicAudit = {actorId:"rules-admin",action:"adminEditAcademicProfile",target:"users/student",reason:"Reviewed course placement",createdAt:time};
+for (const [name, after, evidence, expected] of [
+  ["audited academic edit",academicAfter,academicAudit,"ALLOW"],
+  ["academic edit identity change",{...academicAfter,academicProfile:{...academicAfter.academicProfile,studentNumber:"OTHER"}},academicAudit,"DENY"],
+  ["academic edit role change",{...academicAfter,role:"admin"},academicAudit,"DENY"],
+  ["academic edit empty field",{...academicAfter,academicProfile:{...academicAfter.academicProfile,course:""}},academicAudit,"DENY"],
+  ["academic edit oversized field",{...academicAfter,academicProfile:{...academicAfter.academicProfile,course:"X".repeat(101)}},academicAudit,"DENY"],
+  ["academic edit absent audit",academicAfter,{},"DENY"],
+  ["academic edit wrong audit actor",academicAfter,{...academicAudit,actorId:"other"},"DENY"],
+] as const) scenario(name,expected,"users/student","update",academicBefore,{...adminOptions,request:{...adminOptions.request,time,resource:{data:after}},mocks:[...adminOptions.mocks,getMock("audit_logs/edit",evidence,"getAfter")]});
+scenario("learner cannot edit academic fields", "DENY", "users/rules-alice", "update", academicBefore, {request:{time,resource:{data:academicAfter}}});
+for (const [from, to, expected] of [["deactivated","active","ALLOW"],["suspended","active","ALLOW"],["active","deactivated","ALLOW"],["anonymized","active","DENY"],["deactivated","suspended","DENY"]] as const) {
+  scenario(`account transition ${from} to ${to}`, expected, "users/student", "update", {role:"student",status:from}, {...adminOptions, request:{...adminOptions.request,time,resource:{data:{role:"student",status:to,updatedAt:time}}}});
+}
+scenario("learner cannot reactivate self", "DENY", "users/rules-alice", "update", {role:"student",status:"deactivated"}, {request:{time,resource:{data:{role:"student",status:"active",updatedAt:time}}}});
 scenario("admin lists users", "ALLOW", "users/student", "list", { role: "student" }, adminOptions);
 scenario("admin reads private solutions", "ALLOW", "problems/question/private/solution", "get", {}, adminOptions);
 scenario("admin creates audit records", "ALLOW", "audit_logs/event", "create", {}, { ...adminOptions, request: { ...adminOptions.request, resource: { data: { actorId: "rules-admin", action: "test" } } } });
@@ -82,23 +100,37 @@ scenario("save final draft only", "ALLOW", "sessions/session", "update", aiDraft
 scenario("cannot smuggle gate change with draft", "DENY", "sessions/session", "update", aiDraftSession, {request:{time,resource:{data:{...aiDraftSession,revision:1,gateStates:{accepted:true},draft:{answer:{plainText:"8"},methodology:"Explanation",reflection:"Interpretation"}}}},mocks:[getMock("sessions/session",aiDraftSession)]});
 
 const token = await applicationDefault().getAccessToken();
+const option = (name: string) => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+let releaseName: string | null = null;
 let source = { files: [{ name: "firestore.rules", content: await readFile("firestore.rules", "utf8") }] };
 if (process.argv.includes("--deployed")) {
   const headers = { Authorization: `Bearer ${token.access_token}` };
   const releaseResponse = await fetch(`https://firebaserules.googleapis.com/v1/projects/${project}/releases/cloud.firestore`, { headers });
   if (!releaseResponse.ok) throw new Error(`Cannot read deployed rules release: ${releaseResponse.status}`);
   const release = await releaseResponse.json();
+  releaseName = release.rulesetName;
   const rulesResponse = await fetch(`https://firebaserules.googleapis.com/v1/${release.rulesetName}`, { headers });
   if (!rulesResponse.ok) throw new Error(`Cannot read deployed rules: ${rulesResponse.status}`);
   source = (await rulesResponse.json()).source;
   console.log(`Testing deployed Firestore rules for ${project}.`);
 }
+// Save the exact tested source for review/rollback without deploying or changing data.
+if (option("source-report")) await writeFile(option("source-report")!, JSON.stringify({ project, releaseName, source }, null, 2));
 const result = await fetch(`https://firebaserules.googleapis.com/v1/projects/${project}:test`, {
   method: "POST", headers: { Authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json" },
   body: JSON.stringify({ source, testSuite: { testCases: cases.map(item => item.test) } }),
 });
 const report = await result.json();
 if (!result.ok) throw new Error(`Rules simulator returned ${result.status}: ${JSON.stringify(report.error?.message)}`);
+if (option("report")) await writeFile(option("report")!, JSON.stringify({
+  project, releaseName, mode: process.argv.includes("--deployed") ? "deployed" : "local",
+  sourceHash: createHash("sha256").update(JSON.stringify(source)).digest("hex"),
+  checkedAt: new Date().toISOString(), issues: report.issues ?? [],
+  results: cases.map((item, index) => ({ name: item.name, expected: item.test.expectation,
+    state: report.testResults?.[index]?.state ?? "NOT_RETURNED",
+    debugMessages: report.testResults?.[index]?.debugMessages ?? [],
+  })),
+}, null, 2));
 if (report.issues?.length) console.log(JSON.stringify(report.issues, null, 2));
 const failures: string[] = [];
 for (const [index, test] of (report.testResults ?? []).entries()) {

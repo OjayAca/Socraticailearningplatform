@@ -1,0 +1,7 @@
+Verified 25 October 2026 from user-supplied Desktop location.
+File: mindguide-activity (2).csv; 798 bytes.
+SHA256 9EFE812245CFCAFCEEFAACBA1CE7BE25E11A0545876F65A664BED5993B2FF724
+13 headers; 3 rows; 2 Quantitative Methods + 1 Discrete Mathematics.
+Statuses: submitted, expired, in_progress. All session IDs hashed; learner pseudonym matches preview.
+Filtered preview: Logic -> 1 matching row. Filtered/empty/scorecard-total saved artifacts not yet verified.
+Download-event timeout is not reliable delivery evidence; pre-fix file also found on Desktop.

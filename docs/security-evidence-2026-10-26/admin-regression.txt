@@ -1,0 +1,14 @@
+
+> mindguide@3.0.0 test
+> vitest run tests/unit/admin-service.test.ts --maxWorkers=2
+
+
+ RUN  v3.2.7 C:/Users/OjayAca/OneDrive/Documents/Code Projects/Socraticailearningplatform
+
+ ✓ tests/unit/admin-service.test.ts (36 tests) 423ms
+
+ Test Files  1 passed (1)
+      Tests  36 passed (36)
+   Start at  19:55:34
+   Duration  5.33s (transform 1.16s, setup 209ms, collect 2.94s, tests 423ms, environment 1.07s, prepare 208ms)
+

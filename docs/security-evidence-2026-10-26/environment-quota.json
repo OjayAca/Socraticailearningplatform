@@ -1,0 +1,15 @@
+{
+  "checkedAt": "2026-10-27T03:41:43.596Z",
+  "configuredDailyLimit": 18,
+  "configuredMinuteLimit": 4,
+  "quotaDay": "2026-10-26",
+  "dailyReservations": 18,
+  "environmentPresence": {
+    "FIREBASE_PROJECT_ID": true,
+    "GEMINI_API_KEY": true,
+    "GEMINI_MODEL": true,
+    "AI_ENABLED": true,
+    "AI_FREE_TIER_CONFIRMED": true
+  },
+  "backendProjectMatches": true
+}

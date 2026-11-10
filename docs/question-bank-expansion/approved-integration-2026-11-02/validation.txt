@@ -1,0 +1,21 @@
+{
+  "counts": {
+    "original": {
+      "Basic": 12,
+      "Intermediate": 12,
+      "Advanced": 12
+    },
+    "new": {
+      "Basic": 36,
+      "Intermediate": 24,
+      "Advanced": 24
+    },
+    "combined": {
+      "Basic": 48,
+      "Intermediate": 36,
+      "Advanced": 36
+    }
+  },
+  "failures": [],
+  "rejected": []
+}

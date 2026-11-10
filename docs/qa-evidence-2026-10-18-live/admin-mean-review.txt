@@ -1,0 +1,82 @@
+- complementary:
+  - link "MINDGUIDE Admin":
+    - /url: /admin/dashboard
+    - text: MINDGUIDE
+    - generic: Admin
+  - navigation "Primary administrator navigation":
+    - link "Dashboard":
+      - /url: /admin/dashboard
+      - text: Dashboard
+    - link "Users":
+      - /url: /admin/users
+      - text: Users
+    - link "Learner progress":
+      - /url: /admin/progress
+      - text: Learner progress
+    - link "Content":
+      - /url: /admin/content/problems
+      - text: Content
+    - link "Reports":
+      - /url: /admin/reports
+      - text: Reports
+    - link "Notifications":
+      - /url: /admin/notifications
+      - text: Notifications
+    - link "Audit & AI":
+      - /url: /admin/logs
+      - text: Audit & AI
+    - link "Maintenance":
+      - /url: /admin/maintenance
+      - text: Maintenance
+  - navigation "Administrator account navigation":
+    - link "Profile":
+      - /url: /admin/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /admin/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Levi Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Levi Acasio":
+    - /url: /admin/profile
+    - generic: Levi Acasio
+    - generic: leviacasio45@gmail.com
+    - generic: LA
+- main:
+  - 'heading "Review: Orvin Jay Acasio" [level=1]'
+  - paragraph: Quantitative Methods · Descriptive Statistics · in_progress
+  - heading "Problem" [level=2]
+  - paragraph: Find the mean of 4, 6, and 8.
+  - paragraph: problem understanding
+  - paragraph: The values are 4 and 6.
+  - paragraph: The tutor needs clarification; no specific misconception has been established.
+  - paragraph: problem understanding
+  - paragraph: Use the range, maximum minus minimum, because that gives the average.
+  - paragraph: The tutor needs clarification; no specific misconception has been established.
+  - paragraph: problem understanding
+  - paragraph: The task is to find the arithmetic mean of the three given numbers 4, 6, and 8. These numbers are the data, n = 3 is their count, and no data values are missing. We need their average, not their range.
+  - paragraph: The tutor needs clarification; no specific misconception has been established.
+  - paragraph: problem understanding
+  - paragraph: "We are finding the mean of 4, 6, and 8. Each of the three observations has equal weight. Add the observations and divide their total by the number of observations: mean = (4 + 6 + 8) / 3. This averages all three values rather than measuring their spread."
+  - paragraph: dc96b437-695f-488c-9233-b95c1fb27977_student
+  - paragraph: method selection
+  - paragraph: The mean is sum divided by count because subtracting the smallest from the largest always gives the mean.
+  - paragraph: The tutor needs clarification; no specific misconception has been established.
+  - paragraph: method selection
+  - paragraph: Use maximum minus minimum to find the mean.
+  - paragraph: The tutor needs clarification; no specific misconception has been established.
+  - paragraph: method selection
+  - paragraph: The arithmetic mean is the equal share of the total. All three values have equal weight, so I add 4, 6, and 8 to obtain their total and divide by 3, the number of values. Dividing by the count redistributes the total equally without changing it; the range only measures spread.
+  - paragraph: 76f15390-1c3c-4eb3-b61e-2b61b7beeaa9_student
+  - paragraph: guided computation or proof
+  - paragraph: (4 + 6 + 8) / 3 = 8.
+  - paragraph: ec65939c-a562-458b-9134-473b5338cc9d_student
+  - paragraph: guided computation or proof
+  - paragraph: "6"
+  - paragraph: fcea15de-c761-4328-9ac3-e3b88f786679_student
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

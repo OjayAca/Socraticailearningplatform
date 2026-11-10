@@ -1,0 +1,388 @@
+{
+  "project": "socratic-ai-a7765",
+  "releaseName": "projects/socratic-ai-a7765/rulesets/ff06078f-45f0-4cd4-bdcf-9577edf7620b",
+  "mode": "deployed",
+  "sourceHash": "5e4ed24c89b9793ef438db5f62fdfa392dce812a24ae23508821284f0d7f8fcb",
+  "checkedAt": "2026-10-27T01:39:50.409Z",
+  "issues": [],
+  "results": [
+    {
+      "name": "approved topics",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "draft topics",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "approved questions",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "draft questions",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "learner cannot edit questions",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "own progress",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "other progress",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "own session",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "other session",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "private solution stays private",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "own response history",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "other response history",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "responses are append-only",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "self promotion",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin profile bootstrap forbidden",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "unauthenticated topics",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "student profile creation",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "create own learning session",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot create another learner session",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "append own response with matching session update",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot append another learner response",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "update own session",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot change session owner",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "save own progress",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot save other progress",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "write assignment state",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "record own consent",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "audited academic edit",
+      "expected": "ALLOW",
+      "state": "FAILURE",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit identity change",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit role change",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit empty field",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit oversized field",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit absent audit",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "academic edit wrong audit actor",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "learner cannot edit academic fields",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "account transition deactivated to active",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "account transition suspended to active",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "account transition active to deactivated",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "account transition anonymized to active",
+      "expected": "DENY",
+      "state": "FAILURE",
+      "debugMessages": []
+    },
+    {
+      "name": "account transition deactivated to suspended",
+      "expected": "DENY",
+      "state": "FAILURE",
+      "debugMessages": []
+    },
+    {
+      "name": "learner cannot reactivate self",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin lists users",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin reads private solutions",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin creates audit records",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin cannot rewrite audit records",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "admin cannot delete faculty evidence",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "student cannot read audit records",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "student cannot change privacy settings",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "claim alone cannot grant admin access",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot read published answer references",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot read pinned legacy answer references",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot read private AI references",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot write tutor messages",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot fabricate scorecard",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot update quota",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "own tutor history",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "other tutor history",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "list own tutor conversation",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot list another learner conversation",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "signed out cannot list tutor conversation",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "inactive learner cannot list tutor conversation",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "save final draft only",
+      "expected": "ALLOW",
+      "state": "SUCCESS",
+      "debugMessages": []
+    },
+    {
+      "name": "cannot smuggle gate change with draft",
+      "expected": "DENY",
+      "state": "SUCCESS",
+      "debugMessages": []
+    }
+  ]
+}

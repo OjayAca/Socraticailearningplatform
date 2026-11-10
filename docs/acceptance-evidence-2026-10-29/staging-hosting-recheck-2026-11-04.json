@@ -1,0 +1,19 @@
+{
+  "checkedAt": "2026-11-04T00:32:32.921Z",
+  "project": "mindguide-stg-ojay-0823",
+  "billingEnabled": false,
+  "webApps": [
+    "1:206700776816:web:bf09cc2a884d446ef753b5"
+  ],
+  "services": {
+    "firebaseapphosting": "DISABLED",
+    "run": "DISABLED",
+    "cloudbuild": "DISABLED",
+    "cloudfunctions": "ENABLED"
+  },
+  "origin": "https://mindguide-stg-ojay-0823.web.app",
+  "identity": {
+    "http": 200,
+    "contentType": "text/html; charset=utf-8"
+  }
+}

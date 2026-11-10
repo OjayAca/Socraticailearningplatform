@@ -1,0 +1,103 @@
+- complementary:
+  - link "MINDGUIDE Admin":
+    - /url: /admin/dashboard
+    - text: MINDGUIDE
+    - generic: Admin
+  - navigation "Primary administrator navigation":
+    - link "Dashboard":
+      - /url: /admin/dashboard
+      - text: Dashboard
+    - link "Users":
+      - /url: /admin/users
+      - text: Users
+    - link "Learner progress":
+      - /url: /admin/progress
+      - text: Learner progress
+    - link "Content":
+      - /url: /admin/content/problems
+      - text: Content
+    - link "Reports":
+      - /url: /admin/reports
+      - text: Reports
+    - link "Notifications":
+      - /url: /admin/notifications
+      - text: Notifications
+    - link "Audit & AI":
+      - /url: /admin/logs
+      - text: Audit & AI
+    - link "Maintenance":
+      - /url: /admin/maintenance
+      - text: Maintenance
+  - navigation "Administrator account navigation":
+    - link "Profile":
+      - /url: /admin/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /admin/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Levi Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Levi Acasio":
+    - /url: /admin/profile
+    - generic: Levi Acasio
+    - generic: leviacasio45@gmail.com
+    - generic: LA
+- main:
+  - link "Back":
+    - /url: /admin/reports
+  - button "Print / Save as PDF":
+    - text: Print / Save as PDF
+  - heading "MINDGUIDE activity report" [level=1]
+  - paragraph: Generated 10/18/2026, 8:48:53 PM · Pseudonymized
+  - region "Report results table (scroll horizontally)":
+    - table:
+      - rowgroup:
+        - row "kind sessionId learner subject topic difficulty status scoreSource createdAt submittedAt reviewedAt assistedFollowUp currentPhase":
+          - columnheader "kind"
+          - columnheader "sessionId"
+          - columnheader "learner"
+          - columnheader "subject"
+          - columnheader "topic"
+          - columnheader "difficulty"
+          - columnheader "status"
+          - columnheader "scoreSource"
+          - columnheader "createdAt"
+          - columnheader "submittedAt"
+          - columnheader "reviewedAt"
+          - columnheader "assistedFollowUp"
+          - columnheader "currentPhase"
+      - rowgroup:
+        - row "activity MTFad2RDfAWnnCIHnpeUSBPX3pg2_8ff4968a-3990-4c4c-8991-0580a4efc163 Learner-3051f14fe151 Quantitative Methods Descriptive Statistics Basic in_progress ai_formative 2026-10-18T10:01:08.163Z false result_interpretation":
+          - cell "activity"
+          - cell "MTFad2RDfAWnnCIHnpeUSBPX3pg2_8ff4968a-3990-4c4c-8991-0580a4efc163"
+          - cell "Learner-3051f14fe151"
+          - cell "Quantitative Methods"
+          - cell "Descriptive Statistics"
+          - cell "Basic"
+          - cell "in_progress"
+          - cell "ai_formative"
+          - cell "2026-10-18T10:01:08.163Z"
+          - cell
+          - cell
+          - cell "false"
+          - cell "result_interpretation"
+        - row "activity MTFad2RDfAWnnCIHnpeUSBPX3pg2_e9244d7d-cf82-480d-b43d-bb35e35ed523 Learner-3051f14fe151 Discrete Mathematics Logic Basic in_progress ai_formative 2026-10-18T12:45:00.986Z false problem_understanding":
+          - cell "activity"
+          - cell "MTFad2RDfAWnnCIHnpeUSBPX3pg2_e9244d7d-cf82-480d-b43d-bb35e35ed523"
+          - cell "Learner-3051f14fe151"
+          - cell "Discrete Mathematics"
+          - cell "Logic"
+          - cell "Basic"
+          - cell "in_progress"
+          - cell "ai_formative"
+          - cell "2026-10-18T12:45:00.986Z"
+          - cell
+          - cell
+          - cell "false"
+          - cell "problem_understanding"
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

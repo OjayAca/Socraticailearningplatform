@@ -1,0 +1,25 @@
+{
+  "checkedAt": "2026-10-28T15:18:09.409Z",
+  "case": "method_alternative",
+  "problemId": "QM-07-B01",
+  "model": "gemini-3.5-flash-lite",
+  "liveGemini": true,
+  "liveFirestoreReference": true,
+  "learnerSessionWritten": false,
+  "quotaReservationWritten": true,
+  "passed": true,
+  "initialResponse": "I will make a table of all five domain inputs and their squared outputs. For the image I collect outputs for the specified inputs; for the preimage I search the full table for outputs in the target set and collect every matching input. A preimage need not be a single-valued inverse. I can check repeated outputs for injectivity and compare the attained outputs with the declared codomain for surjectivity.",
+  "result": {
+    "feedback": "Your chosen method of using a mapping table or evaluating inputs and searching for matching outputs is completely sound and correctly addresses both the images/pre-images and the properties of injectivity and surjectivity.",
+    "question": "Now that your method is established, let's carry out the computation. Using your table or evaluation steps, what are the resulting sets for $f(\\{-2,0,1\\})$ and $f^{-1}(\\{1,4\\})$?",
+    "accepted": true,
+    "confidence": "high",
+    "category": "none",
+    "evidence": [
+      "I will make a table of all five domain inputs and their squared outputs. For the image I collect outputs for the specified inputs; for the preimage I search the full table for outputs in the target set and collect every matching input."
+    ],
+    "intent": "answer",
+    "leaksSolution": false
+  },
+  "deterministicDiagnosis": null
+}

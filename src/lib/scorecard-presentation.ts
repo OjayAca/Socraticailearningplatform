@@ -22,11 +22,14 @@ export function presentScorecard(scorecard: ScorecardResult) {
   const byGrowth = [...criteria].sort((left, right) =>
     left.score - right.score || CATEGORY_ORDER.indexOf(left.category) - CATEGORY_ORDER.indexOf(right.category)
   );
+  const tied = byBest[0].score === byGrowth[0].score;
+  const hasAdvice = (advice: string) => !/^(none|n\/?a|no improvement(?:s)?(?: needed)?)[.!]?$/i.test(advice.trim()) && Boolean(advice.trim());
   return {
     criteria,
-    strength: byBest[0],
-    weakness: byGrowth[0],
+    strength: tied ? null : byBest[0],
+    weakness: !tied && byGrowth[0].score < 25 && hasAdvice(byGrowth[0].improvementAdvice) ? byGrowth[0] : null,
+    tied,
     sessionSummary: scorecard.feedback,
-    improvements: [...new Set(byGrowth.slice(0, 2).map((criterion) => criterion.improvementAdvice))],
+    improvements: [...new Set(byGrowth.filter(criterion => criterion.score < 25).slice(0, 2).map((criterion) => criterion.improvementAdvice).filter(hasAdvice))],
   };
 }

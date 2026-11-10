@@ -1,0 +1,14 @@
+  - heading "Reasoning record" [level=2]
+  - paragraph: Discrete Mathematics · Discrete Probability · submitted
+    - paragraph: 100/100
+    - paragraph: "Rubric: ai-formative-v2-evidence · pending · Assistance: 1"
+    - generic: 25/25
+    - paragraph: The student correctly computed the probability of exactly one head as 2/4 = 1/2 after correcting an earlier addition error, and verified their result.
+    - paragraph: "Evidence: 699bc41e-8579-499b-baf3-e64c6381c4d8_student: I made an addition error. The sample space is {HH, HT, TH, TT}. By fairness and independence each ordered outcome has probability (1/2)*(1/2)=1/4. Exactly one head is {HT, TH}; these are disjoint, so 1/4+1/4=(1+1)/4=2/4=1/2. As a check, the complement {HH, TT} also has probability 1/2, and 1/2+1/2=1. All four elementary probabilities sum to 1."
+    - generic: 25/25
+    - paragraph: "Evidence: 699bc41e-8579-499b-baf3-e64c6381c4d8_student: I made an addition error. The sample space is {HH, HT, TH, TT}. By fairness and independence each ordered outcome has probability (1/2)*(1/2)=1/4. Exactly one head is {HT, TH}; these are disjoint, so 1/4+1/4=(1+1)/4=2/4=1/2. As a check, the complement {HH, TT} also has probability 1/2, and 1/2+1/2=1. All four elementary probabilities sum to 1."
+    - generic: 25/25
+    - paragraph: "Evidence: eb3ec95d-59fb-4e9e-986e-18542ab59cc2_student: I will enumerate the ordered pairs HH, HT, TH, TT. Each toss has probabilities one half for H and one half for T because the coin is fair. Independence allows me to multiply the two probabilities for each ordered pair, so all four pairs are equally likely. Exactly one head corresponds to the disjoint outcomes HT and TH, so I can add their probabilities or divide two favorable outcomes by four total outcomes."
+    - generic: 25/25
+    - paragraph: "Evidence: 38a3452e-3fe8-406e-9156-d9d15a9be92c_student: The probability of exactly one head is one half, or 50 percent. In many independent repetitions of this two-toss experiment, about half of the ordered pairs are expected to be HT or TH; it is not a guarantee for any individual pair. Fairness and independence make HH, HT, TH, and TT equally likely. Recording order is essential: merging HT and TH would incorrectly treat three categories as equally likely."
+  - paragraph: Unlocked worked solution

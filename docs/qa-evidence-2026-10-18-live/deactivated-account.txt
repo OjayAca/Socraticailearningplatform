@@ -1,0 +1,79 @@
+- complementary:
+  - link "MINDGUIDE Admin":
+    - /url: /admin/dashboard
+    - text: MINDGUIDE
+    - generic: Admin
+  - navigation "Primary administrator navigation":
+    - link "Dashboard":
+      - /url: /admin/dashboard
+      - text: Dashboard
+    - link "Users":
+      - /url: /admin/users
+      - text: Users
+    - link "Learner progress":
+      - /url: /admin/progress
+      - text: Learner progress
+    - link "Content":
+      - /url: /admin/content/problems
+      - text: Content
+    - link "Reports":
+      - /url: /admin/reports
+      - text: Reports
+    - link "Notifications":
+      - /url: /admin/notifications
+      - text: Notifications
+    - link "Audit & AI":
+      - /url: /admin/logs
+      - text: Audit & AI
+    - link "Maintenance":
+      - /url: /admin/maintenance
+      - text: Maintenance
+  - navigation "Administrator account navigation":
+    - link "Profile":
+      - /url: /admin/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /admin/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Levi Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Levi Acasio":
+    - /url: /admin/profile
+    - generic: Levi Acasio
+    - generic: leviacasio45@gmail.com
+    - generic: LA
+- main:
+  - heading "User Account Management" [level=1]
+  - paragraph: Search learner profiles and manage application access. Use Firebase Console for privileged Authentication operations.
+  - textbox "Search name, email, student number, course, year, or section": <redacted>
+  - textbox "Required audit reason": "Authorized QA baseline: temporarily deactivate dedicated test account, then restore active status."
+  - generic: Account action 'deactivate' completed.
+  - paragraph:
+    - text: Delete Auth accounts or reset access in
+    - link "Firebase Console":
+      - /url: https://console.firebase.google.com/project/socratic-ai-a7765/authentication/users
+    - text: . Role changes require an authorized operator to update both custom claims and the Firestore profile; they cannot be performed by this browser.
+  - region "User accounts table (scroll horizontally)":
+    - table:
+      - rowgroup:
+        - row "Account and academic profile Role Status Actions":
+          - columnheader "Account and academic profile"
+          - columnheader "Role"
+          - columnheader "Status"
+          - columnheader "Actions"
+      - rowgroup:
+        - row "Orvin Jay Acasio ojayacasio@gmail.com Academic profile incomplete student deactivated suspend":
+          - cell "Orvin Jay Acasio ojayacasio@gmail.com Academic profile incomplete":
+            - paragraph: Orvin Jay Acasio
+            - paragraph: ojayacasio@gmail.com
+            - paragraph: Academic profile incomplete
+          - cell "student"
+          - cell "deactivated"
+          - cell "suspend":
+            - button "suspend"
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

@@ -1,0 +1,27 @@
+{
+  "at": "2026-11-10T04:16:33.312Z",
+  "qaReference": "ea072141dc63",
+  "problem": "DM-04-B01",
+  "assessments": [
+    {
+      "phase": "result_interpretation",
+      "status": "accepted"
+    },
+    {
+      "phase": "guided_computation_or_proof",
+      "status": "needs_revision"
+    },
+    {
+      "phase": "problem_understanding",
+      "status": "accepted"
+    },
+    {
+      "phase": "method_selection",
+      "status": "accepted"
+    },
+    {
+      "phase": "guided_computation_or_proof",
+      "status": "accepted"
+    }
+  ]
+}

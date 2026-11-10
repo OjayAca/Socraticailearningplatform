@@ -1,0 +1,103 @@
+{
+  "checkedAt": "2026-10-29T13:38:06.942Z",
+  "readOnly": true,
+  "problemId": "DM-06-B01",
+  "status": "submitted",
+  "rubric": "ai-formative-v2-evidence",
+  "total": 100,
+  "assistance": 1,
+  "criteria": [
+    {
+      "criterion": "accuracy",
+      "score": 25,
+      "evidenceCount": 1,
+      "onlyAssessedStudentMessages": true,
+      "acceptedRelevantStage": true
+    },
+    {
+      "criterion": "logicalValidity",
+      "score": 25,
+      "evidenceCount": 1,
+      "onlyAssessedStudentMessages": true,
+      "acceptedRelevantStage": true
+    },
+    {
+      "criterion": "methodSelection",
+      "score": 25,
+      "evidenceCount": 1,
+      "onlyAssessedStudentMessages": true,
+      "acceptedRelevantStage": true
+    },
+    {
+      "criterion": "explanationQuality",
+      "score": 25,
+      "evidenceCount": 1,
+      "onlyAssessedStudentMessages": true,
+      "acceptedRelevantStage": true
+    }
+  ],
+  "checks": {
+    "submitted": true,
+    "allSevenGatesAccepted": true,
+    "oneMatchingScorecard": true,
+    "criterionScoresValid": true,
+    "sumMatches": true,
+    "stageEvidenceValid": true,
+    "assistanceMatches": true,
+    "releasedSourceMatches": true,
+    "unlockRecorded": true,
+    "statisticsCommitted": true,
+    "assignmentCleared": true,
+    "recommendationUsesActualTopicLevel": true,
+    "insufficientEvidenceMaintainsBasic": true
+  },
+  "passed": true,
+  "sessionsCompleted": 6,
+  "learnerSessionCount": 8,
+  "recommendation": {
+    "recommendedDifficulty": "Basic",
+    "confidence": "low",
+    "reason": "maintain_insufficient_evidence: 1/3 required distinct completed Basic sessions in this topic; 100% accuracy, 100% reasoning, 1 with limited assistance. Question availability never changes this recommendation.",
+    "decision": "maintain_insufficient_evidence",
+    "policyVersion": "topic-mastery-v1",
+    "thresholds": {
+      "version": "topic-mastery-v1",
+      "window": 5,
+      "minimumSessions": 3,
+      "advanceAccuracy": 80,
+      "advanceReasoning": 80,
+      "advanceMethod": 80,
+      "advanceJustification": 80,
+      "reduceBelow": 50,
+      "repeatedDifficultyCount": 2,
+      "maxHintsPerIndependentSession": 1,
+      "independentFraction": 0.8,
+      "maxCorrectionCyclesForAdvance": 1
+    },
+    "evidence": {
+      "topicId": "discrete-mathematics-discrete-probability",
+      "currentDifficulty": "Basic",
+      "sessionIds": [
+        "MTFad2RDfAWnnCIHnpeUSBPX3pg2_eb531ce7-e2e7-4aa8-8405-4bcddbe3dc73"
+      ],
+      "completedSessions": 1,
+      "accuracy": 100,
+      "reasoning": 100,
+      "methodSelection": 100,
+      "justification": 100,
+      "independentSessions": 1,
+      "repeatedDifficulties": 0,
+      "maxCorrectionCycles": 1,
+      "misconceptions": [
+        "computational_error"
+      ]
+    }
+  },
+  "quota": {
+    "minute": 29888016,
+    "day": "2026-10-29",
+    "requests": 1,
+    "tokens": 32000,
+    "daily": 11
+  }
+}

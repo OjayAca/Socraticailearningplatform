@@ -1,3 +1,4 @@
+import { studentOperationResult } from "./learning/student-response";
 import { VALIDATED_SUBJECTS, VALIDATED_TOPICS, isValidatedTopic } from "../data/validated-curriculum";
 import { collection, doc, getDoc, getDocs, query, where, runTransaction, serverTimestamp, Timestamp, type DocumentData, type Transaction } from "firebase/firestore";
 import { REASONING_PHASES, SCHEMA_VERSION, WORKFLOW_VERSION, type GetCurrentConsentNoticeResponse, type LearningCatalog, type ReasoningPhase, type StartLearningSessionInput, type Difficulty } from "@mindguide/contracts";
@@ -65,7 +66,21 @@ async function bootstrap(input: any) {
 async function catalog(): Promise<LearningCatalog> {
   try {
     const [subjects, topics] = await Promise.all(["subjects", "topics"].map(name => getDocs(query(collection(database(), name), where("status", "==", "approved")))));
-    return { subjects: VALIDATED_SUBJECTS.flatMap(expected => subjects.docs.filter(item => item.id === expected.id && item.get("name") === expected.name).map(item => ({ ...item.data(), id: item.id }))), topics: VALIDATED_TOPICS.flatMap(expected => topics.docs.filter(item => item.id === expected.id && isValidatedTopic(item.id, item.data()) && subjects.docs.some(subject => subject.id === expected.subjectId && subject.get("name") === expected.subject)).map(item => ({ ...item.data(), id: item.id, subtopics: expected.subtopics, ready: true }))), generatedAt: Date.now() } as LearningCatalog;
+    return {
+      subjects: VALIDATED_SUBJECTS.flatMap(expected => subjects.docs.filter(item =>
+        item.id === expected.id && item.get("name") === expected.name).map(item => ({
+          id:item.id, name:expected.name, status:"approved" as const,
+          description:typeof item.get("description") === "string" ? item.get("description") : "",
+          version:Number(item.get("version") ?? 1),
+        }))),
+      topics: VALIDATED_TOPICS.flatMap(expected => topics.docs.filter(item => item.id === expected.id &&
+        isValidatedTopic(item.id,item.data()) && subjects.docs.some(subject => subject.id === expected.subjectId &&
+        subject.get("name") === expected.subject)).map(item => ({
+          id:item.id, subjectId:expected.subjectId, subject:expected.subject, name:expected.name,
+          status:"approved" as const, version:Number(item.get("version") ?? 1), subtopics:expected.subtopics, ready:true,
+        }))),
+      generatedAt:Date.now(),
+    } as LearningCatalog;
   } catch { throw new Error("Unable to load learning materials."); }
 }
 
@@ -125,7 +140,8 @@ async function start(input: StartLearningSessionInput & { requestId: string }) {
       if (!item.get("validationRecordId") || history.answered.has(item.id)) continue;
       const ref = await getDoc(doc(db, "problem_scoring", item.id));
       if (!ref.exists() || !ref.get("answerSpecification") || ref.get("validationRecordId") !== item.get("validationRecordId") || ref.get("problemVersion") !== item.get("version")) { unavailable = true; continue; }
-      candidates.push({ ...item.data(), id: item.id, reference: ref.data() });
+      candidates.push({ id:item.id, version:item.get("version"), validationRecordId:item.get("validationRecordId"),
+        problemText:item.get("problemText"), variant:item.get("variant"), reference:ref.data() });
     }
     if (!candidates.length && unavailable) throw new Error(missingReference);
   } else {
@@ -186,7 +202,7 @@ async function mutate(name: string, input: any) {
     const [snapshot, operation] = await Promise.all([tx.get(sessionRef), tx.get(operationRef)]);
     if (operation.exists()) {
       if (operation.get("name") !== name || operation.get("sessionId") !== input.sessionId) throw new Error("This operation belongs to another request.");
-      return operation.get("result");
+      return studentOperationResult(operation.get("result"));
     }
     const session = snapshot.data()!;
     if (session.studentId !== currentUser().uid) throw new Error("The signed-in account changed. Reload the session.");
@@ -240,7 +256,7 @@ async function mutate(name: string, input: any) {
       updates.status = "abandoned";
       tx.set(stateRef, { activeSessionId: null, updatedAt: serverTimestamp() }, { merge: true });
     } else throw new Error(`Unsupported learning operation: ${name}`);
-    const result = { session: projectSession(input.sessionId, { ...session, ...updates }), ...extra };
+    const result = studentOperationResult({ session: projectSession(input.sessionId, { ...session, ...updates }), ...extra });
     tx.update(sessionRef, { ...updates, updatedAt: serverTimestamp(), lastActivityAt: serverTimestamp() });
     tx.set(operationRef, { name, sessionId: input.sessionId, result, createdAt: serverTimestamp() });
     return result;

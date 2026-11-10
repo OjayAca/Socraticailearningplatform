@@ -1,0 +1,104 @@
+- complementary:
+  - link "MINDGUIDE Admin":
+    - /url: /admin/dashboard
+    - text: MINDGUIDE
+    - generic: Admin
+  - navigation "Primary administrator navigation":
+    - link "Dashboard":
+      - /url: /admin/dashboard
+      - text: Dashboard
+    - link "Users":
+      - /url: /admin/users
+      - text: Users
+    - link "Learner progress":
+      - /url: /admin/progress
+      - text: Learner progress
+    - link "Content":
+      - /url: /admin/content/problems
+      - text: Content
+    - link "Reports":
+      - /url: /admin/reports
+      - text: Reports
+    - link "Notifications":
+      - /url: /admin/notifications
+      - text: Notifications
+    - link "Audit & AI":
+      - /url: /admin/logs
+      - text: Audit & AI
+    - link "Maintenance":
+      - /url: /admin/maintenance
+      - text: Maintenance
+  - navigation "Administrator account navigation":
+    - link "Profile":
+      - /url: /admin/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /admin/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Levi Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Levi Acasio":
+    - /url: /admin/profile
+    - generic: Levi Acasio
+    - generic: leviacasio45@gmail.com
+    - generic: LA
+- main:
+  - heading "Managed Learning Content" [level=1]
+  - paragraph: Use typed, versioned forms. Permanent deletion is restricted to dependency-free draft or rejected records.
+  - link "subjects":
+    - /url: /admin/content/subjects
+  - link "topics":
+    - /url: /admin/content/topics
+  - link "problems":
+    - /url: /admin/content/problems
+  - link "formula theorem references":
+    - /url: /admin/content/formula_theorem_references
+  - link "socratic prompt bank":
+    - /url: /admin/content/socratic_prompt_bank
+  - link "misconception categories":
+    - /url: /admin/content/misconception_categories
+  - link "difficulty policies":
+    - /url: /admin/content/difficulty_policies
+  - paragraph: Approved problem scoring material is copied into new sessions. Standalone formula, prompt, misconception, and difficulty records are maintained as a content library; editing them does not automatically change the current practice engine or historical sessions.
+  - text: Prepared-practice availability
+  - paragraph: 0 questions with recorded approval and matching scoring material · 0 / 36 topic/difficulty combinations available
+  - generic: Typed content saved, versioned, and audited.
+  - heading "Typed content editor" [level=2]
+  - text: Stable record ID
+  - textbox "Stable record ID": qa-baseline-20261018-mean-reference
+  - text: Reference kind
+  - combobox "Reference kind":
+    - option "Formula" [selected]
+    - option "Theorem"
+  - text: Statement
+  - textbox "Statement": "QA baseline draft only: arithmetic mean = sum of observations / count of observations."
+  - text: Variables
+  - textbox "Variables": "x: observation, n: count"
+  - text: Application conditions
+  - textbox "Application conditions": Nonempty finite numeric dataset; observations have equal weight. QA draft, not for learner assignment.
+  - text: Domain
+  - combobox "Domain":
+    - option "Quantitative Methods" [selected]
+    - option "Discrete Mathematics"
+  - text: Supported topic names
+  - textbox "Supported topic names": Descriptive Statistics
+  - text: Equivalent notation
+  - textbox "Equivalent notation": "QA revision check: x-bar = sum(x_i)/n"
+  - text: Lifecycle status
+  - combobox "Lifecycle status":
+    - option "Draft" [selected]
+    - option "Approved"
+    - option "Archived"
+  - button "Save version":
+    - text: Save version
+  - heading "Existing records (1)" [level=2]
+  - button "qa-baseline-20261018-mean-reference qa-baseline-20261018-mean-reference · v2 · archived":
+    - paragraph: qa-baseline-20261018-mean-reference
+    - paragraph: qa-baseline-20261018-mean-reference · v2 · archived
+  - button "Archive qa-baseline-20261018-mean-reference" [active]:
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

@@ -1,0 +1,31 @@
+{
+  "at": "2026-11-10T04:15:32.676Z",
+  "qaReference": "ea072141dc63",
+  "project": "socratic-ai-a7765",
+  "firebaseBilling": false,
+  "geminiBilling": false,
+  "roster": "admitted",
+  "dailyReservations": 8,
+  "limit": 18,
+  "day": "2026-11-09",
+  "history": [
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "expired",
+      "submitted": false,
+      "responses": 0,
+      "score": null,
+      "needsOpening": false
+    },
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "in_progress",
+      "submitted": false,
+      "responses": 5,
+      "score": null,
+      "needsOpening": false
+    }
+  ]
+}

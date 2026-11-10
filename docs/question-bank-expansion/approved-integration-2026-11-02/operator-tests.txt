@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 C:/Users/OjayAca/OneDrive/Documents/Code Projects/Socraticailearningplatform
+
+ ✓ tests/unit/question-bank-import.test.ts (4 tests) 239ms
+ ✓ tests/unit/staging-bank.test.ts (18 tests) 1289ms
+   ✓ keeps all 84 invisible until the final commit; rejects collisions and resumes a lost acknowledgement without duplicates  523ms
+
+ Test Files  2 passed (2)
+      Tests  22 passed (22)
+   Start at  09:17:21
+   Duration  4.62s (transform 434ms, setup 710ms, collect 2.54s, tests 1.53s, environment 0ms, prepare 354ms)
+
