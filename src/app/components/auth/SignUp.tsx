@@ -56,7 +56,7 @@ export function SignUp() {
     setLocalError(null);
     try {
       const profile = await signInWithGoogle();
-      navigate(getDashboardPath(profile.role));
+      if (profile) navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }

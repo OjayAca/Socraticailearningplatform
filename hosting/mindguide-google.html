@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="origin"><title>Google sign-in · MINDGUIDE</title>
+<p role="status">Opening Google sign-in…</p>
+<a href="https://mindguide-learning.vercel.app/login">Return to MINDGUIDE</a>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+  import { initializeAuth, browserSessionPersistence, browserPopupRedirectResolver,
+    GoogleAuthProvider, getRedirectResult, signInWithRedirect, signOut
+  } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+  try {
+    const config = await (await fetch("/__/firebase/init.json")).json();
+    const app = initializeApp({ ...config, authDomain: location.host }, "mindguide-google-return");
+    const auth = initializeAuth(app, {
+      persistence: browserSessionPersistence, popupRedirectResolver: browserPopupRedirectResolver
+    });
+    const stateKey = "mindguide.google.pending";
+    const incoming = location.hash.slice(1);
+    if (/^[a-f0-9-]{36}$/.test(incoming)) {
+      history.replaceState(null, "", location.pathname);
+      sessionStorage.setItem(stateKey, incoming);
+      const google = new GoogleAuthProvider();
+      google.setCustomParameters({ prompt: "select_account" });
+      await signInWithRedirect(auth, google);
+    } else {
+      const state = sessionStorage.getItem(stateKey);
+      const result = await getRedirectResult(auth);
+      const token = result && GoogleAuthProvider.credentialFromResult(result)?.idToken;
+      if (!state || !token) throw new Error("No pending sign-in");
+      sessionStorage.removeItem(stateKey);
+      await signOut(auth);
+      const form = document.createElement("form");
+      form.method = "post";
+      form.action = "https://mindguide-learning.vercel.app/api/auth/google-return";
+      for (const [name, value] of Object.entries({ state, token })) {
+        const field = document.createElement("input");
+        Object.assign(field, { type: "hidden", name, value });
+        form.append(field);
+      }
+      document.body.append(form);
+      form.submit();
+    }
+  } catch {
+    document.querySelector("p").textContent = "Google sign-in could not finish. Return to MINDGUIDE to try again.";
+  }
+</script></html>

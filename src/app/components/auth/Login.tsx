@@ -1,6 +1,6 @@
 /** Login and password-recovery screen. */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Mail,
@@ -25,6 +25,20 @@ export function Login() {
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [isResetSending, setIsResetSending] = useState(false);
+
+  useEffect(() => {
+    let token: string | null;
+    try {
+      token = sessionStorage.getItem("mindguide.google.result");
+      if (!token) return;
+      sessionStorage.removeItem("mindguide.google.result");
+    } catch {
+      return;
+    }
+    void signInWithGoogle(token).then(profile => {
+      if (profile) navigate(getDashboardPath(profile.role), { replace: true });
+    }).catch(() => { /* The store displays authentication errors. */ });
+  }, [navigate, signInWithGoogle]);
 
   const resetSuccessMessage =
     "If an account exists for this email, a password reset link has been sent.";
@@ -54,7 +68,7 @@ export function Login() {
     setResetSuccess(false);
     try {
       const profile = await signInWithGoogle();
-      navigate(getDashboardPath(profile.role));
+      if (profile) navigate(getDashboardPath(profile.role));
     } catch {
       // Error is already set in the store
     }

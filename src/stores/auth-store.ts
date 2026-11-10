@@ -17,6 +17,7 @@ import {
   updateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithCredential,
   sendPasswordResetEmail,
   sendEmailVerification,
   reload,
@@ -70,7 +71,7 @@ interface AuthState {
   /** Creates a new account with email and password. */
   signUp: (name: string, email: string, password: string) => Promise<UserProfile>;
   /** Signs in with Google OAuth popup. */
-  signInWithGoogle: () => Promise<UserProfile>;
+  signInWithGoogle: (googleIdToken?: string) => Promise<UserProfile | undefined>;
   /** Sends a password reset email without revealing whether the account exists. */
   resetPassword: (email: string) => Promise<void>;
   sendVerification: () => Promise<void>;
@@ -228,12 +229,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithGoogle: async () => {
+  signInWithGoogle: async (googleIdToken) => {
     set({ error: null, isLoading: true });
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      const credential = await signInWithPopup(requireAuth(), provider);
+      const credential = googleIdToken
+        ? await signInWithCredential(requireAuth(), GoogleAuthProvider.credential(googleIdToken))
+        : await signInWithPopup(requireAuth(), provider);
       const profile = await loadUserProfile(credential.user);
       set({
         firebaseUser: credential.user,
@@ -243,6 +246,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       return profile;
     } catch (err) {
+      if ((err as { code?: string })?.code === "auth/popup-blocked" &&
+          location.origin === "https://mindguide-learning.vercel.app") {
+        try {
+          const state = crypto.randomUUID();
+          sessionStorage.setItem("mindguide.google.state", state);
+          set({ isLoading: false });
+          location.assign(`https://socratic-ai-a7765.firebaseapp.com/mindguide-google.html#${state}`);
+          return;
+        } catch {
+          // Restricted browsers can also disable session storage or navigation.
+        }
+      }
       const message = getFirebaseErrorMessage(err);
       set({
         userProfile: null,
@@ -528,6 +543,8 @@ function getFirebaseErrorMessage(error: unknown): string {
         return "Too many attempts. Please wait a moment and try again.";
       case "auth/popup-closed-by-user":
         return "Sign-in popup was closed. Please try again.";
+      case "auth/popup-blocked":
+        return "Your browser blocked Google sign-in. Open MINDGUIDE in your browser and allow pop-ups for this site, then try again.";
       case "auth/unauthorized-domain":
         return getUnauthorizedDomainMessage();
       case "permission-denied":
