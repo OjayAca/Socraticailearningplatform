@@ -1,0 +1,1430 @@
+{
+  "metadata": {
+    "project": "OJAY MINDGUIDE",
+    "record_count": 84,
+    "export_type": "STUDENT-FACING CONTENT ONLY",
+    "contains_instructor_only_content": false,
+    "purpose": "Review-only safe-field export of the 84 new candidate questions.",
+    "publication_status": "DRAFT_NOT_PUBLISHED"
+  },
+  "problems": [
+    {
+      "problem_id": "DM-01-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of relations and functions"
+      ],
+      "difficulty": "Basic",
+      "title": "Find the domain of a radical expression",
+      "student_facing": {
+        "problem_statement": "For the real-valued function f(x)=√(2x−6), determine the domain. Express your answer in interval notation and explain why the endpoint is included.",
+        "given_information_and_assumptions": "The domain is restricted to real numbers. The square root denotes the principal real square root.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of sets"
+      ],
+      "difficulty": "Basic",
+      "title": "Distinguish an element from a subset",
+      "student_facing": {
+        "problem_statement": "Let U={a,b,c} and A={a,b}. Decide whether each statement is true or false: (i) a∈A, (ii) {a}⊆A, (iii) A⊆U, and (iv) {a}∈A. Give a short reason for each answer.",
+        "given_information_and_assumptions": "The elements of A are the objects a and b. The notation {a} denotes a set whose only element is a.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of relations and functions"
+      ],
+      "difficulty": "Basic",
+      "title": "Translate a verbal function rule",
+      "student_facing": {
+        "problem_statement": "A rule assigns to every integer n the integer that is one less than twice n. Write the rule as a function f:ℤ→ℤ using function notation. Then find f(4) and the input n for which f(n)=9.",
+        "given_information_and_assumptions": "The input domain and output codomain are both the integers. The rule is defined for every integer.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of sets"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Resolve an ambiguous algebraic phrase",
+      "student_facing": {
+        "problem_statement": "A worksheet says, “the square of the sum of x and 3.” (a) Translate the phrase into an algebraic expression. (b) Contrast it with “the square of x, increased by 3.” (c) Evaluate both expressions when x=2 and explain why parentheses matter.",
+        "given_information_and_assumptions": "The variable x is real. “Square of the sum” means add first, then square.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of sets"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Translate set membership into precise prose",
+      "student_facing": {
+        "problem_statement": "Let C={n∈ℤ : n²<10}. (a) Describe C in words. (b) List its elements. (c) Decide whether −3∈C and justify your decision using the defining condition.",
+        "given_information_and_assumptions": "The domain is all integers. The inequality is strict.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of relations and functions"
+      ],
+      "difficulty": "Advanced",
+      "title": "Audit a quantifier-dependent assignment claim",
+      "student_facing": {
+        "problem_statement": "Let S be a set of students and A a set of assignments. Compare the statements: P: “Every student submitted at least one assignment”; Q: “There is an assignment submitted by every student.” (a) Write each statement with quantifiers and a submission relation R(s,a). (b) Explain why P and Q are not equivalent. (c) Give a finite example where P is true but Q is false.",
+        "given_information_and_assumptions": "S and A are nonempty. R(s,a) means student s submitted assignment a.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-01-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Speaking Mathematically",
+      "topic_number": 1,
+      "syllabus_subtopics": [
+        "Variables",
+        "Mathematical language of relations and functions"
+      ],
+      "difficulty": "Advanced",
+      "title": "Repair an ambiguous relation specification",
+      "student_facing": {
+        "problem_statement": "A project description says, “A student is paired with a tutor who knows the same subject.” Let S be the students, T the tutors, and K(x,c) mean person x knows subject c. Rewrite the description as a precise relation R⊆S×T. Then explain how the statement changes if each student must be paired with exactly one tutor.",
+        "given_information_and_assumptions": "S and T are specified sets; subjects come from a set C. “Knows the same subject” means there exists at least one subject known by both people.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Basic concepts",
+        "Set operations"
+      ],
+      "difficulty": "Basic",
+      "title": "Find a complement in a stated universe",
+      "student_facing": {
+        "problem_statement": "Let U={1,2,3,4,5,6,7,8,9,10,11,12} and A be the multiples of 3 in U. Find A and its complement Aᶜ relative to U.",
+        "given_information_and_assumptions": "The universal set is exactly the integers from 1 through 12. The complement is taken relative to U.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Set operations",
+        "Basic concepts"
+      ],
+      "difficulty": "Basic",
+      "title": "Test subset claims with an element",
+      "student_facing": {
+        "problem_statement": "Let P={2,4,6} and Q={1,2,3,4,5,6}. Decide whether P⊆Q and Q⊆P. For every false subset claim, identify an element that disproves it.",
+        "given_information_and_assumptions": "The sets are finite and contain the listed integers only.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Basic concepts",
+        "Set operations"
+      ],
+      "difficulty": "Basic",
+      "title": "Interpret a set membership table",
+      "student_facing": {
+        "problem_statement": "The following table describes three elements of U. For x=a, the membership values are A:1, B:1; for x=b, A:1, B:0; for x=c, A:0, B:1. Write A, B, and A∩B as roster sets.",
+        "given_information_and_assumptions": "A value 1 means the element belongs to the set; 0 means it does not. U={a,b,c}.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Venn diagrams",
+        "Applications of sets"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Count a survey group with exactly-one membership",
+      "student_facing": {
+        "problem_statement": "In a group of 40 learners, 22 use application A, 18 use application B, and 9 use both. Find (a) the number who use exactly one application and (b) the number who use neither application.",
+        "given_information_and_assumptions": "Every learner is counted once in the total of 40. The two application groups may overlap.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Venn diagrams",
+        "Applications of sets"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Verify a set identity by Venn regions",
+      "student_facing": {
+        "problem_statement": "For arbitrary subsets A and B of a universal set U, verify that (A∪B)ᶜ=Aᶜ∩Bᶜ. Explain which region of a two-set Venn diagram each side represents.",
+        "given_information_and_assumptions": "Complements are taken relative to the same universal set U.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Venn diagrams",
+        "Applications of sets"
+      ],
+      "difficulty": "Advanced",
+      "title": "Prove a set identity by element membership",
+      "student_facing": {
+        "problem_statement": "Prove for arbitrary subsets A, B, and C of U that A\\(B∪C)=(A\\B)∩(A\\C). Your proof must explain both directions of membership equivalence.",
+        "given_information_and_assumptions": "All complements and set differences are relative to the same universe U. A\\B means elements in A but not in B.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-02-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Set Theory",
+      "topic_number": 2,
+      "syllabus_subtopics": [
+        "Venn diagrams",
+        "Applications of sets"
+      ],
+      "difficulty": "Advanced",
+      "title": "Diagnose inconsistent three-set survey totals",
+      "student_facing": {
+        "problem_statement": "A survey of 50 people reports |A|=28, |B|=24, |C|=20, |A∩B|=12, |A∩C|=10, |B∩C|=9, and |A∩B∩C|=6. (a) Compute |A∪B∪C|. (b) Determine how many are in none. (c) Check whether the reported totals are internally possible.",
+        "given_information_and_assumptions": "Pairwise intersections include the triple intersection. All counts refer to the same 50 respondents.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Operations",
+        "Function identification and properties"
+      ],
+      "difficulty": "Basic",
+      "title": "Read the range from a finite function",
+      "student_facing": {
+        "problem_statement": "Let A={−1,0,1,2} and define f:A→ℝ by f(x)=x². List the ordered input-output pairs and state the range of f.",
+        "given_information_and_assumptions": "The domain is exactly A. Repeated outputs are listed once in the range.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Cartesian products",
+        "Basic concepts and properties"
+      ],
+      "difficulty": "Basic",
+      "title": "Identify the identity relation",
+      "student_facing": {
+        "problem_statement": "Let A={p,q,r}. Write the identity relation I_A on A as a set of ordered pairs. State what property each pair expresses.",
+        "given_information_and_assumptions": "The identity relation pairs each element only with itself.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Cartesian products",
+        "Basic concepts and properties"
+      ],
+      "difficulty": "Basic",
+      "title": "Respect order in a Cartesian product",
+      "student_facing": {
+        "problem_statement": "Let A={1,2} and B={a,b,c}. List A×B and B×A. State how many ordered pairs each product contains and explain why (1,a) differs from (a,1).",
+        "given_information_and_assumptions": "The first coordinate comes from the first named set; the second coordinate comes from the second named set.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Operations",
+        "Function identification and properties"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Compose two finite relations",
+      "student_facing": {
+        "problem_statement": "Let A={1,2,3}, B={a,b}, and C={X,Y}. Let R={(1,a),(2,a),(3,b)} and S={(a,X),(b,Y)}. Find S∘R as a relation from A to C.",
+        "given_information_and_assumptions": "S∘R contains (x,z) when there is a y∈B with (x,y)∈R and (y,z)∈S.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Operations",
+        "Function identification and properties"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Distinguish an inverse relation from an inverse function",
+      "student_facing": {
+        "problem_statement": "Let f:{1,2,3}→{a,b} be defined by f(1)=a, f(2)=a, and f(3)=b. Write the inverse relation f⁻¹. Is f⁻¹ a function from {a,b} to {1,2,3}? Explain.",
+        "given_information_and_assumptions": "The inverse relation reverses each ordered pair. A function must assign exactly one output to each input.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Equivalence relations",
+        "Basic concepts and properties"
+      ],
+      "difficulty": "Advanced",
+      "title": "Prove congruence modulo four is an equivalence relation",
+      "student_facing": {
+        "problem_statement": "On ℤ define a~b when 4 divides a−b. Prove that ~ is an equivalence relation and describe its equivalence classes.",
+        "given_information_and_assumptions": "Divisibility is over the integers. Congruence modulo 4 means having the same remainder upon division by 4.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-03-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Relations and Functions",
+      "topic_number": 3,
+      "syllabus_subtopics": [
+        "Basic concepts and properties",
+        "Function identification and properties"
+      ],
+      "difficulty": "Advanced",
+      "title": "Disprove that reflexive and transitive imply symmetric",
+      "student_facing": {
+        "problem_statement": "A student claims: “Every reflexive and transitive relation on a set must also be symmetric.” Decide whether the claim is true. If false, construct a relation on {1,2} that is reflexive and transitive but not symmetric, and verify all three properties.",
+        "given_information_and_assumptions": "A relation R on A is reflexive if (x,x)∈R for all x∈A, transitive if (x,y),(y,z)∈R imply (x,z)∈R, and symmetric if (x,y)∈R implies (y,x)∈R.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Predicates and quantifiers",
+        "Logical operations and connectives"
+      ],
+      "difficulty": "Basic",
+      "title": "Negate a conjunction correctly",
+      "student_facing": {
+        "problem_statement": "Let p mean “the file is saved” and q mean “the receipt is displayed.” Write the negation of “the file is saved and the receipt is displayed” in symbolic form and in ordinary language.",
+        "given_information_and_assumptions": "The original statement is p∧q. Negation applies to the entire conjunction.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Logical operations and connectives",
+        "Validity of arguments",
+        "Truth tables"
+      ],
+      "difficulty": "Basic",
+      "title": "Interpret a conditional statement",
+      "student_facing": {
+        "problem_statement": "Let p mean “the upload completes” and q mean “a receipt appears.” The system rule is p→q. Evaluate the rule when (a) p is true and q is false, and (b) p is false and q is false. Explain each result.",
+        "given_information_and_assumptions": "Use the truth-functional meaning of material implication.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Predicates and quantifiers",
+        "Logical operations and connectives"
+      ],
+      "difficulty": "Basic",
+      "title": "Determine the truth set of a predicate",
+      "student_facing": {
+        "problem_statement": "Let the domain be D={−3,−2,−1,0,1,2,3} and let P(x) mean x²=4. List the truth set of P and decide whether ∃x∈D P(x) and ∀x∈D P(x) are true or false.",
+        "given_information_and_assumptions": "The domain is the seven listed integers. The truth set contains exactly the inputs satisfying the equation.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Logical operations and connectives",
+        "Validity of arguments",
+        "Truth tables"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Test the validity of an argument",
+      "student_facing": {
+        "problem_statement": "Consider the argument: “If the server is down, login fails. Login fails. Therefore, the server is down.” (a) Symbolize the argument. (b) Decide whether it is valid. (c) Give a truth-value assignment showing invalidity and describe another possible cause of login failure.",
+        "given_information_and_assumptions": "Let p mean “the server is down” and q mean “login fails.” The premises are p→q and q; the conclusion is p.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Predicates and quantifiers",
+        "Logical operations and connectives"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Negate a nested quantified statement",
+      "student_facing": {
+        "problem_statement": "Let S be the set of enrolled students and Q the set of quizzes. Write the negation of: “Every enrolled student has submitted at least one quiz.” Use a relation R(s,q) meaning student s submitted quiz q. Explain the meaning in words.",
+        "given_information_and_assumptions": "S and Q are nonempty. “At least one quiz” is existential; “every student” is universal.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Proofs including direct proof indirect proof contradiction and case analysis",
+        "Validity of arguments"
+      ],
+      "difficulty": "Advanced",
+      "title": "Prove a divisibility result by parity cases",
+      "student_facing": {
+        "problem_statement": "Prove that n²−n is even for every integer n. Use cases based on whether n is even or odd, and state why the cases cover all integers.",
+        "given_information_and_assumptions": "Every integer is either even or odd. Divisibility is in the integers.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-04-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Logic",
+      "topic_number": 4,
+      "syllabus_subtopics": [
+        "Logical operations and connectives",
+        "Validity of arguments",
+        "Truth tables"
+      ],
+      "difficulty": "Advanced",
+      "title": "Repair an invalid contradiction proof",
+      "student_facing": {
+        "problem_statement": "A draft proof claims: “If 3 divides n², then 3 divides n. Otherwise n is not divisible by 3, so n=3k+1. Then n² is not divisible by 3.” Identify the gap and provide a complete proof for all integers n.",
+        "given_information_and_assumptions": "Every integer has exactly one residue 0, 1, or 2 modulo 3. The claim is 3|n² ⇒ 3|n.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Fundamental counting principles"
+      ],
+      "difficulty": "Basic",
+      "title": "Apply the sum principle to exclusive choices",
+      "student_facing": {
+        "problem_statement": "A snack counter offers 3 sandwich choices and 2 soup choices. A learner will choose exactly one item, either one sandwich or one soup. How many different choices are available? Explain why addition is appropriate.",
+        "given_information_and_assumptions": "The sandwich and soup options are distinct, and exactly one item is selected.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Fundamental counting principles"
+      ],
+      "difficulty": "Basic",
+      "title": "Count ordered officer assignments",
+      "student_facing": {
+        "problem_statement": "Five candidates are eligible for chairperson and secretary. No person may hold both roles. How many different officer assignments are possible?",
+        "given_information_and_assumptions": "Chairperson and secretary are different roles. One candidate is selected for each role.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Combinations",
+        "Fundamental counting principles"
+      ],
+      "difficulty": "Basic",
+      "title": "Count unordered selections",
+      "student_facing": {
+        "problem_statement": "A study group must select 2 learners from 6 volunteers. How many different two-person groups can be formed? Explain why order does not matter.",
+        "given_information_and_assumptions": "No leadership roles are assigned. Selecting A then B is the same group as selecting B then A.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Combinations",
+        "Fundamental counting principles"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Count committees with at least one of two members",
+      "student_facing": {
+        "problem_statement": "A committee of 3 is selected from 6 candidates. Two candidates, Ana and Ben, are designated representatives. How many committees contain at least one of Ana or Ben?",
+        "given_information_and_assumptions": "All candidates are distinct; committees have no assigned roles; Ana and Ben may both be selected.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Permutations",
+        "Counting distinct and duplicate items"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Arrange a word with repeated letters",
+      "student_facing": {
+        "problem_statement": "How many distinct arrangements can be made from all five letters of the word LEVEL? Explain why a simple 5! count overcounts.",
+        "given_information_and_assumptions": "The letters are L, E, V, E, L. The two Ls are identical and the two Es are identical.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Permutations",
+        "Counting distinct and duplicate items"
+      ],
+      "difficulty": "Advanced",
+      "title": "Count arrangements with two books not adjacent",
+      "student_facing": {
+        "problem_statement": "Five distinct books are arranged on a shelf. Two particular books, A and B, must not be adjacent. How many arrangements satisfy the condition? Show the total count and the excluded count.",
+        "given_information_and_assumptions": "All five books are distinct, and left-to-right order matters.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-05-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Combinatorics",
+      "topic_number": 5,
+      "syllabus_subtopics": [
+        "Combinations",
+        "Fundamental counting principles"
+      ],
+      "difficulty": "Advanced",
+      "title": "Establish a bijection for binary strings with two ones",
+      "student_facing": {
+        "problem_statement": "Prove that the number of binary strings of length 6 containing exactly two 1s is C(6,2). Describe a bijection between the strings and two-element subsets of the six positions.",
+        "given_information_and_assumptions": "Each string has six ordered positions, and exactly two positions contain 1. All other positions contain 0.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-B02",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Counting-based probability problems",
+        "Probability of an event"
+      ],
+      "difficulty": "Basic",
+      "title": "Find an event probability on a fair die",
+      "student_facing": {
+        "problem_statement": "A fair six-sided die is rolled once. Find the probability of obtaining an even number. State the sample space and the favorable outcomes.",
+        "given_information_and_assumptions": "The die outcomes 1 through 6 are equally likely.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-B03",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Basic probability concepts",
+        "Probability of an event"
+      ],
+      "difficulty": "Basic",
+      "title": "Use a nonuniform finite probability model",
+      "student_facing": {
+        "problem_statement": "A spinner has four labeled outcomes with probabilities P(1)=0.10, P(2)=0.20, P(3)=0.30, and P(4)=0.40. Find P(X≥3) and P(X∈{2,4}).",
+        "given_information_and_assumptions": "The four outcomes are mutually exclusive and exhaustive. Their probabilities sum to 1.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-B04",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Basic probability concepts",
+        "Probability of an event"
+      ],
+      "difficulty": "Basic",
+      "title": "Apply the complement rule",
+      "student_facing": {
+        "problem_statement": "A fair die is rolled once. Find the probability that the result is not 1 or 2. Use the complement rule and verify by listing favorable outcomes.",
+        "given_information_and_assumptions": "The six outcomes are equally likely.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-I02",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Sample spaces and events",
+        "Counting-based probability problems"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Calculate a probability without replacement",
+      "student_facing": {
+        "problem_statement": "A box contains 5 red cards and 3 blue cards. Two cards are drawn at random without replacement. Find the probability that both cards are red. Show the changing denominator.",
+        "given_information_and_assumptions": "Each card is equally likely at each draw. The first card is not returned before the second draw.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-I03",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Counting-based probability problems",
+        "Probability of an event"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Partition an event into disjoint dice outcomes",
+      "student_facing": {
+        "problem_statement": "Two fair six-sided dice are rolled. Find the probability that the sum is 7 or the two dice show a double. Show why the two event groups are disjoint.",
+        "given_information_and_assumptions": "Ordered outcomes are used, so the sample space has 36 equally likely pairs.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-A02",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Sample spaces and events",
+        "Counting-based probability problems"
+      ],
+      "difficulty": "Advanced",
+      "title": "Compare two random-selection mechanisms",
+      "student_facing": {
+        "problem_statement": "A container has 2 red and 2 blue tokens. Compare: (A) selecting 2 tokens uniformly without replacement, and (B) drawing twice with replacement. For each mechanism, find the probability that the two selected colors match. Explain why the answers differ.",
+        "given_information_and_assumptions": "Every token is equally likely at each draw. In mechanism A, the two selected physical tokens are distinct. In mechanism B, the first token is returned before the second draw.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "DM-06-A03",
+      "subject": "Discrete Mathematics",
+      "topic": "Discrete Probability",
+      "topic_number": 6,
+      "syllabus_subtopics": [
+        "Sample spaces and events",
+        "Counting-based probability problems"
+      ],
+      "difficulty": "Advanced",
+      "title": "Test an apparent symmetry claim in an unequal urn",
+      "student_facing": {
+        "problem_statement": "An urn contains 3 red tokens and 2 blue tokens. Two tokens are selected uniformly without replacement. A learner claims that “both red” and “both blue” are equally likely because both events describe matching colors. Compute both probabilities and evaluate the claim.",
+        "given_information_and_assumptions": "All unordered pairs of distinct physical tokens are equally likely.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Images and pre-images"
+      ],
+      "difficulty": "Basic",
+      "title": "Find a preimage in a finite function",
+      "student_facing": {
+        "problem_statement": "Let A={0,1,2,3,4} and define f:A→ℤ by f(x)=x+2. Find the preimage f⁻¹({4}) and state the image f(A).",
+        "given_information_and_assumptions": "The domain is exactly A. The preimage contains domain elements whose function value is 4.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Limits",
+        "Types and properties of functions"
+      ],
+      "difficulty": "Basic",
+      "title": "Evaluate an elementary limit by factoring",
+      "student_facing": {
+        "problem_statement": "Evaluate limₓ→2 (x²−4)/(x−2). Show why direct substitution is insufficient and identify the simplified expression near x=2.",
+        "given_information_and_assumptions": "The limit concerns x values near 2 with x≠2. The expression is not defined at x=2 before simplification.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Derivatives"
+      ],
+      "difficulty": "Basic",
+      "title": "Differentiate a polynomial using the power rule",
+      "student_facing": {
+        "problem_statement": "Find f′(x) for f(x)=5x³−2x²+7. Show the derivative of each term.",
+        "given_information_and_assumptions": "Differentiate with respect to x. The derivative of a constant is zero.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Derivatives"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Recover an antiderivative from an initial value",
+      "student_facing": {
+        "problem_statement": "A function f satisfies f′(x)=6x−4 and f(1)=3. Find an explicit formula for f(x). Verify your result by differentiation and substitution.",
+        "given_information_and_assumptions": "f is differentiable on the real numbers. The initial condition is f(1)=3.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Maximum and minimum values",
+        "Derivatives"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Optimize a function when the maximum may be at a boundary",
+      "student_facing": {
+        "problem_statement": "A rectangular garden uses a wall as one side, so fencing is needed for the other three sides. Let x be the width and let the fenced length be 20−2x metres. A site rule restricts 0≤x≤4. Maximize A(x)=x(20−2x) on this interval and state the dimensions.",
+        "given_information_and_assumptions": "The area function is defined on the closed feasible interval [0,4]. Width and length must be nonnegative.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Antiderivatives"
+      ],
+      "difficulty": "Advanced",
+      "title": "Analyze a rational function with a vertical asymptote",
+      "student_facing": {
+        "problem_statement": "Analyze f(x)=(x+1)/(x−2). State its domain, vertical and horizontal asymptotes, x- and y-intercepts, and intervals of increase or decrease. Justify each result.",
+        "given_information_and_assumptions": "The function is considered over real x where the denominator is nonzero.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-07-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Functions",
+      "topic_number": 7,
+      "syllabus_subtopics": [
+        "Maximum and minimum values",
+        "Derivatives"
+      ],
+      "difficulty": "Advanced",
+      "title": "Optimize a parameterized function with a restricted domain",
+      "student_facing": {
+        "problem_statement": "For a parameter a≥0, maximize A(x)=x(12−x) subject to 0≤x≤a. Find the maximizing x and maximum value A_max(a) as piecewise expressions. Explain what changes when a passes 6.",
+        "given_information_and_assumptions": "The feasible interval is [0,a]. The objective is a concave quadratic and x represents a nonnegative design variable.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Frequency distributions",
+        "Data presentation"
+      ],
+      "difficulty": "Basic",
+      "title": "Read a frequency table",
+      "student_facing": {
+        "problem_statement": "A class records daily study hours for six learners: 1 hour occurs 2 times, 2 hours occurs 3 times, and 3 hours occurs 1 time. Find the total frequency, the relative frequency for 2 hours, and the mode.",
+        "given_information_and_assumptions": "The frequency table is complete and each learner contributes one observation.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Measures of central tendency",
+        "Measures of position"
+      ],
+      "difficulty": "Basic",
+      "title": "Find the median from an even-sized data set",
+      "student_facing": {
+        "problem_statement": "The ordered waiting times, in minutes, are 3, 5, 7, 8, 10, and 12. Find the median and explain why two values are averaged.",
+        "given_information_and_assumptions": "The data are already in ascending order and there are six observations.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Measures of dispersion",
+        "Data presentation"
+      ],
+      "difficulty": "Basic",
+      "title": "Interpret a range with measurement units",
+      "student_facing": {
+        "problem_statement": "Four afternoon temperatures are 18°C, 21°C, 24°C, and 29°C. Find the range and explain what the result says about the spread of these observations.",
+        "given_information_and_assumptions": "The values are measurements on the Celsius scale. Range is maximum minus minimum.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Measures of central tendency",
+        "Measures of position"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Calculate quartiles and identify an outlier",
+      "student_facing": {
+        "problem_statement": "For the ordered data 2, 3, 4, 5, 6, 7, 8, 20, use the median-of-halves convention to find Q1, Q3, the interquartile range, and the 1.5×IQR outlier fences. Is 20 flagged as an outlier?",
+        "given_information_and_assumptions": "The data are ordered. For eight observations, split into the lower four and upper four; each quartile is the median of its half.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Data collection and presentation"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Compare volunteer and probability sampling",
+      "student_facing": {
+        "problem_statement": "A university wants to estimate the average weekly study time of all first-year students. It posts an optional online survey and uses the first 200 responses. Identify the sampling method and one likely source of bias. Propose a more defensible sampling design.",
+        "given_information_and_assumptions": "The target population is all first-year students. Participation in the posted survey is voluntary.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Measures of central tendency",
+        "Measures of position"
+      ],
+      "difficulty": "Advanced",
+      "title": "Audit a standardized third-moment calculation",
+      "student_facing": {
+        "problem_statement": "Treat the data 1, 1, 2, 4 as the complete population. Compute the mean, second central moment μ₂, third central moment μ₃, and moment coefficient of skewness γ₁=μ₃/(μ₂)^(3/2). Interpret the sign and approximate magnitude.",
+        "given_information_and_assumptions": "Use population moments with denominator n=4. Do not apply a sample bias correction.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-08-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Descriptive Statistics",
+      "topic_number": 8,
+      "syllabus_subtopics": [
+        "Measures of central tendency",
+        "Measures of position"
+      ],
+      "difficulty": "Advanced",
+      "title": "Analyze how a linear transformation changes variability",
+      "student_facing": {
+        "problem_statement": "Let X have population values {2,4,6}, and define Y=3X+5 for each observation. Find the means, ranges, population variances, and population standard deviations of X and Y. State which measures change under adding 5 and multiplying by 3.",
+        "given_information_and_assumptions": "Use population variance with denominator n=3. Apply the transformation to every observation.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Events and their probabilities",
+        "Assigning probabilities to outcomes"
+      ],
+      "difficulty": "Basic",
+      "title": "Add probabilities of disjoint events",
+      "student_facing": {
+        "problem_statement": "A fair six-sided die is rolled once. Let A={1,2} and B={5,6}. Find P(A∪B) and explain why the probabilities can be added directly.",
+        "given_information_and_assumptions": "The six die outcomes are equally likely. A and B have no outcomes in common.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Events and their probabilities",
+        "Assigning probabilities to outcomes"
+      ],
+      "difficulty": "Basic",
+      "title": "Use a complement in a probability context",
+      "student_facing": {
+        "problem_statement": "A box contains 4 green counters and 3 yellow counters. One counter is selected at random. Find the probability that the selected counter is not yellow. Use the complement rule.",
+        "given_information_and_assumptions": "Every counter is equally likely to be selected. Each counter has exactly one of the two colors.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Basic probability relationships",
+        "Events and their probabilities"
+      ],
+      "difficulty": "Basic",
+      "title": "Choose the denominator in conditional probability",
+      "student_facing": {
+        "problem_statement": "Among 30 participants, 18 use a study app, 12 completed a practice task, and 9 both use the app and completed the task. Find the probability that a participant completed the task given that the participant uses the app.",
+        "given_information_and_assumptions": "A participant is selected from the group of app users. The condition “uses the app” defines the restricted reference group.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Basic probability relationships",
+        "Events and their probabilities"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Use a contingency table to test independence",
+      "student_facing": {
+        "problem_statement": "A survey of 50 learners records study time and task completion. There are 30 morning learners and 20 evening learners. Of the morning learners, 18 passed; of the evening learners, 6 passed. Find P(pass|morning) and P(pass). Are passing and being a morning learner independent?",
+        "given_information_and_assumptions": "Each learner belongs to exactly one study-time group. There are 24 passes in total.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Basic probability relationships",
+        "Events and their probabilities"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Construct a counterexample to independence",
+      "student_facing": {
+        "problem_statement": "A fair die is rolled once. Let A be the event that the result is even and B the event that the result is greater than 3. Find P(A), P(B), P(A∩B), and decide whether A and B are independent.",
+        "given_information_and_assumptions": "The sample space is {1,2,3,4,5,6}, with equally likely outcomes.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Bayes theorem",
+        "Basic probability relationships"
+      ],
+      "difficulty": "Advanced",
+      "title": "Use Bayes' theorem with three suppliers",
+      "student_facing": {
+        "problem_statement": "A factory receives 50% of its parts from supplier A, 30% from B, and 20% from C. Their defect rates are 1%, 2%, and 5%, respectively. A randomly selected part is defective. Find the probability it came from supplier C. Show the total-probability denominator.",
+        "given_information_and_assumptions": "Each part comes from exactly one supplier. The stated defect rates are conditional on supplier source.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-09-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Probability",
+      "topic_number": 9,
+      "syllabus_subtopics": [
+        "Bayes theorem",
+        "Basic probability relationships"
+      ],
+      "difficulty": "Advanced",
+      "title": "Analyze posterior probability as the prior changes",
+      "student_facing": {
+        "problem_statement": "A screening test has sensitivity 0.90 and false-positive rate 0.10. Let p be disease prevalence. (a) Derive P(disease|positive) as a function of p. (b) Evaluate it for p=0.01 and p=0.10. (c) Find the prevalence at which a positive result is at least 50% likely to indicate disease.",
+        "given_information_and_assumptions": "Sensitivity=P(+|D)=0.90; false-positive rate=P(+|not D)=0.10. The population is partitioned into diseased and non-diseased people.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Binomial distribution",
+        "Random variables"
+      ],
+      "difficulty": "Basic",
+      "title": "Check whether a binomial model applies",
+      "student_facing": {
+        "problem_statement": "A quality inspector checks 8 independently selected items. Each item has a 0.20 probability of being defective, and the item is classified as defective or not defective. Let X be the number of defective items. State the distribution of X and its parameters, and identify the binomial conditions.",
+        "given_information_and_assumptions": "The sample size is fixed at 8. The defect probability is constant and item outcomes are independent.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Poisson distribution",
+        "Discrete distributions"
+      ],
+      "difficulty": "Basic",
+      "title": "Convert a Poisson rate to the requested time interval",
+      "student_facing": {
+        "problem_statement": "A help desk receives an average of 2 calls every 10 minutes. Let X be the number of calls in a 15-minute interval. State the Poisson parameter λ for that interval and find P(X=0).",
+        "given_information_and_assumptions": "Calls follow a Poisson process with a constant average rate. The interval length is 15 minutes.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Continuous distributions",
+        "Random variables"
+      ],
+      "difficulty": "Basic",
+      "title": "Distinguish a point probability from an interval probability",
+      "student_facing": {
+        "problem_statement": "Let X be uniformly distributed on [0,10]. Find P(X=4) and P(3<X<5). Explain why the two answers differ.",
+        "given_information_and_assumptions": "For a uniform distribution on [0,10], probability is proportional to interval length.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Hypergeometric distribution",
+        "Discrete distributions"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Choose a hypergeometric model without replacement",
+      "student_facing": {
+        "problem_statement": "A shipment contains 12 components, of which 4 are defective and 8 are good. An inspector selects 3 components without replacement. Find the probability that exactly one selected component is defective.",
+        "given_information_and_assumptions": "The sample is drawn uniformly without replacement. The number of defective components in the shipment is fixed.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Normal distribution",
+        "Continuous distributions"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Find a normal-distribution percentile",
+      "student_facing": {
+        "problem_statement": "A measurement X is normally distributed with mean 70 and standard deviation 10. The 84.13th percentile of the standard normal distribution is approximately z=1.00. Estimate the 84.13th percentile of X.",
+        "given_information_and_assumptions": "X~N(70,10²). Use the supplied standard-normal percentile z=1.00.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Trinomial distribution",
+        "Discrete distributions"
+      ],
+      "difficulty": "Advanced",
+      "title": "Analyze multinomial category counts and dependence",
+      "student_facing": {
+        "problem_statement": "Each of 5 independent trials results in category A, B, or C with probabilities 0.50, 0.30, and 0.20. Let N_A,N_B,N_C be the category counts. Find P(N_A=2,N_B=2,N_C=1). Then compute Cov(N_A,N_B) and explain why the counts are not independent.",
+        "given_information_and_assumptions": "Trials are independent and each trial has exactly one of the three categories. The total count is fixed at 5.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-10-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Probability Distributions",
+      "topic_number": 10,
+      "syllabus_subtopics": [
+        "Binomial distribution",
+        "Random variables"
+      ],
+      "difficulty": "Advanced",
+      "title": "Evaluate an exact-versus-Poisson approximation",
+      "student_facing": {
+        "problem_statement": "A batch has 20 independent items, each defective with probability 0.03. Let X be the number of defective items. Compare the exact binomial value of P(X=0) with the Poisson approximation using λ=np. Is the absolute error below 0.01? Explain why the approximation is reasonable or not.",
+        "given_information_and_assumptions": "The number of trials is fixed at n=20 and each item has the same independent defect probability p=0.03.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Descriptive and prescriptive approaches"
+      ],
+      "difficulty": "Basic",
+      "title": "Distinguish descriptive and prescriptive statements",
+      "student_facing": {
+        "problem_statement": "A school report contains two statements: (1) “Thirty-five percent of students missed at least one deadline last term.” (2) “The school should introduce weekly progress reminders.” Identify which statement is descriptive and which is prescriptive. Explain the difference.",
+        "given_information_and_assumptions": "A descriptive statement reports or summarizes what is observed. A prescriptive statement recommends what should be done.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Descriptive and prescriptive approaches"
+      ],
+      "difficulty": "Basic",
+      "title": "Classify qualitative and quantitative evidence",
+      "student_facing": {
+        "problem_statement": "A student committee collects two kinds of evidence: (a) 18 of 25 surveyed students prefer afternoon consultations; (b) interview comments such as “the room feels too crowded.” Classify each as quantitative or qualitative evidence and explain what each can contribute.",
+        "given_information_and_assumptions": "Quantitative evidence is expressed numerically. Qualitative evidence describes experiences, meanings, or characteristics.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Problem-solving and decision-making"
+      ],
+      "difficulty": "Basic",
+      "title": "Identify alternatives in a decision problem",
+      "student_facing": {
+        "problem_statement": "A campus wants to reduce single-use plastic bottle waste. Identify three distinct alternatives the campus could consider. For each alternative, state one criterion that could be used to compare it.",
+        "given_information_and_assumptions": "An alternative is a possible course of action available to the decision maker. A criterion is a basis for evaluating alternatives.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Problem-solving and decision-making"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Apply a feasibility screen before scoring",
+      "student_facing": {
+        "problem_statement": "A department needs a laptop costing no more than ₱20,000 with battery life of at least 8 hours. Four options are: A ₱18,000 and 7 hours; B ₱21,000 and 10 hours; C ₱19,000 and 9 hours; D ₱17,000 and 8 hours. Identify the feasible options and explain why the other options must be rejected before weighted scoring.",
+        "given_information_and_assumptions": "Both requirements are mandatory: price≤₱20,000 and battery life≥8 hours. Meeting one cannot compensate for violating the other.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Problem-solving and decision-making"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Evaluate alternatives with a weighted decision matrix",
+      "student_facing": {
+        "problem_statement": "A committee rates two scheduling systems from 1 to 10. Weights are reliability 0.50, ease of use 0.30, and cost suitability 0.20. System P scores 8, 7, 6; System Q scores 7, 9, 8. Compute each weighted score and identify the higher-scoring system. State one limitation of the result.",
+        "given_information_and_assumptions": "All criteria use the same 1–10 scale and higher ratings are preferred. The supplied weights sum to 1.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Problem-solving and decision-making"
+      ],
+      "difficulty": "Advanced",
+      "title": "Test sensitivity to uncertain criterion weights",
+      "student_facing": {
+        "problem_statement": "Two alternatives are rated on cost suitability and reliability. Alternative A scores 9 on cost and 6 on reliability. Alternative B scores 7 on cost and 9 on reliability. Let w be the weight on reliability, so cost has weight 1−w. Analyze the preferred alternative for 0.40≤w≤0.60. Identify the break-even weight.",
+        "given_information_and_assumptions": "Ratings are fixed. Weights are nonnegative and sum to 1. Higher weighted score is preferred.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-11-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Introduction to Decision Making",
+      "topic_number": 11,
+      "syllabus_subtopics": [
+        "Decision-making tools and models",
+        "Problem-solving and decision-making"
+      ],
+      "difficulty": "Advanced",
+      "title": "Critique a compensatory model with mandatory requirements",
+      "student_facing": {
+        "problem_statement": "A scholarship committee must require applicants to meet both a minimum GPA of 3.0 and a completed service requirement. Applicant A has GPA 3.8, strong interview and excellent recommendations but has not completed the service requirement. Applicant B has GPA 3.2 and meets the service requirement. Explain why a weighted score that ranks A first may be invalid, and propose a defensible decision procedure.",
+        "given_information_and_assumptions": "The service requirement and minimum GPA are mandatory eligibility conditions, not preferences.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-B02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Problem formulation",
+        "Decisions with and without probabilities"
+      ],
+      "difficulty": "Basic",
+      "title": "Identify decision alternatives and states of nature",
+      "student_facing": {
+        "problem_statement": "A campus store must decide whether to stock a small or large quantity of umbrellas before the rainy season. Actual demand may be high or low. Identify the decision alternatives and the states of nature. Explain which items are controlled by the store and which are uncertain.",
+        "given_information_and_assumptions": "The store chooses the stock quantity before demand is known. Demand is not controlled by the store.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-B03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Computing branch probabilities",
+        "Decision trees"
+      ],
+      "difficulty": "Basic",
+      "title": "Read probabilities along a decision tree",
+      "student_facing": {
+        "problem_statement": "A demand forecast has two possible signals: positive with probability 0.40 and negative with probability 0.60. Given a positive signal, high demand has probability 0.75. Given a negative signal, high demand has probability 0.20. Find the probability of (a) a positive signal and high demand and (b) high demand overall.",
+        "given_information_and_assumptions": "The signal branches are mutually exclusive and exhaustive. Conditional probabilities are read within their stated signal branch.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-B04",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Expected values",
+        "Relevant decision criteria"
+      ],
+      "difficulty": "Basic",
+      "title": "Calculate an expected payoff",
+      "student_facing": {
+        "problem_statement": "A store considers two stocking plans. High demand has probability 0.40 and low demand has probability 0.60. Plan A pays ₱100,000 under high demand and ₱10,000 under low demand. Plan B pays ₱70,000 under high demand and ₱40,000 under low demand. Compute the expected payoff of each plan and identify the higher expected payoff.",
+        "given_information_and_assumptions": "The two demand states are mutually exclusive and exhaustive. Payoffs are net amounts in pesos.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-I02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Expected values",
+        "Relevant decision criteria"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Compare expected value with minimax regret",
+      "student_facing": {
+        "problem_statement": "Two plans have the following payoffs: Plan A earns 100 in high demand and 20 in low demand; Plan B earns 70 in high demand and 60 in low demand. P(high)=0.60 and P(low)=0.40. (a) Choose by expected value. (b) Choose by minimax regret. Explain any difference.",
+        "given_information_and_assumptions": "Payoffs are in the same units. Regret in each state is the best payoff in that state minus the payoff of the selected plan.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-I03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Computing branch probabilities",
+        "Decision trees"
+      ],
+      "difficulty": "Intermediate",
+      "title": "Use a simple signal tree to revise a decision",
+      "student_facing": {
+        "problem_statement": "A shop chooses between a high-stock and low-stock plan. High demand pays 100 under high stock and −40 under low demand; low stock pays 50 under high demand and 30 under low demand. A forecast is high or low with equal probability 0.50. Given a high forecast, P(high demand)=0.70; given a low forecast, P(high demand)=0.10. Find the best action after each signal and the expected payoff when the signal is used. Compare with the best expected payoff without the signal.",
+        "given_information_and_assumptions": "Forecast branches are mutually exclusive. The stated conditional probabilities are calibrated so P(high demand)=0.50(0.70)+0.50(0.10)=0.40.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-A02",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Expected values",
+        "Relevant decision criteria"
+      ],
+      "difficulty": "Advanced",
+      "title": "Find the maximum price worth paying for sample information",
+      "student_facing": {
+        "problem_statement": "A company must choose whether to launch a product. If demand is high, launch earns 100; if demand is low, launch loses 50. Not launching earns 0 in either state. Prior probabilities are P(high)=0.40 and P(low)=0.60. A market signal has P(+)=0.50, P(−)=0.50, P(high|+)=0.70, and P(high|−)=0.10. Find the best expected payoff without the signal, the expected payoff with the signal before its cost, the expected value of sample information (EVSI), and the maximum price the company should pay for the signal.",
+        "given_information_and_assumptions": "The signal probabilities and conditional demand probabilities are given. The signal cost is paid regardless of which signal occurs.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    },
+    {
+      "problem_id": "QM-12-A03",
+      "subject": "Quantitative Methods with Probability and Statistics",
+      "topic": "Decision Analysis",
+      "topic_number": 12,
+      "syllabus_subtopics": [
+        "Computing branch probabilities",
+        "Decision trees"
+      ],
+      "difficulty": "Advanced",
+      "title": "Audit a decision tree with a costly imperfect test",
+      "student_facing": {
+        "problem_statement": "A unit is defective with prior probability 0.20. An inspection test has sensitivity 0.90 and false-positive rate 0.10. The test costs 2 units. After testing, the manager may replace the unit or keep it. Replacing yields +40 if defective and −20 if not defective; keeping yields −100 if defective and 0 if not defective. (a) Find P(positive) and P(defective|positive). (b) Find P(defective|negative). (c) Determine the best action after each signal. (d) Decide whether testing is worthwhile compared with acting without a test.",
+        "given_information_and_assumptions": "Sensitivity=P(+|D)=0.90; false-positive rate=P(+|not D)=0.10; P(D)=0.20. Test cost is incurred for every inspected unit.",
+        "response_instruction": "Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome."
+      }
+    }
+  ]
+}

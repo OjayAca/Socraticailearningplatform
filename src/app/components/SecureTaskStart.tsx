@@ -1,5 +1,5 @@
 import { loadView, peekView } from "@/lib/view-cache";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router";
 import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
@@ -20,6 +20,8 @@ import {
 } from "@/lib/secure-api";
 import { secureErrorMessage } from "@/lib/secure-error";
 import { useAuthStore } from "@/stores/auth-store";
+import { MathInput } from "./MathInput";
+import { customGuidance } from "@/lib/learning/custom-problem-config";
 import { StudentShell } from "./StudentShell";
 
 async function loadTaskSetup(userId: string) {
@@ -43,6 +45,8 @@ export function SecureTaskStart() {
   const [topicId, setTopicId] = useState(cached?.catalog.topics.find(topic => topic.subjectId === cached.catalog.subjects[0]?.id)?.id ?? "");
   const [difficulty, setDifficulty] = useState<Difficulty>("Basic");
   const [question, setQuestion] = useState("");
+  const [questionLatex, setQuestionLatex] = useState("");
+  const submitting = useRef(false);
   const [consented, setConsented] = useState<boolean | null>(cached?.consented ?? null);
   const [notice, setNotice] = useState<GetCurrentConsentNoticeResponse | null>(cached?.notice ?? null);
   const [topicRecommendations, setTopicRecommendations] = useState<Record<string, AdaptiveRecommendation>>(cached?.topicRecommendations ?? {});
@@ -83,6 +87,7 @@ export function SecureTaskStart() {
   }, [userId, loadAttempt]);
 
   const selectedTopic = catalog?.topics.find((topic) => topic.id === topicId) ?? null;
+  const guidance = customGuidance(topicId);
   const adaptiveRecommendation = useMemo<AdaptiveRecommendation>(() =>
     topicRecommendations[topicKey(selectedTopic?.name ?? "")] ?? {
       recommendedDifficulty: "Basic",
@@ -106,24 +111,26 @@ export function SecureTaskStart() {
   }
 
   async function begin() {
-    if (!topicId) return;
+    if (submitting.current || loading || !topicId || (mode === "free_form" && (!guidance || question.trim().length < 8 || questionLatex.length > 2000))) return;
+    submitting.current = true;
     setError(null);
     setLoading(true);
     try {
       let confirmationHash: string | undefined;
       if (mode === "free_form") {
-        const preview = await previewVerifiedProblem({ topicId, question: question.trim(), requestedDifficulty: difficulty });
+        const preview = await previewVerifiedProblem({ topicId, question: question.trim(), ...(questionLatex ? { questionLatex } : {}), requestedDifficulty: difficulty });
         confirmationHash = preview.confirmationHash;
       }
       const result = await startLearningSession(
         mode === "curated"
           ? { mode, topicId }
-          : { mode, topicId, question: question.trim(), requestedDifficulty: difficulty, confirmationHash }
+          : { mode, topicId, question: question.trim(), ...(questionLatex ? { questionLatex } : {}), requestedDifficulty: difficulty, confirmationHash }
       );
       navigate(`/session/${result.session.id}/learn`);
     } catch (cause) {
       setError(secureErrorMessage(cause, "The secure session could not be started."));
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   }
@@ -228,13 +235,15 @@ export function SecureTaskStart() {
                   <p className="mt-1 text-sm text-indigo-900 dark:text-indigo-200">{adaptiveRecommendation.reason}</p>
                 </div>
               ) : (
-                <label className="block text-sm font-bold">Keyboard-entered problem
-                  <span className="block text-sm font-normal">Typed problems currently support mean, median, or mode in Descriptive Statistics, and product, permutation, or combination in Combinatorics. Other topics require separately validated prepared problems.</span>
-                  <textarea required value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={2000} rows={5} placeholder="Examples: mean: 4, 8, 12 or combination: 8, 3" className="mt-2 w-full rounded-lg border p-3 font-normal" />
-                </label>
+                <div className="space-y-3">
+                  {guidance ? <><p>Supported problem types: {guidance.types}</p><p>Example: {guidance.example}</p><p className="text-sm">{guidance.limitation}</p></> : <p>Custom problems are not supported for this topic. Choose a prepared problem or another approved topic.</p>}
+                  <p className="text-sm">For optional notation, place [math] once in your sentence, for example: Given f(x) = [math], find f(5). Both fields are validated together.</p>
+                  <MathInput label="Keyboard-entered problem" maxLength={2000} disabled={loading} value={{ plainText: question, latex: questionLatex }} onChange={value => { setQuestion(value.plainText); setQuestionLatex(value.latex ?? ''); }} explanationPlaceholder={guidance?.example} />
+                  {questionLatex.length > 2000 && <p role="alert">Notation must be at most 2000 characters.</p>}
+                </div>
               )}
               {error && <ErrorMessage message={error} />}
-              <button disabled={loading || !topicId || (mode === "free_form" && question.trim().length < 8)} onClick={() => void begin()} className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
+              <button disabled={loading || !topicId || (mode === "free_form" && (!guidance || question.trim().length < 8 || questionLatex.length > 2000))} onClick={() => void begin()} className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
                 {loading ? "Starting secure session..." : mode === "curated" ? "Assign my prepared problem" : "Validate and start"}
               </button>
             </>

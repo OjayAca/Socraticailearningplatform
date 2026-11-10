@@ -13,6 +13,7 @@ export default tseslint.config(
       "next-env.d.ts",
       "functions/lib/**",
       "migration-backups/**",
+      ".local-backups/**",
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",

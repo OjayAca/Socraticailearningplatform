@@ -1,0 +1,35 @@
+{
+  "checkedAt": "2026-10-28T15:16:00.579Z",
+  "case": "arithmetic",
+  "problemId": "QM-07-B01",
+  "model": "gemini-3.5-flash-lite",
+  "liveGemini": true,
+  "liveFirestoreReference": true,
+  "learnerSessionWritten": false,
+  "quotaReservationWritten": true,
+  "passed": true,
+  "initialResponse": "f(-2)=-4 and f(-1)=-1, image {-4,0,1}, preimage {1,2}. It is injective because all five outputs differ.",
+  "result": {
+    "feedback": "You calculated f(-2) incorrectly (remember that squaring a negative number results in a positive) and missed some elements for the preimage and injectivity check.",
+    "question": "When calculating f(-2) for $f(x) = x^2$, what is $(-2)^2$? Also, looking at the entire domain $\\{-2, -1, 0, 1, 2\\}$, which inputs map into the target set $\\{1, 4\\}$ for the preimage?",
+    "accepted": false,
+    "confidence": "high",
+    "category": "computational_error",
+    "evidence": [
+      "f(-2)=-4 and f(-1)=-1, image {-4,0,1}, preimage {1,2}. It is injective because all five outputs differ."
+    ],
+    "intent": "answer",
+    "leaksSolution": false,
+    "incorrectStep": "f(-2)=-4 and f(-1)=-1",
+    "explanation": "The student computed the square of negative numbers incorrectly, leading to wrong values in the image set and a flawed injectivity conclusion.",
+    "recommendedAction": "Ask the student to re-evaluate the squares of -2 and -1, and re-examine all input values that map to the target set {1, 4}."
+  },
+  "deterministicDiagnosis": {
+    "category": "computational_error",
+    "incorrectStep": "f(-2)=-4",
+    "confidence": "high",
+    "explanation": "The stated function squares its input. The asserted output does not equal that input multiplied by itself.",
+    "correctivePrompt": "In f(-2)=-4, write the input as two identical factors. What sign results when you multiply them?",
+    "recommendedAction": "Recalculate this function value, then check the image and preimage using the corrected mapping."
+  }
+}

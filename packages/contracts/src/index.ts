@@ -157,6 +157,7 @@ export type DiagnosisCategory =
   | "weak_justification"
   | "skipped_reasoning"
   | "unsupported_response"
+  | "unrecognized_alternative"
   | "none";
 
 export type DiagnosisSeverity = "minor" | "moderate" | "major";
@@ -187,6 +188,9 @@ export interface GateEvaluation {
 }
 
 export interface DiagnosisResult {
+  incorrectStep?: string | null;
+  explanation?: string;
+  recommendedAction?: string;
   category: DiagnosisCategory;
   evidence: string[];
   confidence: Confidence;
@@ -280,6 +284,8 @@ export interface SessionProjection {
   difficulty: Difficulty;
   problemId: string | null;
   originalQuestion: string;
+  originalProblemText?: string;
+  originalProblemLatex?: string;
   status: SessionStatus;
   currentPhase: WorkflowPhase;
   currentStage: SolverStage;
@@ -330,6 +336,7 @@ export interface FreeFormLearningSessionInput {
   mode: "free_form";
   topicId: string;
   question: string;
+  questionLatex?: string;
   requestedDifficulty: Difficulty;
   confirmationHash?: string;
 }

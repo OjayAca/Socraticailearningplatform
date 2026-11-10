@@ -1,0 +1,28 @@
+{
+  "checkedAt": "2026-10-26T11:58:50.618Z",
+  "projectId": "socratic-ai-a7765",
+  "problemId": "QM-07-B01",
+  "status": "in_progress",
+  "difficulty": "Basic",
+  "currentPhase": "problem_understanding",
+  "originalQuestionMatches": true,
+  "pinnedReferenceMatches": true,
+  "gates": {
+    "problem_understanding": "pending",
+    "relevant_information_identification": "locked",
+    "method_selection": "locked",
+    "formula_theorem_justification": "locked",
+    "guided_computation_or_proof": "locked",
+    "verification_and_checking": "locked",
+    "result_interpretation": "locked"
+  },
+  "responseCount": 0,
+  "responseEvaluations": [],
+  "supportUsage": 0,
+  "solutionReleased": false,
+  "scorecardTotal": null,
+  "persistedScorecards": 0,
+  "scorecardMatchesSavedRecord": null,
+  "statsCommitted": false,
+  "sessionsCompleted": 2
+}

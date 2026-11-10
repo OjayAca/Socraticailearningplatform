@@ -1,0 +1,34 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Logic
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Problem Understanding
+  - generic: 0%
+  - progressbar "Learning progress"
+- generic "Session details"
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: This problem asks you to evaluate a logical expression given specific truth values for its components. What is the goal of this problem? What is the goal of this problem?
+  - article "You":
+    - generic: You
+    - generic: We must determine the truth value of p AND q. We are given p is true and q is false, so those are the two Boolean inputs to the conjunction.
+  - article "AI tutor":
+    - generic: MG
+    - generic: "You have correctly identified the goal: to find the truth value of 'p AND q'. You have also correctly identified the given information: p is true and q is false. This shows a good understanding of the problem. What is the logical connective in the expression 'p AND q', and what is its truth table?"
+- alert:
+  - generic: The shared free AI allowance is in use. Your work is preserved; try again later.
+  - button "Reload saved progress"
+- contentinfo:
+  - button "I need a hint":
+    - text: I need a hint
+  - button "Add equation"
+  - textbox "Message your tutor" [active]:
+    - /placeholder: Type your response here…
+    - text: The goal is the truth value of the conjunction p AND q, with p=true and q=false. The AND rule requires both operands to be true for a true result. Its cases are TT true, TF false, FT false, FF false.
+  - button "Send message":
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

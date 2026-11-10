@@ -27,6 +27,18 @@ if (existsSync(pilotBank)) {
   }
 }
 const files = walk(dist).filter((file) => [".js", ".mjs", ".html", ".css", ".map"].includes(extname(file)));
+// Full-length protected text from the two real banks. Short answers such as "0"
+// are not distinguishing markers; direct document access is checked by rules.
+const bankStrings = new Set();
+for (const path of ["scripts/data/E_MINDGUIDE_Problem_Bank.json", "docs/question-bank-expansion/MINDGUIDE_84_Question_Expansion.json"]) {
+  const { problems } = JSON.parse(readFileSync(join(root,path),"utf8"));
+  for (const {instructor_only:i} of problems) {
+    for (const s of [i.expected_final_answer,i.expected_reasoning,...i.step_by_step_solution,...i.socratic_stages.map(stage=>stage.expected_evidence)]) {
+      if (s.trim().length>=16) bankStrings.add(s.trim());
+    }
+  }
+}
+knownPrivateStrings.push(...bankStrings);
 const failures = [];
 
 for (const file of files) {

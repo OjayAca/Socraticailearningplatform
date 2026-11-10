@@ -1,0 +1,5 @@
+
+> mindguide@3.0.0 test:e2e:staging
+> node scripts/verify-staging-e2e.mjs && playwright test
+
+Staging verification requires: MINDGUIDE_E2E_BASE_URL, MINDGUIDE_E2E_STUDENT_EMAIL, MINDGUIDE_E2E_STUDENT_PASSWORD, MINDGUIDE_E2E_ADMIN_EMAIL, MINDGUIDE_E2E_ADMIN_PASSWORD. Provide dedicated staging credentials through environment secrets.

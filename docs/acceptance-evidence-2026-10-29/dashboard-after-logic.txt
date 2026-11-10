@@ -1,0 +1,99 @@
+- complementary:
+  - link "MINDGUIDE":
+    - /url: /student/dashboard
+    - text: MINDGUIDE
+  - navigation "Primary student navigation":
+    - link "Dashboard":
+      - /url: /student/dashboard
+      - text: Dashboard
+    - link "New session":
+      - /url: /student/task
+      - text: New session
+    - link "History":
+      - /url: /student/history
+      - text: History
+    - link "Notifications":
+      - /url: /student/notifications
+      - text: Notifications
+  - navigation "Student account navigation":
+    - link "Profile":
+      - /url: /student/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /student/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Orvin Jay Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Orvin Jay Acasio":
+    - /url: /student/profile
+    - generic: Orvin Jay Acasio
+    - generic: ojayacasio@gmail.com
+    - generic: OJ
+- main:
+  - region "Learning overview":
+    - paragraph: Completed
+    - paragraph: "5"
+    - paragraph: Formative average
+    - paragraph: 100/100
+    - paragraph: Current streak
+    - paragraph: 1 day
+    - paragraph: Latest scorecard
+    - paragraph: 100/100
+  - paragraph: Latest scorecard
+  - heading "Discrete Mathematics · Logic" [level=2]
+  - paragraph: Your work successfully demonstrates how to construct and compare truth tables, verify logical equivalence, and interpret the false row of an implication.
+  - generic: Guided practice
+  - heading "Ready to tackle a new problem?" [level=2]
+  - paragraph: Continue an authoritative reasoning session or review preserved learning evidence.
+  - link "Start session":
+    - /url: /student/task
+    - text: Start session
+  - heading "Recent sessions" [level=2]
+  - paragraph: Resume active work or review your preserved learning evidence.
+  - link "Discrete Mathematics Logic 100 submitted":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_d9886f73-baed-4e88-94cb-b1a34f0e348a
+    - generic: Discrete Mathematics
+    - generic: Logic
+    - generic: "100"
+    - generic: submitted
+  - link "Discrete Mathematics Speaking Mathematically 100 submitted":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_953b97c0-2f7d-48ed-8f82-cfcd491f7272
+    - generic: Discrete Mathematics
+    - generic: Speaking Mathematically
+    - generic: "100"
+    - generic: submitted
+  - link "Quantitative Methods Functions 100 submitted":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_4bc167dd-b7e7-4043-bda2-f2c3476885c7
+    - generic: Quantitative Methods
+    - generic: Functions
+    - generic: "100"
+    - generic: submitted
+  - link "Quantitative Methods Descriptive Statistics 100 submitted":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_343e9f19-b0e0-4db4-aa74-8e88a6c4b797
+    - generic: Quantitative Methods
+    - generic: Descriptive Statistics
+    - generic: "100"
+    - generic: submitted
+  - link "Discrete Mathematics Logic — expired":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_e9244d7d-cf82-480d-b43d-bb35e35ed523
+    - generic: Discrete Mathematics
+    - generic: Logic
+    - generic: —
+    - generic: expired
+  - link "Quantitative Methods Descriptive Statistics 100 submitted":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_5a6341cb-50ca-4b33-86f2-4fa6b9ac7c0e
+    - generic: Quantitative Methods
+    - generic: Descriptive Statistics
+    - generic: "100"
+    - generic: submitted
+  - link "Quantitative Methods Descriptive Statistics — expired":
+    - /url: /student/review/MTFad2RDfAWnnCIHnpeUSBPX3pg2_8ff4968a-3990-4c4c-8991-0580a4efc163
+    - generic: Quantitative Methods
+    - generic: Descriptive Statistics
+    - generic: —
+    - generic: expired
+- region "Notifications alt+T"
+- alert

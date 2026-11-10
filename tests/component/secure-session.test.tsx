@@ -129,6 +129,19 @@ describe("SecureSession AI workflow v6 workflow", () => {
 
   afterEach(cleanup);
 
+  it.each(["expired","abandoned","returned","submitted","reviewed"])("does not invent a saved scorecard for %s", async status => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session",{status,scorecard:null}));
+    renderSession();
+    expect(await screen.findByText(/No saved scorecard is available/)).toBeVisible();
+    expect(screen.queryByText(/Your saved scorecard is available/)).not.toBeInTheDocument();
+  });
+
+  it("reports the scorecard persisted with an expired session", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session",{status:"expired",scorecard:{total:80,criteria:{},generatedAt:1}}));
+    renderSession();
+    expect(await screen.findByText(/Your saved scorecard is available/)).toBeVisible();
+  });
+
   it("replaces the repeated form and retains the reveal request across retries and remounts", async () => {
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", { currentPhase:"controlled_solution_release", revision:4, draft:{answer:{plainText:"legacy answer"},methodology:"saved",reflection:"saved"} }));
     mocks.finalizeScorecard.mockRejectedValue(new Error("Please retry generation."));

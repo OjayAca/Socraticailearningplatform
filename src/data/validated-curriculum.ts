@@ -116,6 +116,12 @@ const matrix = {
 } as const;
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 export const CURRICULUM_VERSION = "validated-2026-10-16";
+/** Applies to new active learning content, never relabels historical sessions. */
+export function containsExcludedContent(value: unknown): boolean {
+  if (typeof value === "string") return /\bpigeon\s*hole\b|\bpigeonhole\b|\bregression\b/i.test(value);
+  if (Array.isArray(value)) return value.some(containsExcludedContent);
+  return !!value && typeof value === "object" && Object.values(value).some(containsExcludedContent);
+}
 export const VALIDATED_SUBJECTS = Object.keys(matrix).map(name => ({ id: slug(name), name, description: name }));
 export const VALIDATED_TOPICS = Object.entries(matrix).flatMap(([subject, topics]) => Object.entries(topics).map(([name, children]) => ({
   id: slug(`${subject}-${name}`), subjectId: slug(subject), subject, name,
@@ -131,6 +137,7 @@ export function isValidatedTopic(id: string, data: any): boolean {
   return !!topic && data?.name === topic.name && data?.subjectId === topic.subjectId && data?.subject === topic.subject;
 }
 export function assertCurriculumContent(collection: string, id: string, value: any) {
+  if (["problems", "formula_theorem_references", "socratic_prompt_bank", "difficulty_policies"].includes(collection) && containsExcludedContent(value)) throw new Error("Learning content must remain within the approved curriculum scope.");
   if (["subjects", "topics"].includes(collection) && value.status !== "approved") throw new Error("Validated curriculum entries must remain active; archive learning content separately.");
   if (collection === "subjects" && !VALIDATED_SUBJECTS.some(item => item.id === id && item.name === value.name)) throw new Error("Choose an exact validated subject and stable ID.");
   if (collection === "topics") {

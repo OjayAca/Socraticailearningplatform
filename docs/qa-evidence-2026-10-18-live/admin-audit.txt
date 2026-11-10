@@ -1,0 +1,75 @@
+- complementary:
+  - link "MINDGUIDE Admin":
+    - /url: /admin/dashboard
+    - text: MINDGUIDE
+    - generic: Admin
+  - navigation "Primary administrator navigation":
+    - link "Dashboard":
+      - /url: /admin/dashboard
+      - text: Dashboard
+    - link "Users":
+      - /url: /admin/users
+      - text: Users
+    - link "Learner progress":
+      - /url: /admin/progress
+      - text: Learner progress
+    - link "Content":
+      - /url: /admin/content/problems
+      - text: Content
+    - link "Reports":
+      - /url: /admin/reports
+      - text: Reports
+    - link "Notifications":
+      - /url: /admin/notifications
+      - text: Notifications
+    - link "Audit & AI":
+      - /url: /admin/logs
+      - text: Audit & AI
+    - link "Maintenance":
+      - /url: /admin/maintenance
+      - text: Maintenance
+  - navigation "Administrator account navigation":
+    - link "Profile":
+      - /url: /admin/profile
+      - text: Profile
+    - link "Settings":
+      - /url: /admin/settings
+      - text: Settings
+  - button "Sign out":
+    - text: Sign out
+- banner:
+  - heading "Welcome, Levi Acasio" [level=1]
+  - button "Switch to dark theme":
+  - link "Open profile for Levi Acasio":
+    - /url: /admin/profile
+    - generic: Levi Acasio
+    - generic: leviacasio45@gmail.com
+    - generic: LA
+- main:
+  - heading "Activity and Legacy AI Logs" [level=1]
+  - paragraph: Review application administrative events and existing AI failure records. The current practice engine does not call a live AI service. These logs do not cover external Firebase Console actions.
+  - heading "Audit events" [level=2]:
+    - text: Audit events
+  - paragraph: adminExportReport
+  - paragraph: activity
+  - paragraph: adminExportReport
+  - paragraph: activity
+  - paragraph: adminArchiveContent
+  - paragraph: formula_theorem_references/qa-baseline-20261018-mean-reference
+  - paragraph: content_upsert
+  - paragraph: formula_theorem_references/qa-baseline-20261018-mean-reference
+  - paragraph: content_upsert
+  - paragraph: formula_theorem_references/qa-baseline-20261018-mean-reference
+  - paragraph: legacy_admin_access_migration
+  - paragraph: users/K3tkND3lWdhgO57MUE5FWbo0a9J3
+  - paragraph: adminSetPilot
+  - paragraph: system_settings/pilot
+  - paragraph: adminPilotRoster
+  - paragraph: MTFad2RDfAWnnCIHnpeUSBPX3pg2
+  - heading "Legacy AI failures" [level=2]:
+    - text: Legacy AI failures
+  - paragraph: No log entries found.
+  - button "Refresh logs"
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

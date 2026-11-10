@@ -4,6 +4,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { loadOperatorCredentials } from "./lib/operator-auth";
 import { contentHash } from "../src/lib/learning/content-hash";
 import { findForbiddenPublicKeys } from "../src/lib/learning/validation";
+import { assertCurriculumContent, containsExcludedContent, VALIDATED_TOPICS } from "../src/data/validated-curriculum";
 
 // Read-only: never creates questions, consent, approvals, sessions, or emulator data.
 const source = await readFile(".env", "utf8");
@@ -15,23 +16,31 @@ await loadOperatorCredentials();
 initializeApp({ projectId: project, credential: applicationDefault() });
 const db = getFirestore();
 const [problems, topics, privacy, pilot] = await Promise.all([db.collection("problems").where("status","==","approved").get(),db.collection("topics").where("status","==","approved").get(),db.doc("system_settings/privacy").get(),db.doc("system_settings/pilot").get()]);
-const valid: Array<{topic:string;difficulty:string;concepts:string}> = [];
+const valid: Array<{topic:string;difficulty:string}> = [];
 const gaps: string[] = [];
 for (const problem of problems.docs) {
+  try { assertCurriculumContent("problems", problem.id, problem.data()); }
+  catch { gaps.push(`${problem.id}: content is outside the approved curriculum`); continue; }
   const id = problem.get("validationRecordId");
   if (typeof id !== "string" || !id || id.includes("/")) { gaps.push(`${problem.id}: missing recorded approval`); continue; }
   const [approval, reference] = await Promise.all([db.doc(`content_validation_records/${id}`).get(),db.doc(`problem_scoring/${problem.id}`).get()]);
   if (findForbiddenPublicKeys(problem.data()).length) gaps.push(`${problem.id}: protected fields exist in public problem document`);
   if (approval.get("decision") !== "approved" || approval.get("problemId") !== problem.id || approval.get("problemVersion") !== problem.get("version") || reference.get("problemVersion") !== problem.get("version") || reference.get("validationRecordId") !== id) { gaps.push(`${problem.id}: approval/reference version mismatch`); continue; }
   if (approval.get("scoringSnapshotHash") && await contentHash(reference.data()) !== approval.get("scoringSnapshotHash")) { gaps.push(`${problem.id}: approved scoring snapshot changed`); continue; }
+  if (containsExcludedContent(reference.data())) { gaps.push(`${problem.id}: protected reference is outside the approved curriculum`); continue; }
   if (!reference.get("solutionSteps")?.length || !reference.get("expectedConcepts")?.length || !reference.get("finalAnswer") || !reference.get("interpretation")) { gaps.push(`${problem.id}: incomplete worked reference`); continue; }
-  valid.push({topic:problem.get("topicId"),difficulty:problem.get("difficulty"),concepts:JSON.stringify([problem.get("topic"),reference.get("expectedConcepts"),reference.get("requiredTheorem"),reference.get("requiredFormula")]).toLowerCase()});
+  valid.push({topic:problem.get("topicId"),difficulty:problem.get("difficulty")});
 }
-const coverage = Object.fromEntries(["pigeonhole","mean","variance","regression"].map(concept=>[concept,valid.filter(p=>p.concepts.includes(concept)).length]));
-for (const [concept,count] of Object.entries(coverage)) if (!count) gaps.push(`No ready approved content found for ${concept}`);
-const matrix = topics.docs.map(topic=>({topicId:topic.id,topic:topic.get("name"),...Object.fromEntries(["Basic","Intermediate","Advanced"].map(level=>[level,valid.filter(p=>p.topic===topic.id&&p.difficulty===level).length]))}));
+// Coverage follows the approved topic/level matrix, never retired concepts.
+const matrix = VALIDATED_TOPICS.map(topic=>({topicId:topic.id,topic:topic.name,...Object.fromEntries(["Basic","Intermediate","Advanced"].map(level=>[level,valid.filter(p=>p.topic===topic.id&&p.difficulty===level).length]))}));
+for (const topic of VALIDATED_TOPICS) {
+  if (!topics.docs.some(doc=>doc.id===topic.id)) gaps.push(`${topic.name}: topic approval unavailable`);
+  for (const level of ["Basic","Intermediate","Advanced"]) {
+    if (!valid.some(problem=>problem.topic===topic.id&&problem.difficulty===level)) gaps.push(`${topic.name} / ${level}: no ready approved problem`);
+  }
+}
 const noticeId = privacy.get("currentConsentVersion");
 const policy = noticeId ? await db.doc(`policy_documents/${noticeId}`).get() : null;
 if (policy?.get("aiProcessingVersion") !== "gemini-free-v1" || policy?.get("status") !== "active") gaps.push("Current notice has not been updated for Gemini free-tier processing.");
-console.log(JSON.stringify({project,approvedProblems:problems.size,readyProblems:valid.length,coverage,matrix,pilotState:pilot.get("state")??"not configured",gaps},null,2));
+console.log(JSON.stringify({project,approvedProblems:problems.size,readyProblems:valid.length,matrix,pilotState:pilot.get("state")??"not configured",gaps},null,2));
 if (process.argv.includes("--verify") && gaps.length) process.exitCode = 1;

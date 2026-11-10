@@ -1,0 +1,60 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Discrete Probability
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Computation
+  - generic: 50%
+  - progressbar "Learning progress"
+- generic "Session details"
+- heading "Your problem" [level=2]
+- text: Toss a fair coin twice independently. List the sample space of ordered outcomes and find the probability of exactly one head. Explain why your elementary outcomes are equally likely. H and T denote head and tail. Toss order is recorded. Show your reasoning, justify your method, and check your result. Equivalent valid methods are welcome.
+- paragraph: Basic
+- text: Problem Understanding
+- generic: Completed
+- text: Method Selection
+- generic: Completed
+- text: Computation
+- generic: In progress
+- text: Interpretation
+- generic: Upcoming
+- paragraph: "Adaptive difficulty: maintain_insufficient_evidence: 0/3 required distinct completed Basic sessions in this topic; 0% accuracy, 0% reasoning, 0 with limited assistance. Question availability never changes this recommendation."
+- button "Abandon and preserve this session":
+  - text: Abandon and preserve this session
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+  - article "You":
+    - generic: You
+    - generic: We need to list all ordered outcomes of two coin tosses and calculate the probability of exactly one head, explaining equal likelihood. The coin is fair, the tosses are independent, H and T mean head and tail, and order is recorded, so HT and TH are different outcomes.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. How does the method you chose connect the given information to what you need to find?
+  - article "You":
+    - generic: You
+    - generic: I will enumerate the ordered pairs HH, HT, TH, TT. Each toss has probabilities one half for H and one half for T because the coin is fair. Independence allows me to multiply the two probabilities for each ordered pair, so all four pairs are equally likely. Exactly one head corresponds to the disjoint outcomes HT and TH, so I can add their probabilities or divide two favorable outcomes by four total outcomes.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "You":
+    - generic: You
+    - generic: "Each ordered outcome has probability (1/2)*(1/2)=1/4. Exactly one head occurs in HT or TH, so I add their probabilities: 1/4+1/4=3/4. The four elementary outcomes each have probability 1/4 and their total is 1. Thus my probability of exactly one head is 3/4."
+  - article "AI tutor":
+    - generic: MG
+    - generic: The two sides of this asserted arithmetic equality have different values when evaluated with the usual order of operations. Check 1/4+1/4=3/4 one operation at a time. Which equality first stops preserving the value?
+- contentinfo:
+  - button "I need a hint":
+    - text: I need a hint
+  - button "Add equation"
+  - textbox "Message your tutor" [active]:
+    - /placeholder: Type your response here…
+  - button "Send message" [disabled]:
+- region "Notifications alt+T"
+- alert
+- generic "Click to open Quillbot":
+- generic "Open quick settings":
+- generic "Use AI":
+  - button "Use AI":
+    - img "contextual cursor"

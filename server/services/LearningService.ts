@@ -1,11 +1,15 @@
-import { isValidatedTopic } from "../../src/data/validated-curriculum";
+import { studentOperationResult } from "../../src/lib/learning/student-response";
+import { containsExcludedContent, isValidatedTopic } from "../../src/data/validated-curriculum";
 import "server-only";
 import { REASONING_PHASES, SCHEMA_VERSION, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase } from "../../packages/contracts/src/index";
-import { solveVerifiedProblem, verifiedConfirmation } from "../../src/lib/learning/verified-problems";
+import { ProblemInputError, solveVerifiedProblem, verifiedConfirmation } from "../../src/lib/learning/verified-problems";
 import { validateOperation } from "../../src/lib/learning/validation";
 import { contentHash } from "../../src/lib/learning/content-hash";
+import { diagnoseArithmetic, isBareAnswer } from "../mathematical-diagnosis";
+import { SCORECARD_RUBRIC } from "../scorecard-rubric";
+import { reserveTutorQuota } from "../tutor-quota";
 import { nextLearningProgress } from "../../src/lib/learning/session-state";
-import { AI_WORKFLOW_VERSION, PROMPT_VERSION, RUBRIC_VERSION, allowedSupport, checkMath, correctiveTurn, exposesAnswer, initialGates, projection, recommendation, scoreSchema, turnSchema, type Score, type Tutor, type TutorContext, type Turn } from "../gemini";
+import { AI_WORKFLOW_VERSION, PROMPT_VERSION, RUBRIC_VERSION, allowedSupport, checkMath, correctiveTurn, exposesAnswer, initialGates, projection, recommendation, scoreSchema, stageQuestions, stageSupport, turnSchema, type Score, type Tutor, type TutorContext, type Turn } from "../gemini";
 import { digest, ensure, ServiceError, type Env, type RecordDoc, type Store } from "../platform";
 
 const idOf = (doc: RecordDoc) => doc.path.split("/").at(-1)!;
@@ -15,6 +19,10 @@ const mutationNames = new Set(["startLearningSession", "createFollowUpSession", 
 const stamp = () => new Date();
 export class LearningService {
   constructor(private db: Store, private tutor: Tutor, private env: Env, private uid: string) {}
+  private verify(input: any) {
+    try { return verifiedConfirmation(input.question, input.topicId, input.questionLatex, input.requestedDifficulty); }
+    catch (error) { if (error instanceof ProblemInputError) throw new ServiceError(422, 'invalid-problem', error.message); throw error; }
+  }
   private async member() {
     const profile = await this.db.get(`users/${this.uid}`);
     ensure(profile.data?.status === "active", "Your account is not active.", 403);
@@ -64,7 +72,7 @@ export class LearningService {
       if (!saved.data) return { status: "missing" };
       ensure(saved.data.fingerprint === await digest({ name: raw.operation, input: original }), "This request does not match the saved operation.", 409);
       return saved.data.status === "complete"
-        ? { status: "complete", result: saved.data.result }
+        ? { status: "complete", result: studentOperationResult(saved.data.result) }
         : { status: saved.data.status === "pending" && saved.data.expiresAt > Date.now() ? "pending" : "retryable" };
     }
     let input: any;
@@ -73,8 +81,10 @@ export class LearningService {
     if (name === "previewVerifiedProblem") {
       const topic = await this.db.get(`topics/${input.topicId}`);
       ensure(isValidatedTopic(input.topicId, topic.data) && topic.data?.status === "approved", "This topic is unavailable.");
-      const result = verifiedConfirmation(input.question, input.topicId);
-      return { confirmationHash: result.confirmationHash, description: result.description };
+      const subject = await this.db.get(`subjects/${topic.data.subjectId}`);
+      ensure(subject.data?.status === "approved", "This subject is unavailable.");
+      const result = this.verify(input);
+      return { confirmationHash: await digest(result.confirmationHash), description: result.description };
     }
     if (name === "checkLearningSessionActivity") {
       const doc = await this.session(input.sessionId);
@@ -94,7 +104,7 @@ export class LearningService {
     let op = await this.db.get(`ai_operations/${this.uid}_${input.requestId}`);
     if (op.data) {
       ensure(op.data.fingerprint === fingerprint, "This request identifier belongs to different work.", 409);
-      if (op.data.status === "complete") return op.data.result;
+      if (op.data.status === "complete") return studentOperationResult(op.data.result);
       ensure(op.data.expiresAt < Date.now(), "Your previous request is still processing. Retry shortly.", 409);
     }
     let session: RecordDoc;
@@ -117,10 +127,19 @@ export class LearningService {
       }
       ensure(/^[\w -]{1,160}$/.test(input.topicId), "Invalid topic identifier.");
       await this.assertPilot(input.topicId, input.mode);
+      const customPrepared = input.mode === "free_form" ? await this.prepare(input, profile) : undefined;
       assignment = await this.db.get(`learning_progress/${this.uid}/assignment_state/${input.topicId}`);
       if (assignment.data?.activeSessionId) {
         const existing = await this.db.get(`sessions/${assignment.data.activeSessionId}`);
         if (existing.data?.workflowVersion === AI_WORKFLOW_VERSION && ["in_progress","ready_for_submission"].includes(existing.data.status)) {
+          ensure(existing.data.studentId === this.uid, "This learning session is unavailable.", 403);
+          if (input.mode === "free_form") {
+            ensure(existing.data.problemMode === "free_form"
+              && (existing.data.originalProblemText ?? existing.data.originalQuestion) === input.question
+              && (existing.data.originalProblemLatex ?? "") === (input.questionLatex ?? "")
+              && existing.data.difficulty === input.requestedDifficulty,
+            "A different problem is already active for this topic. Finish or abandon that session before starting this problem.", 409);
+          }
           if (!existing.data.needsOpening) return {session:projection(idOf(existing),existing.data)};
           session = existing;
           reference = (await this.db.get(`${session.path}/private/reference`)).data;
@@ -128,7 +147,7 @@ export class LearningService {
         }
       }
       if (!session!) {
-        const prepared = await this.prepare(input, profile);
+        const prepared = customPrepared ?? await this.prepare(input, profile);
         reference = prepared.reference;
         session = empty(`sessions/${this.uid}_${input.requestId}`);
         session.data = prepared.session;
@@ -179,7 +198,7 @@ export class LearningService {
       ensure(session.data?.revision === s.revision, "This session changed while the request was reserved. Reload before continuing.", 409);
       op = await this.db.get(op.path);
       const messages = (await this.db.query(`${session.path}/messages`)).map(d=>d.data).sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime());
-      const assessedResponses = name === "finalizeScorecard"
+      const assessedResponses = ["finalizeScorecard","evaluatePhaseResponse"].includes(name)
         ? (await this.db.query(`${session.path}/responses`)).map(d=>({messageId:`${idOf(d)}_student`,...d.data})).sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime())
         : [];
       let generated: Turn | Score | undefined;
@@ -188,20 +207,49 @@ export class LearningService {
         if (name === "finalizeScorecard") ensure(messages.some(m=>m.role === "student" && m.text?.trim()), "Saved student reasoning is unavailable for assessment. Your progress is preserved; reload saved progress and retry.", 422);
         const context: TutorContext = {session:s,reference,messages,intent,response:input.response,supportLevel:input.requestedLevel ?? (intent === "help" ? s.allowedSupport.at(-1) : undefined),assessedResponses:assessedResponses.map(r=>({messageId:r.messageId,phase:r.phase,response:r.response,status:r.evaluation?.status,evidence:r.evaluation?.evidenceSummary}))};
         generated = await this.tutor.generate(context);
+        if (name === "evaluatePhaseResponse" && intent === "answer" && turnSchema.parse(generated).intent !== "answer") {
+          // A model intent label must not silently discard submitted reasoning.
+          // One independent reassessment, charged to the same shared quota and lease.
+          await this.db.commit(await this.reserveQuota());
+          generated = await this.tutor.generate({...context, reassessIntent:true});
+        }
       }
       const updates: any = {...s,revision:s.revision+1,updatedAt:stamp(),lastActivityAt:stamp()};
       const writes: Array<{doc:RecordDoc;data:any}> = [];
       const extra: any = {};
       if (generated && name !== "finalizeScorecard") {
         let turn = turnSchema.parse(generated);
+        if (["startLearningSession", "createFollowUpSession", "resumeTutorOpening"].includes(name)) {
+          // Keep the leak guard on the original response, then bound opening dialogue.
+          ensure(!exposesAnswer(turn,reference,input.response), "The tutor response needs revision before it can be shown. Your stage is unchanged; retry later.", 503);
+          turn = {...turn, feedback:"Let's begin by understanding the problem.", question:stageQuestions.problem_understanding, accepted:false, intent:"question"};
+        }
         const answer = name === "evaluatePhaseResponse" && (input.intent ?? "answer") === "answer" && turn.intent === "answer";
+        if (answer) ensure(!exposesAnswer(turn,reference,input.response), "The tutor response needs revision before it can be shown. Your stage is unchanged; retry later.", 503);
         const stage = solverStageForPhase(s.currentPhase);
-        const math = stage === "computation" && answer ? checkMath(input.response,reference.answerSpecification) : "unsupported";
-        if (answer && (math === "incorrect" || turn.confidence !== "high" || (turn.accepted && turn.category !== "none"))) {
+        const arithmetic = stage === "computation" && answer ? diagnoseArithmetic(input.response,s.originalQuestion) : null;
+        const math = arithmetic ? "incorrect" : stage === "computation" && answer ? checkMath(input.response,reference.answerSpecification) : "unsupported";
+        if (answer && (!turn.accepted || !turn.evidence.some(item=>item.trim()) || math === "incorrect" || turn.confidence !== "high" || turn.category !== "none")) {
+          const specificCorrection = !turn.accepted && turn.confidence === "high" && turn.category !== "none" && math !== "incorrect"
+            && !/complet|next stage|another problem|success|move on/i.test(turn.question);
+          const question = turn.question;
           turn = correctiveTurn(turn, s.currentPhase, math);
+          if (specificCorrection) turn.question = question;
+        }
+        if (arithmetic) turn = {...turn,accepted:false,confidence:"high",category:arithmetic.category,evidence:[arithmetic.incorrectStep],feedback:arithmetic.explanation,question:arithmetic.correctivePrompt,incorrectStep:arithmetic.incorrectStep,explanation:arithmetic.explanation,recommendedAction:arithmetic.recommendedAction};
+        if (answer && stage === "computation" && math !== "incorrect" && isBareAnswer(input.response)
+          && !assessedResponses.some(r=>solverStageForPhase(r.phase)==="computation" && !isBareAnswer(r.response) && checkMath(r.response,reference.answerSpecification)!=="incorrect")) {
+          turn = {...turn,accepted:false,category:"skipped_reasoning",confidence:"high",evidence:["Only a final answer was supplied; no computation or proof steps are recorded for this stage."],
+            feedback:"A final answer alone does not show how you obtained it.",question:stageQuestions.computation,
+            incorrectStep:input.response.plainText,explanation:"The required computation or logical steps are missing.",recommendedAction:"Show the calculation or proof and explain how you checked it."};
         }
         // Assistance cannot grant acceptance, even if the model sets it accidentally.
         if (!answer) turn = {...turn, accepted:false};
+        if (name === "requestSessionSupport" || input.intent === "help") {
+          turn = {...turn, ...stageSupport(s.currentPhase, input.requestedLevel ?? s.allowedSupport.at(-1)), accepted:false, leaksSolution:false};
+        } else if (name === "evaluatePhaseResponse" && !answer && (input.intent ?? "answer") === "answer") {
+          turn = {...correctiveTurn(turn, s.currentPhase, "unsupported"), feedback:"I could not reliably assess that as an answer. Please state your reasoning for this checkpoint, or use the hint action for help."};
+        }
         ensure(!exposesAnswer(turn,reference,input.response), "The tutor response needs revision before it can be shown. Your stage is unchanged; retry later.", 503);
         const accepted = answer && turn.accepted && turn.confidence === "high" && turn.category === "none" && math !== "incorrect";
         let text = `${turn.feedback}\n\n${turn.question}`;
@@ -210,13 +258,17 @@ export class LearningService {
         if (answer) {
           const gate = s.gateStates[s.currentPhase];
           const evaluation = {phase:s.currentPhase,status:accepted?"accepted":"needs_revision",attemptCount:gate.attemptCount+1,correctiveCycleCount:gate.correctiveCycleCount+(accepted?0:1),evidenceSummary:turn.evidence.join(" "),confidence:turn.confidence,source:math==="unsupported"?"ai":"hybrid",evaluatedAt:Date.now(),acceptedAt:accepted?Date.now():null};
-          const diagnosis = {category:math==="incorrect"?"computational_error":turn.category,evidence:turn.evidence,confidence:turn.confidence,severity:accepted?"minor":"moderate",targetPhase:s.currentPhase,correctivePrompt:turn.question,resolutionStatus:accepted?"resolved":"open",source:evaluation.source};
+          const diagnosis = {category:math==="incorrect"?"computational_error":turn.category,evidence:turn.evidence,confidence:turn.confidence,severity:accepted?"minor":"moderate",targetPhase:s.currentPhase,correctivePrompt:turn.question,resolutionStatus:accepted?"resolved":"open",source:evaluation.source,
+            incorrectStep:accepted || turn.category === "none" ? null : turn.incorrectStep ?? null,
+            explanation:accepted ? "The current stage is supported by the saved learner evidence." : turn.category === "none" ? "More evidence is needed; no specific mistake is confirmed." : turn.explanation ?? turn.evidence.join(" "),
+            recommendedAction:accepted ? "Continue to the next reasoning checkpoint." : turn.recommendedAction ?? turn.question};
           updates.gateStates = {...s.gateStates,[s.currentPhase]:{...gate,...evaluation}};
           updates.gateEvaluations = {...s.gateEvaluations,[s.currentPhase]:evaluation};
           updates.responseCount = s.responseCount+1;
           updates.lastDiagnosis = diagnosis;
-          updates.diagnosisSummary = [...new Set([...(s.diagnosisSummary ?? []),...(diagnosis.category !== "none" ? [diagnosis.category] : [])])];
+          updates.diagnosisSummary = [...new Set([...(s.diagnosisSummary ?? []),...(!["none","unrecognized_alternative"].includes(diagnosis.category) ? [diagnosis.category] : [])])];
           if (accepted) {
+            turn = {...turn, feedback:"Your reasoning meets the requirements of this checkpoint."};
             // One assessed response can demonstrate all criteria of this stage.
             // Retain internal evidence for reporting without requiring extra turns.
             for (const phase of SOLVER_STAGE_PHASES[stage!]) {
@@ -229,8 +281,11 @@ export class LearningService {
             const nextStage = SOLVER_STAGES[SOLVER_STAGES.indexOf(stage!)+1];
             const next = nextStage ? SOLVER_STAGE_PHASES[nextStage][0] : undefined;
             updates.currentPhase = next ?? "controlled_solution_release";
-            if (next) updates.gateStates[next] = {...updates.gateStates[next],status:"pending"};
-            else { updates.currentPrompt = "All four stages are complete. Select View step-by-step solution to see the worked explanation and your scorecard."; text = `${turn.feedback}\n\n${updates.currentPrompt}`; }
+            if (next) {
+              updates.gateStates[next] = {...updates.gateStates[next],status:"pending"};
+              updates.currentPrompt = stageQuestions[nextStage!];
+            } else updates.currentPrompt = "All four stages are complete. Select View step-by-step solution to see the worked explanation and your scorecard.";
+            text = `${turn.feedback}\n\n${updates.currentPrompt}`;
           }
           updates.allowedSupport = allowedSupport(updates.gateStates, s.supportHistory);
           Object.assign(extra,{evaluation,diagnosis,learnerMessage:turn.feedback,nextPrompt:updates.currentPrompt,completion:null});
@@ -240,7 +295,7 @@ export class LearningService {
           extra.evaluation = {status:"needs_revision",source:"ai",phase:s.currentPhase,attemptCount:s.gateStates[s.currentPhase]?.attemptCount??0,correctiveCycleCount:s.gateStates[s.currentPhase]?.correctiveCycleCount??0,evidenceSummary:"Clarification or assistance only; no reasoning attempt assessed.",confidence:"high",evaluatedAt:Date.now(),acceptedAt:null};
           extra.diagnosis = null; extra.learnerMessage = turn.feedback; extra.completion = null;
         }
-        if (name === "requestSessionSupport" || (name === "evaluatePhaseResponse" && (input.intent === "help" || turn.intent === "help"))) {
+        if (name === "requestSessionSupport" || (name === "evaluatePhaseResponse" && input.intent === "help")) {
           const level = input.requestedLevel ?? (input.intent === "help" ? s.allowedSupport.at(-1) : "socratic_prompt");
           const entry = {phase:s.currentPhase,level,title:"AI reasoning support",content:[text],requestedAt:Date.now()};
           updates.supportHistory = [...s.supportHistory,entry]; updates.supportUsage = s.supportUsage+1;
@@ -257,6 +312,9 @@ export class LearningService {
         const evidence = new Map<string,string>(messages.filter(m=>m.role==="student" && m.text?.trim()).map(m=>[m.id,m.text]));
         for (const key of ["accuracy","logicalValidity","methodSelection","explanationQuality"] as const) {
           ensure(score[key].evidenceIds.every(id=>evidence.has(id)), "The scorecard could not link feedback to your saved work. Retry later.", 503);
+          ensure(score[key].evidenceIds.every(id=>assessedResponses.some(r=>r.messageId===id))
+            && score[key].evidenceIds.some(id=>assessedResponses.some(r=>r.messageId===id && r.evaluation?.status === "accepted" && (SCORECARD_RUBRIC[key].phases as readonly string[]).includes(r.phase))),
+          "The scorecard needs assessed learner evidence from the relevant reasoning stage for each criterion. Your progress is preserved; retry scoring.", 503);
           score[key].evidence = score[key].evidenceIds.map(id=>`${id}: ${evidence.get(id)!.slice(0,600)}`);
         }
         ensure(Object.values({a:score.accuracy,l:score.logicalValidity,m:score.methodSelection,e:score.explanationQuality}).every(c=>c.confidence !== "low"), "The tutor could not reliably score the saved conversation. Your accepted stages are preserved; retry generating the solution and scorecard.", 422);
@@ -267,16 +325,17 @@ export class LearningService {
         ensure(checkMath({plainText:score.solution.answer},reference.answerSpecification) !== "incorrect", "The worked explanation failed mathematical verification. Retry later.", 503);
         const criteria = Object.fromEntries((["accuracy","logicalValidity","methodSelection","explanationQuality"] as const).map(category=>[category,{...score[category],category,source:category==="accuracy" && math!=="unsupported"?"hybrid":"ai"}]));
         updates.scorecard = {criteria,total:Object.values(criteria).reduce((n,c)=>n+c.score,0),feedback:score.feedback,rubricVersion:RUBRIC_VERSION,calibrationStatus:"pending",assistanceCount:s.supportUsage,generatedAt:Date.now()};
-        updates.releasedSolution = {...score.solution,answer:reference.finalAnswer,releasedAt:Date.now()};
+        updates.releasedSolution = {...score.solution,steps:reference.solutionSteps,answer:reference.finalAnswer,interpretation:reference.interpretation,releasedAt:Date.now()};
         Object.assign(updates,{status:"ready_for_submission",currentPhase:"critical_thinking_scorecard",currentStep:"scorecard",learningCompletedAt:stamp(),allowedSupport:[]});
         writes.push({doc:empty(`${session.path}/scorecards/${input.requestId}`),data:{...updates.scorecard,studentId:this.uid,createdAt:stamp()}});
+        updates.solutionUnlock = {eventId:input.requestId,studentId:this.uid,sessionId:idOf(session),problemId:s.problemId,checkpoints:[...REASONING_PHASES],releasedAt:stamp(),policyVersion:"all-reasoning-gates-v1"};
         extra.completion = {scorecard:updates.scorecard,releasedSolution:updates.releasedSolution};
       }
       if (name === "submitLearningSession") {
         const progress = await this.db.get(`learning_progress/${this.uid}`);
         const current = progress.data ?? {};
-        const history = (await this.db.query("sessions","studentId",this.uid)).map(d=>d.data).filter(h=>h.topicId===s.topicId);
-        const rec = recommendation(s.difficulty,[...history,{...updates,statsCommittedAt:stamp(),submittedAt:stamp()}]);
+        const history = (await this.db.query("sessions","studentId",this.uid)).filter(d=>d.path!==session.path).map(d=>({...d.data,id:idOf(d)})).filter(h=>h.topicId===s.topicId);
+        const rec = recommendation(s.difficulty,[...history,{...updates,id:idOf(session),status:"submitted",statsCommittedAt:stamp(),submittedAt:stamp()}],s.topicId);
         const now = Date.now();
         const next = nextLearningProgress(this.uid,current,s.scorecard.total,{toDate:()=>new Date(now),toMillis:()=>now},{id:idOf(session),subject:s.subject,topic:s.topic,scorecardSummary:s.scorecard.feedback,scorecardGeneratedAt:s.scorecard.generatedAt,recommendation:rec as any});
         writes.push({doc:progress,data:{...current,...next,topicRecommendations:{...current.topicRecommendations,[s.topic.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")]:rec},updatedAt:stamp()}});
@@ -294,7 +353,7 @@ export class LearningService {
       }
       const currentLock = await this.db.get(lock.path);
       ensure(currentLock.data?.leaseId === leaseId && currentLock.data.expiresAt > Date.now(), "The request expired safely. Retry it.", 409);
-      const result = {session:projection(idOf(session),updates),...extra};
+      const result = studentOperationResult({session:projection(idOf(session),updates),...extra});
       writes.push({doc:session,data:updates},{doc:op,data:{...op.data,status:"complete",result,expiresAt:0}},{doc:currentLock,data:{leaseId,expiresAt:0}});
       await this.db.commit(writes);
       return result;
@@ -308,16 +367,7 @@ export class LearningService {
     }
   }
   private async reserveQuota(): Promise<Array<{doc:RecordDoc;data:any}>> {
-    const rpm = Number(this.env.GEMINI_RPM), tpm = Number(this.env.GEMINI_TPM), rpd = Number(this.env.GEMINI_RPD);
-    ensure([rpm,tpm,rpd].every(n=>Number.isSafeInteger(n)&&n>0), "Configure the verified Gemini Free quotas before opening AI practice.", 503);
-    const quota = await this.db.get("ai_usage/shared");
-    const minute = Math.floor(Date.now()/60000), day = new Intl.DateTimeFormat("en-CA",{timeZone:"America/Los_Angeles",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
-    const requests = quota.data?.minute===minute ? quota.data.requests : 0;
-    const tokens = quota.data?.minute===minute ? quota.data.tokens : 0;
-    const daily = quota.data?.day===day ? quota.data.daily : 0;
-    // Reserve a conservative upper bound. Never refund uncertain provider calls.
-    ensure(requests+1<=rpm && tokens+32000<=tpm && daily+1<=rpd, "The shared free AI allowance is in use. Your work is preserved; try again later.", 429);
-    return [{doc:quota,data:{minute,day,requests:requests+1,tokens:tokens+32000,daily:daily+1}}];
+    return reserveTutorQuota(this.db,this.env);
   }
   private async prepare(input: any, profile: any) {
     const topic = await this.db.get(`topics/${input.topicId}`);
@@ -325,36 +375,52 @@ export class LearningService {
     const subject = await this.db.get(`subjects/${topic.data.subjectId}`);
     ensure(subject.data?.status === "approved", "The selected subject is not approved.");
     const history = (await this.db.query("sessions","studentId",this.uid)).filter(d=>d.data.topicId===input.topicId);
-    const sorted = history.map(d=>d.data).filter(s=>s.statsCommittedAt).sort((a,b)=>new Date(b.submittedAt).getTime()-new Date(a.submittedAt).getTime());
-    const rec = recommendation(sorted[0]?.difficulty ?? "Basic",sorted);
+    const sorted = history.map(d=>({...d.data,id:idOf(d)})).filter(s=>s.workflowVersion===AI_WORKFLOW_VERSION && s.status==="submitted" && s.statsCommittedAt && s.scorecard).sort((a,b)=>new Date(b.submittedAt).getTime()-new Date(a.submittedAt).getTime());
+    const rec = recommendation(sorted[0]?.difficulty ?? "Basic",sorted,input.topicId);
     let reference: any, problem: RecordDoc | undefined;
     if (input.mode === "curated") {
       const excluded = new Set<string>();
       for (const old of history) {
-        if (old.data.statsCommittedAt || (typeof old.data.responseCount === "number" ? old.data.responseCount > 0 : (await this.db.query(`${old.path}/responses`)).length > 0)) excluded.add(old.data.problemId);
+        const assessed = typeof old.data.responseCount === "number" ? old.data.responseCount > 0 : (await this.db.query(`${old.path}/responses`)).length > 0;
+        const attempted = !assessed && (await this.db.query(`${old.path}/messages`)).some(message=>message.data.role==="student" && (message.data.intent ?? "answer")==="answer");
+        if (old.data.statsCommittedAt || assessed || attempted) excluded.add(old.data.problemId);
       }
-      const levels = ["Basic","Intermediate","Advanced"];
-      const candidates = (await this.db.query("problems","topicId",input.topicId)).filter(d=>d.data.status === "approved" && d.data.validationRecordId && !excluded.has(idOf(d)))
-        .sort((a,b)=>Math.abs(levels.indexOf(a.data.difficulty)-levels.indexOf(rec.recommendedDifficulty))-Math.abs(levels.indexOf(b.data.difficulty)-levels.indexOf(rec.recommendedDifficulty)));
+      const candidates = (await this.db.query("problems","topicId",input.topicId)).filter(d=>d.data.status === "approved" && d.data.difficulty === rec.recommendedDifficulty && d.data.validationRecordId && !excluded.has(idOf(d)))
+        .sort((a,b)=>idOf(a).localeCompare(idOf(b)));
       for (const candidate of candidates) {
+        if (containsExcludedContent([candidate.data.title,candidate.data.problemText])) continue;
         const approval = await this.db.get(`content_validation_records/${candidate.data.validationRecordId}`);
         const ref = await this.db.get(`problem_scoring/${idOf(candidate)}`);
         if (approval.data?.decision !== "approved" || approval.data.problemId !== idOf(candidate) || approval.data.problemVersion !== candidate.data.version || ref.data?.problemVersion !== candidate.data.version || ref.data?.validationRecordId !== candidate.data.validationRecordId) continue;
         if (approval.data.scoringSnapshotHash && await contentHash(ref.data) !== approval.data.scoringSnapshotHash) continue;
         if (!ref.data.expectedConcepts?.length || !ref.data.solutionSteps?.length || !ref.data.finalAnswer || !ref.data.interpretation) continue;
-        problem = candidate; reference = ref.data; break;
+        if (containsExcludedContent(ref.data)) continue;
+        problem = candidate; reference = ref.data;
+        if (candidate.data.sourceHash) {
+          const imported = await this.db.get(`${candidate.path}/private/import_source`);
+          const source = imported.data?.source;
+          ensure(source && await contentHash(source) === candidate.data.sourceHash && source.problem_id === idOf(candidate), "The approved source reference could not be verified. Ask your administrator to review this question.", 503);
+          reference = {...reference,sourceGuidance:{sourceHash:candidate.data.sourceHash,
+            assumptions:source.student_facing.given_information_and_assumptions,
+            approvedStatements:source.instructor_only.formulas_definitions_theorems,
+            alternativeMethods:source.instructor_only.alternative_methods ?? null,
+            commonMisconceptions:source.instructor_only.common_errors ?? [],
+            stageExpectations:source.instructor_only.socratic_stages,
+            expectedReasoning:source.instructor_only.expected_reasoning}};
+        }
+        break;
       }
-      ensure(problem && reference, "No unanswered, approved question with matching validated references is available. Ask your administrator to review the learning content.", 422);
-      if (problem.data.difficulty !== rec.recommendedDifficulty) rec.reason += ` The nearest available approved level is ${problem.data.difficulty}; the recommended level has no unanswered questions.`;
+      if (!problem || !reference) throw new ServiceError(422, "question-bank-exhausted", `No unanswered, approved question with matching validated references is available at ${rec.recommendedDifficulty}. Your recommended level is unchanged. Review a completed session in Learning History, or retry when your administrator adds validated questions at this level.`);
     } else {
-      const verified = verifiedConfirmation(input.question,input.topicId);
-      ensure(verified.confirmationHash === input.confirmationHash, "Confirm your problem givens again before starting.");
+      const verified = this.verify(input);
+      ensure(await digest(verified.confirmationHash) === input.confirmationHash, "Confirm your problem givens again before starting.", 422);
       reference = solveVerifiedProblem(verified.givens);
     }
     const now = stamp();
     return {reference,session:{schemaVersion:SCHEMA_VERSION,workflowVersion:AI_WORKFLOW_VERSION,revision:0,scoringSource:"ai_formative",studentId:this.uid,studentName:profile.displayName ?? "Learner",
       subjectId:topic.data.subjectId,topicId:input.topicId,subject:subject.data.name,topic:topic.data.name,difficulty:problem?.data.difficulty ?? input.requestedDifficulty,
-      problemId:problem ? idOf(problem) : null,problemMode:input.mode,originalQuestion:problem?.data.problemText ?? input.question,status:"in_progress",currentPhase:REASONING_PHASES[0],currentStep:"questioning",
+      problemId:problem ? idOf(problem) : null,problemMode:input.mode,originalQuestion:problem?.data.problemText ?? (input.questionLatex ? input.question.replace("[math]", () => input.questionLatex) : input.question),
+      ...(input.mode === "free_form" ? {originalProblemText:input.question,originalProblemLatex:input.questionLatex ?? ""} : {}),status:"in_progress",currentPhase:REASONING_PHASES[0],currentStep:"questioning",
       currentPrompt:"",needsOpening:true,gateStates:initialGates(),gateEvaluations:{},diagnosisSummary:[],lastDiagnosis:null,allowedSupport:["socratic_prompt"],supportHistory:[],supportUsage:0,responseCount:0,
       draft:null,scorecard:null,releasedSolution:null,adaptiveRecommendation:rec,promptAdjustment:"maintain",configurationVersions:null,model:this.env.GEMINI_MODEL,promptVersion:PROMPT_VERSION,rubricVersion:RUBRIC_VERSION,
       createdAt:now,updatedAt:now,lastActivityAt:now,learningCompletedAt:null,submittedAt:null,statsCommittedAt:null}};

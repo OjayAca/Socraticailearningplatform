@@ -45,9 +45,13 @@ export function aggregateReport(records: Array<Record<string, any>>, data: Pick<
   });
 }
 
-export function toCsv(rows: Record<string, unknown>[]): string {
-  if (rows.length === 0) return "";
-  const headers = Object.keys(rows[0]);
+export function reportHeaders(kind: ReportKind): string[] {
+  if (kind === "learning_progress") return ["kind","learner","sessionsCompleted","scoreTotal","averageCTScore","calibratedSessions","excludedUncalibratedSessions","practiceSessions","practiceScoreTotal","averagePracticeScore"];
+  if (kind === "misconceptions") return ["kind","subject","topic","category","affectedSessions"];
+  return Object.keys(aggregateReport([{id:"",studentId:""}], {kind,includeIdentity:false})[0]);
+}
+
+export function toCsv(rows: Record<string, unknown>[], headers = rows.length ? Object.keys(rows[0]) : []): string {
   const escape = (value: unknown) => {
     const text = String(value ?? "");
     const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;

@@ -1,0 +1,113 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Logic
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Interpretation
+  - generic: 100%
+  - progressbar "Learning progress"
+- generic "Session details"
+- heading "Your problem" [level=2]
+- paragraph: Intermediate
+- text: Problem Understanding
+- generic: Completed
+- text: Method Selection
+- generic: Completed
+- text: Computation
+- generic: Completed
+- text: Interpretation
+- generic: Completed
+- paragraph: "Adaptive difficulty: maintain_insufficient_evidence: 2/3 required distinct completed Intermediate sessions in this topic; 100% accuracy, 100% reasoning, 1 with limited assistance. Question availability never changes this recommendation."
+- button "Abandon and preserve this session":
+  - text: Abandon and preserve this session
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+  - article "You":
+    - generic: You
+    - generic: S contains enrolled students, Q contains quizzes, and R(s,q) means s submitted q. The statement says that for each s in S there is some q in Q with R(s,q). I need to negate the whole statement and explain what would make it false.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. How does the method you chose connect the given information to what you need to find?
+  - article "You":
+    - generic: You
+    - generic: I will use the quantifier negation laws, starting with the outer quantifier to preserve the order of student and quiz. Negating “for all” gives “there exists” with the negation inside. Negating the inner “there exists” gives “for all” with the predicate negated. A counterexample student should make the original assertion fail.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "You":
+    - generic: You
+    - generic: "Original: ∀s∈S ∃q∈Q R(s,q). Negating yields ¬(∀s∈S ∃q∈Q R(s,q)) ⇔ ∃s∈S ¬(∃q∈Q R(s,q)) ⇔ ∃s∈S ∀q∈Q ¬R(s,q). For a check, suppose one enrolled student has submitted no quizzes: this student makes the negation true and the original false. Conversely, if every student has a submission, no student witnesses the negation."
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. What does your result mean in the context of the original problem?
+  - article "You":
+    - generic: You
+    - generic: At least one enrolled student has submitted no quiz at all. The same student must have failed to submit every quiz in Q. This does not say that everyone missed a quiz or that nobody submitted anything. That one student suffices to disprove the claim that every enrolled student submitted at least one quiz.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. All four stages are complete. Select View step-by-step solution to see the worked explanation and your scorecard.
+- paragraph: Progressive solution unlock
+- heading "All four Socratic stages are complete." [level=2]
+- paragraph: Your saved conversation provides the reasoning evidence. View your step-by-step solution and formative scorecard when you are ready.
+- heading "Critical Thinking Scorecard" [level=2]
+- region "Critical Thinking Scorecard":
+  - paragraph: AI-supported formative feedback based on your saved reasoning. This is not an official grade.
+  - paragraph: 100/100
+  - paragraph: Total = Accuracy + Logical validity + Method selection + Explanation quality. Each criterion is worth 25 points. Assistance is reported separately.
+  - paragraph: "Rubric: ai-formative-v2-evidence · pending · Assistance: 0"
+  - generic: Accuracy
+  - generic: 25/25
+  - paragraph: The student correctly derived the formal negation of the nested quantifier statement and accurately computed all steps.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: 6099d881-3cf8-468a-9f4c-3d5fad897e99_student: Original: ∀s∈S ∃q∈Q R(s,q). Negating yields ¬(∀s∈S ∃q∈Q R(s,q)) ⇔ ∃s∈S ¬(∃q∈Q R(s,q)) ⇔ ∃s∈S ∀q∈Q ¬R(s,q). For a check, suppose one enrolled student has submitted no quizzes: this student makes the negation true and the original false. Conversely, if every student has a submission, no student witnesses the negation."
+  - paragraph: "Evidence: a7d637a9-43ea-44b1-9790-ded6b22008db_student: At least one enrolled student has submitted no quiz at all. The same student must have failed to submit every quiz in Q. This does not say that everyone missed a quiz or that nobody submitted anything. That one student suffices to disprove the claim that every enrolled student submitted at least one quiz."
+  - generic: Logical Validity
+  - generic: 25/25
+  - paragraph: All logical steps follow valid rules of predicate logic and quantifier negation laws with sound reasoning.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: 7f394ef8-e0a3-49bc-8b02-dccfaffcb9e0_student: I will use the quantifier negation laws, starting with the outer quantifier to preserve the order of student and quiz. Negating “for all” gives “there exists” with the negation inside. Negating the inner “there exists” gives “for all” with the predicate negated. A counterexample student should make the original assertion fail."
+  - paragraph: "Evidence: 6099d881-3cf8-468a-9f4c-3d5fad897e99_student: Original: ∀s∈S ∃q∈Q R(s,q). Negating yields ¬(∀s∈S ∃q∈Q R(s,q)) ⇔ ∃s∈S ¬(∃q∈Q R(s,q)) ⇔ ∃s∈S ∀q∈Q ¬R(s,q). For a check, suppose one enrolled student has submitted no quizzes: this student makes the negation true and the original false. Conversely, if every student has a submission, no student witnesses the negation."
+  - generic: Method Selection
+  - generic: 25/25
+  - paragraph: The student properly selected the quantifier negation laws and justified their application to the problem structure.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: 7f394ef8-e0a3-49bc-8b02-dccfaffcb9e0_student: I will use the quantifier negation laws, starting with the outer quantifier to preserve the order of student and quiz. Negating “for all” gives “there exists” with the negation inside. Negating the inner “there exists” gives “for all” with the predicate negated. A counterexample student should make the original assertion fail."
+  - generic: Explanation Quality
+  - generic: 25/25
+  - paragraph: The contextual interpretation is fully accurate, clear, and explains what the negation means in terms of the students and quizzes.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: a7d637a9-43ea-44b1-9790-ded6b22008db_student: At least one enrolled student has submitted no quiz at all. The same student must have failed to submit every quiz in Q. This does not say that everyone missed a quiz or that nobody submitted anything. That one student suffices to disprove the claim that every enrolled student submitted at least one quiz."
+  - heading "Strength" [level=3]
+  - paragraph: All four criteria have the same score; no single relative strength is identified.
+  - heading "Area for growth" [level=3]
+  - paragraph: All four criteria have the same score. Review the criterion feedback for any shared areas to develop.
+  - heading "Session summary" [level=3]
+  - paragraph: You successfully demonstrated complete understanding of the problem, applied quantifier negation laws correctly, verified your logic with a counterexample, and interpreted the result accurately in the context of students and quizzes.
+  - heading "Improvement plan" [level=3]
+  - paragraph: No specific improvement was identified in the saved feedback.
+  - list
+- paragraph: Unlocked worked solution
+- heading "Method" [level=3]
+- text: Quantifier negation laws
+- heading "Why it applies" [level=3]
+- text: To negate a quantified statement, we successively push the negation inward through each quantifier, changing universal quantifiers to existential ones and vice-versa, and negating the inner predicate.
+- heading "Steps" [level=3]
+- list:
+  - listitem: Translate the original statement as ∀s∈S ∃q∈Q R(s,q).
+  - listitem: "Negate the complete formula: ¬[∀s∃q R(s,q)]."
+  - listitem: "Move the negation through ∀, changing it to ∃: ∃s ¬[∃q R(s,q)]."
+  - listitem: "Move the negation through ∃, changing it to ∀: ∃s∀q¬R(s,q)."
+  - listitem: "Translate the result: there is a student for whom no quiz has been submitted."
+- heading "Final answer" [level=3]
+- text: "Original: ∀s∈S ∃q∈Q R(s,q). Negation: ∃s∈S ∀q∈Q ¬R(s,q). In words: at least one enrolled student has submitted no quiz."
+- heading "Verification" [level=3]
+- text: "Testing with a counterexample: If there is at least one student who has not submitted any quiz, the original statement ('every student submitted at least one quiz') is false, making its negation true."
+- heading "Interpretation" [level=3]
+- text: Reverses both quantifiers, negates the submission predicate, and gives the correct natural-language interpretation.
+- paragraph: Formative AI-supported feedback only — not an official grade.
+- button "Finish session"
+- region "Notifications alt+T"
+- alert

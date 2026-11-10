@@ -1,0 +1,7 @@
+- heading "Session expired" [level=1]
+- paragraph: Your practice reasoning record and scorecard are saved. Administrator feedback appears in your history.
+- link "View learning history":
+  - /url: /student/history
+- region "Notifications alt+T"
+- button "Open Next.js Dev Tools":
+- alert

@@ -33,6 +33,7 @@ export function MathInput({
   value,
   onChange,
   notationOnly = false,
+  maxLength = 4000,
   disabled = false,
   label = "Your reasoning",
   explanationPlaceholder = "Explain your reasoning in words...",
@@ -40,6 +41,7 @@ export function MathInput({
   value: MathResponse;
   onChange: (value: MathResponse) => void;
   notationOnly?: boolean;
+  maxLength?: number;
   disabled?: boolean;
   label?: string;
   explanationPlaceholder?: string;
@@ -84,7 +86,7 @@ export function MathInput({
           disabled={disabled}
           value={value.plainText}
           onChange={(event) => onChange({ ...value, plainText: event.target.value })}
-          maxLength={4000}
+          maxLength={maxLength}
           rows={5}
           placeholder={explanationPlaceholder}
           className="w-full rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-600"

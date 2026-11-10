@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ScorecardCategory, ScorecardResult } from "@mindguide/contracts";
@@ -21,7 +21,10 @@ const mocks = vi.hoisted(() => ({
   markAllAsRead: vi.fn(),
   retryNotifications: vi.fn(),
   scrollIntoView: vi.fn(),
+  toastError: vi.fn(),
 }));
+
+vi.mock("sonner", () => ({ toast: { error: mocks.toastError } }));
 
 vi.mock("motion/react", () => ({
   motion: { div: ({ children }: { children?: React.ReactNode }) => <div>{children}</div> },
@@ -315,7 +318,7 @@ describe("notification center", () => {
     expect(mocks.retryNotifications).toHaveBeenCalledOnce();
   });
 
-  it("marks unread notifications before navigating and supports mark-all", async () => {
+  it("navigates immediately while the optimistic read write is pending", async () => {
     let finishMarkAsRead: (() => void) | undefined;
     mocks.markAsRead.mockImplementation(() => new Promise<void>((resolve) => {
       finishMarkAsRead = resolve;
@@ -337,10 +340,23 @@ describe("notification center", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /unread: achievement unlocked/i }));
     await waitFor(() => expect(mocks.markAsRead).toHaveBeenCalledWith("achievement_awarded__student-1__award-1"));
-    expect(screen.queryByText(/profile destination/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Profile destination: /student/profile#achievements")).toBeVisible();
+    expect(mocks.markAsRead).toHaveBeenCalledOnce();
 
-    finishMarkAsRead?.();
+    await act(async () => finishMarkAsRead?.());
     expect(await screen.findByText("Profile destination: /student/profile#achievements")).toBeVisible();
+  });
+
+  it("reports a delayed read-write failure after navigation without undoing the destination", async () => {
+    let reject!: (error: Error) => void;
+    mocks.markAsRead.mockImplementation(() => new Promise<void>((_resolve, fail) => { reject = fail; }));
+    mocks.notificationState = {...mocks.notificationState, unreadCount:1, notifications:[{id:'pending',title:'Update',message:'Open profile',read:false,actionUrl:'/student/profile#achievements'}]};
+    renderNotifications();
+    fireEvent.click(screen.getByRole('button',{name:'Unread: Update'}));
+    expect(screen.getByText('Profile destination: /student/profile#achievements')).toBeVisible();
+    await act(async () => reject(new Error('Read state could not be saved.')));
+    expect(mocks.toastError).toHaveBeenCalledWith('Read state could not be saved.');
+    expect(screen.getByText('Profile destination: /student/profile#achievements')).toBeVisible();
   });
 
   it("marks every loaded update as read", async () => {

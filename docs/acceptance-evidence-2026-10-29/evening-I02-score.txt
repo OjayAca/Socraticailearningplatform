@@ -1,0 +1,123 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Logic
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Interpretation
+  - generic: 100%
+  - progressbar "Learning progress"
+- generic "Session details"
+- heading "Your problem" [level=2]
+- paragraph: Intermediate
+- text: Problem Understanding
+- generic: Completed
+- text: Method Selection
+- generic: Completed
+- text: Computation
+- generic: Completed
+- text: Interpretation
+- generic: Completed
+- paragraph: "Adaptive difficulty: maintain_insufficient_evidence: 1/3 required distinct completed Intermediate sessions in this topic; 100% accuracy, 100% reasoning, 1 with limited assistance. Question availability never changes this recommendation."
+- heading "Support history" [level=2]
+- paragraph: Select a Method · AI reasoning support
+- text: Let's focus on the current checkpoint. How does the method you chose connect the given information to what you need to find?
+- paragraph: Guided Computation or Proof · AI reasoning support
+- text: Let's focus on the current checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+- button "Abandon and preserve this session":
+  - text: Abandon and preserve this session
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+  - article "You":
+    - generic: You
+    - generic: I need to translate the server and login statements, decide whether the conclusion follows from both premises, and test it with a truth assignment. Let D mean the server is down and F mean login fails. The given premises are D implies F and F; the proposed conclusion is D.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. How does the method you chose connect the given information to what you need to find?
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's focus on the current checkpoint. How does the method you chose connect the given information to what you need to find?
+  - article "You":
+    - generic: You
+    - generic: I will use a counterexample truth assignment. Validity would require that every assignment making both premises true also makes the conclusion true. One row with true premises and a false conclusion is sufficient to disprove validity.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's focus on the current checkpoint. Can you show your calculation or proof one step at a time and explain how you checked it?
+  - article "You":
+    - generic: You
+    - generic: Take D=false and F=true. D implies F is true because its antecedent is false. The second premise F is true, yet the conclusion D is false. Checking the truth row (D,F)=(false,true) therefore gives both premises true and the conclusion false, which disproves validity.
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. What does your result mean in the context of the original problem?
+  - article "You":
+    - generic: You
+    - generic: "Login failure is consistent with a running server. An incorrect password could cause the login to fail while the server is up. The argument affirms the consequent: server downtime is sufficient for login failure, but login failure alone does not identify the cause. The counterexample refutes the inference, not the original conditional."
+  - article "AI tutor":
+    - generic: MG
+    - generic: Your reasoning meets the requirements of this checkpoint. All four stages are complete. Select View step-by-step solution to see the worked explanation and your scorecard.
+- paragraph: Progressive solution unlock
+- heading "All four Socratic stages are complete." [level=2]
+- paragraph: Your saved conversation provides the reasoning evidence. View your step-by-step solution and formative scorecard when you are ready.
+- heading "Critical Thinking Scorecard" [level=2]
+- region "Critical Thinking Scorecard":
+  - paragraph: AI-supported formative feedback based on your saved reasoning. This is not an official grade.
+  - paragraph: 100/100
+  - paragraph: Total = Accuracy + Logical validity + Method selection + Explanation quality. Each criterion is worth 25 points. Assistance is reported separately.
+  - paragraph: "Rubric: ai-formative-v2-evidence · pending · Assistance: 2"
+  - generic: Accuracy
+  - generic: 25/25
+  - paragraph: The student correctly computed the truth values under the counterexample assignment and proved invalidity.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: b1b05c3d-ce22-482b-998a-f08e9ec3de9e_student: Take D=false and F=true. D implies F is true because its antecedent is false. The second premise F is true, yet the conclusion D is false. Checking the truth row (D,F)=(false,true) therefore gives both premises true and the conclusion false, which disproves validity."
+  - generic: Logical Validity
+  - generic: 25/25
+  - paragraph: The logical argument relies on the correct definition of validity and successfully uses a counterexample to establish it.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: 1f665c84-9dad-4667-a639-d0f2f603878b_student: I will use a counterexample truth assignment. Validity would require that every assignment making both premises true also makes the conclusion true. One row with true premises and a false conclusion is sufficient to disprove validity."
+  - paragraph: "Evidence: b1b05c3d-ce22-482b-998a-f08e9ec3de9e_student: Take D=false and F=true. D implies F is true because its antecedent is false. The second premise F is true, yet the conclusion D is false. Checking the truth row (D,F)=(false,true) therefore gives both premises true and the conclusion false, which disproves validity."
+  - generic: Method Selection
+  - generic: 25/25
+  - paragraph: The method of using a counterexample truth-value assignment is fully appropriate for showing an argument is invalid.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: 1f665c84-9dad-4667-a639-d0f2f603878b_student: I will use a counterexample truth assignment. Validity would require that every assignment making both premises true also makes the conclusion true. One row with true premises and a false conclusion is sufficient to disprove validity."
+  - generic: Explanation Quality
+  - generic: 25/25
+  - paragraph: The student clearly interpreted the result in the context of the problem, identifying affirming the consequent and providing a real-world reason for login failure.
+  - paragraph: "Improve: None required."
+  - paragraph: "Evidence: c6cfb1e5-2845-46fb-882b-5c93d9383b82_student: Login failure is consistent with a running server. An incorrect password could cause the login to fail while the server is up. The argument affirms the consequent: server downtime is sufficient for login failure, but login failure alone does not identify the cause. The counterexample refutes the inference, not the original conditional."
+  - heading "Strength" [level=3]
+  - paragraph: All four criteria have the same score; no single relative strength is identified.
+  - heading "Area for growth" [level=3]
+  - paragraph: All four criteria have the same score. Review the criterion feedback for any shared areas to develop.
+  - heading "Session summary" [level=3]
+  - paragraph: Great job! You successfully symbolized the argument, selected a valid counterexample method, correctly evaluated the truth values to demonstrate invalidity, and interpreted the result in context.
+  - heading "Improvement plan" [level=3]
+  - paragraph: No specific improvement was identified in the saved feedback.
+  - list
+- paragraph: Unlocked worked solution
+- heading "Method" [level=3]
+- text: Truth-value assignment / Counterexample
+- heading "Why it applies" [level=3]
+- text: An argument is invalid if there exists at least one truth-value assignment where all premises are true and the conclusion is false.
+- heading "Steps" [level=3]
+- list:
+  - listitem: Write the premises as p→q and q, with conclusion p.
+  - listitem: Set p=F and q=T.
+  - listitem: Then p→q is T and q is T, but the conclusion p is F.
+  - listitem: Since true premises can lead to a false conclusion, the argument is invalid.
+  - listitem: A login failure can have causes other than server downtime.
+- heading "Final answer" [level=3]
+- text: "The argument is invalid (affirming the consequent). Counterexample: p=F, q=T makes p→q true and q true, but p false. Login may fail because of an incorrect password or network issue."
+- heading "Verification" [level=3]
+- text: Checking via truth table or alternative assignments confirms that no other row makes premises true and conclusion false except the identified counterexample.
+- heading "Interpretation" [level=3]
+- text: Correctly symbolizes the inference, supplies a countervaluation, and explains why the observed effect does not establish its proposed cause.
+- paragraph: Formative AI-supported feedback only — not an official grade.
+- button "Finish session"
+- region "Notifications alt+T"
+- alert

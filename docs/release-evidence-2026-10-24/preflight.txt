@@ -1,0 +1,144 @@
+
+> mindguide@3.0.0 release:preflight
+> node --import tsx scripts/ai-preflight.ts --verify
+
+{
+  "project": "socratic-ai-a7765",
+  "approvedProblems": 0,
+  "readyProblems": 0,
+  "coverage": {
+    "pigeonhole": 0,
+    "mean": 0,
+    "variance": 0,
+    "regression": 0
+  },
+  "matrix": [
+    {
+      "topicId": "quantitative-methods-functions",
+      "topic": "Functions",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "topic": "Descriptive Statistics",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-probability",
+      "topic": "Introduction to Probability",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "quantitative-methods-probability-distributions",
+      "topic": "Probability Distributions",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "quantitative-methods-introduction-to-decision-making",
+      "topic": "Introduction to Decision Making",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "quantitative-methods-decision-analysis",
+      "topic": "Decision Analysis",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "topic": "Speaking Mathematically",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-set-theory",
+      "topic": "Set Theory",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-relations-and-functions",
+      "topic": "Relations and Functions",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-logic",
+      "topic": "Logic",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-combinatorics",
+      "topic": "Combinatorics",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    },
+    {
+      "topicId": "discrete-mathematics-discrete-probability",
+      "topic": "Discrete Probability",
+      "Basic": 0,
+      "Intermediate": 0,
+      "Advanced": 0
+    }
+  ],
+  "pilotState": "open",
+  "gaps": [
+    "No ready approved content found for pigeonhole",
+    "No ready approved content found for mean",
+    "No ready approved content found for variance",
+    "No ready approved content found for regression",
+    "Functions / Basic: no ready approved problem",
+    "Functions / Intermediate: no ready approved problem",
+    "Functions / Advanced: no ready approved problem",
+    "Descriptive Statistics / Basic: no ready approved problem",
+    "Descriptive Statistics / Intermediate: no ready approved problem",
+    "Descriptive Statistics / Advanced: no ready approved problem",
+    "Introduction to Probability / Basic: no ready approved problem",
+    "Introduction to Probability / Intermediate: no ready approved problem",
+    "Introduction to Probability / Advanced: no ready approved problem",
+    "Probability Distributions / Basic: no ready approved problem",
+    "Probability Distributions / Intermediate: no ready approved problem",
+    "Probability Distributions / Advanced: no ready approved problem",
+    "Introduction to Decision Making / Basic: no ready approved problem",
+    "Introduction to Decision Making / Intermediate: no ready approved problem",
+    "Introduction to Decision Making / Advanced: no ready approved problem",
+    "Decision Analysis / Basic: no ready approved problem",
+    "Decision Analysis / Intermediate: no ready approved problem",
+    "Decision Analysis / Advanced: no ready approved problem",
+    "Speaking Mathematically / Basic: no ready approved problem",
+    "Speaking Mathematically / Intermediate: no ready approved problem",
+    "Speaking Mathematically / Advanced: no ready approved problem",
+    "Set Theory / Basic: no ready approved problem",
+    "Set Theory / Intermediate: no ready approved problem",
+    "Set Theory / Advanced: no ready approved problem",
+    "Relations and Functions / Basic: no ready approved problem",
+    "Relations and Functions / Intermediate: no ready approved problem",
+    "Relations and Functions / Advanced: no ready approved problem",
+    "Logic / Basic: no ready approved problem",
+    "Logic / Intermediate: no ready approved problem",
+    "Logic / Advanced: no ready approved problem",
+    "Combinatorics / Basic: no ready approved problem",
+    "Combinatorics / Intermediate: no ready approved problem",
+    "Combinatorics / Advanced: no ready approved problem",
+    "Discrete Probability / Basic: no ready approved problem",
+    "Discrete Probability / Intermediate: no ready approved problem",
+    "Discrete Probability / Advanced: no ready approved problem"
+  ]
+}

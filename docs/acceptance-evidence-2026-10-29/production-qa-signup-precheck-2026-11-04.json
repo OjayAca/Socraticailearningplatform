@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-04T01:17:35.996Z",
+  "projectId": "socratic-ai-a7765",
+  "scope": "approved new production QA learner, pre-signup checks only",
+  "emailAlreadyRegistered": true,
+  "matchingProfileCount": 1,
+  "firebaseBillingEnabled": false,
+  "geminiProjectBillingEnabled": false,
+  "pilotOpen": true,
+  "logicEnabled": true,
+  "applicationDailyLimit": 18,
+  "applicationReservationsToday": 0,
+  "matchesDesignatedOrvinStudent": false
+}

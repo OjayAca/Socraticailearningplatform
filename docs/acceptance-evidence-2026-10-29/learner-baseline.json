@@ -1,0 +1,115 @@
+{
+  "checkedAt": "2026-10-29T01:55:49.696Z",
+  "readOnly": true,
+  "sessionsCompleted": 4,
+  "sessions": [
+    {
+      "problemId": "QM-08-B01",
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "needsOpening": false,
+      "responses": 5,
+      "score": 100,
+      "rubric": "ai-formative-v1",
+      "statisticsCommitted": true,
+      "lastActivityAt": "2026-10-26T11:26:52.052Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    },
+    {
+      "problemId": "QM-07-B01",
+      "topicId": "quantitative-methods-functions",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "needsOpening": false,
+      "responses": 5,
+      "score": 100,
+      "rubric": "ai-formative-v1",
+      "statisticsCommitted": true,
+      "lastActivityAt": "2026-10-27T01:40:15.435Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    },
+    {
+      "problemId": null,
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "needsOpening": false,
+      "responses": 6,
+      "score": 100,
+      "rubric": "ai-formative-v1",
+      "statisticsCommitted": true,
+      "lastActivityAt": "2026-10-23T02:43:13.588Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    },
+    {
+      "problemId": null,
+      "topicId": "quantitative-methods-descriptive-statistics",
+      "difficulty": "Basic",
+      "status": "expired",
+      "phase": "result_interpretation",
+      "needsOpening": false,
+      "responses": 9,
+      "score": null,
+      "rubric": null,
+      "statisticsCommitted": false,
+      "lastActivityAt": "2026-10-18T12:45:27.176Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    },
+    {
+      "problemId": "DM-01-B01",
+      "topicId": "discrete-mathematics-speaking-mathematically",
+      "difficulty": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "needsOpening": false,
+      "responses": 5,
+      "score": 100,
+      "rubric": "ai-formative-v1",
+      "statisticsCommitted": true,
+      "lastActivityAt": "2026-10-27T14:36:21.272Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    },
+    {
+      "problemId": null,
+      "topicId": "discrete-mathematics-logic",
+      "difficulty": "Basic",
+      "status": "expired",
+      "phase": "problem_understanding",
+      "needsOpening": false,
+      "responses": 0,
+      "score": null,
+      "rubric": null,
+      "statisticsCommitted": false,
+      "lastActivityAt": "2026-10-18T12:45:42.030Z",
+      "recommendation": {
+        "recommendedDifficulty": "Basic",
+        "confidence": "low",
+        "reason": "Begin at Basic; collect at least three completed AI sessions before changing difficulty."
+      }
+    }
+  ]
+}

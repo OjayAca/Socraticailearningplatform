@@ -43,3 +43,6 @@ migration-backups/
 *.tsbuildinfo
 .env.*
 !.env.example
+
+# Owner attestation, isolated staging credential and per-attempt audit files
+.mindguide-staging/

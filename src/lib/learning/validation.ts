@@ -29,6 +29,7 @@ const startSessionSchema = z.discriminatedUnion("mode", [
     mode: z.literal("free_form"),
     topicId: z.string().trim().min(1).max(160),
     question: z.string().trim().min(8).max(2_000),
+    questionLatex: z.string().max(2_000).optional(),
     requestedDifficulty: difficulty,
     confirmationHash: z.string().min(1).max(4000).optional(),
   }),
@@ -112,6 +113,13 @@ const adminUserSchema = z.object({
 });
 
 const auditReason = z.string().trim().min(8).max(1_000);
+const academicField = z.string().trim().min(1).max(100).refine(value => [...value].every(char => char.charCodeAt(0) >= 32 && char.charCodeAt(0) !== 127), "Control characters are not allowed.");
+const academicProfileEditSchema = z.object({
+  requestId,
+  userId: z.string().min(1).max(160).regex(/^[A-Za-z0-9_-]+$/),
+  course: academicField, yearLevel: academicField, section: academicField,
+  reason: auditReason,
+}).strict();
 const deletableContentCollection = z.enum([
   "subjects",
   "topics",
@@ -161,11 +169,13 @@ const scalarAnswer = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("expression"), expression: z.string().min(1).max(1000) }),
   z.object({ kind: z.literal("truth"), value: z.boolean() }),
   z.object({ kind: z.literal("set"), values: z.array(z.number().finite()).max(100) }),
+  z.object({ kind: z.literal("proof"), conclusion: z.string().min(1).max(4000), requirements: z.array(z.string().min(1).max(2000)).min(1).max(30) }),
 ]);
 const answerSpecification = z.union([scalarAnswer, z.object({ kind: z.literal("parts"), parts: z.record(z.string().min(1).max(40), scalarAnswer) })]);
 const privateProblemSolution = z.object({
   answerSpecification: answerSpecification.optional(),
   rubricVersion: z.string().max(80).optional(),
+  rubricCalibrationStatus: z.enum(["pending", "calibrated"]).optional(),
   safeHints: z.record(z.enum(REASONING_PHASES), z.record(z.enum(["socratic_prompt", "targeted_hint", "stronger_hint", "partial_step"]), z.array(z.string().min(1).max(1000)).min(1).max(4))).optional(),
   expectedConcepts: z.array(z.string().trim().min(1).max(160)).min(1).max(30),
   requiredFormula: z.string().max(1_000).nullable().optional(),
@@ -198,6 +208,12 @@ const managedSchemas = {
     status: managedStatus,
   }),
   problems: z.object({
+    title: z.string().max(240).optional(),
+    questionType: z.enum(["constructed_response", "multiple_choice"]).optional(),
+    choices: z.array(z.string().max(2000)).max(30).optional(),
+    importSource: z.string().max(160).optional(),
+    sourceProblemId: z.string().max(160).optional(),
+    sourceHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
     subjectId: z.string().trim().min(1).max(160),
     topicId: z.string().trim().min(1).max(160),
     subject,
@@ -313,7 +329,9 @@ export function validateManagedContent(
 }
 
 const FORBIDDEN_PUBLIC_KEYS = new Set([
-  "answerSpecification", "safeHints", "verifiedGivens", "configurationSnapshot",
+  "answerSpecification", "safeHints", "verifiedGivens", "configurationSnapshot", "sourceGuidance",
+  "instructor_only", "expected_final_answer", "step_by_step_solution", "expected_reasoning",
+  "common_errors", "scoring_references", "expected_evidence", "answerKey", "instructorNotes",
   "finalAnswer",
   "solutionSteps",
   "referenceAnswer",
@@ -365,6 +383,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // Allocated once per isolate to avoid re-creating the schema map on every request.
 const operationSchemas: Record<string, z.ZodType> = {
+  previewVerifiedProblem: z.object({ requestId, topicId: z.string().regex(/^[A-Za-z0-9_-]{1,160}$/), question: z.string().trim().min(8).max(2000), questionLatex: z.string().max(2000).optional(), requestedDifficulty: difficulty }),
   bootstrapProfile: bootstrapProfileSchema,
   startLearningSession: startSessionSchema,
   evaluatePhaseResponse: evaluateResponseSchema,
@@ -380,6 +399,7 @@ const operationSchemas: Record<string, z.ZodType> = {
   adminUpsertContent: contentMutationSchema,
   adminArchiveContent: contentMutationSchema,
   adminManageUser: adminUserSchema,
+  adminEditAcademicProfile: academicProfileEditSchema,
   adminDeleteContent: adminDeleteContentSchema,
   adminPublishAnnouncement: adminPublishAnnouncementSchema,
   adminQueryReport: reportQuerySchema,

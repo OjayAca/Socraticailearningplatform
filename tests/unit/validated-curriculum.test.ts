@@ -27,4 +27,7 @@ describe("authoritative curriculum", () => {
     expect(verifiedConfirmation("combination: 5, 2", "discrete-mathematics-combinatorics").givens.operation).toBe("combination");
     expect(() => verifiedConfirmation("mean: 4, 8, 12", "quantitative-methods-functions")).toThrow();
   });
+  it.each(["problems","formula_theorem_references","socratic_prompt_bank","difficulty_policies"])("rejects excluded concepts hidden under an approved %s topic",collection=>{
+    for(const text of ["Pigeonhole Principle","linear regression"]) expect(()=>assertCurriculumContent(collection,"content",{topicId:VALIDATED_TOPICS[0].id,statement:text})).toThrow("approved curriculum scope");
+  });
 });

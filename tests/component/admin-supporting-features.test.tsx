@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   adminDeleteUser: vi.fn(),
   adminExportReport: vi.fn(),
   adminManageUser: vi.fn(),
+  adminEditAcademicProfile: vi.fn(),
   adminOverrideSessionSupport: vi.fn(),
   adminPublishAnnouncement: vi.fn(),
   adminQueryReport: vi.fn(),
@@ -51,6 +52,7 @@ vi.mock("@/lib/secure-api", () => ({
   adminDeleteUser: mocks.adminDeleteUser,
   adminExportReport: mocks.adminExportReport,
   adminManageUser: mocks.adminManageUser,
+  adminEditAcademicProfile: mocks.adminEditAcademicProfile,
   adminOverrideSessionSupport: mocks.adminOverrideSessionSupport,
   adminPublishAnnouncement: mocks.adminPublishAnnouncement,
   adminQueryReport: mocks.adminQueryReport,
@@ -116,6 +118,15 @@ describe("administrator account safeguards", () => {
 
   afterEach(cleanup);
 
+  it("edits the approved academic fields and sends a mandatory audit reason", async () => {
+    mocks.getDocs.mockResolvedValue(snapshot([{id:"student",displayName:"Test learner",role:"student",status:"active",academicProfile:{studentNumber:"KEEP",course:"IT",yearLevel:"1",section:"A"}}]));
+    renderRoute(<SecureAdminUsers />);
+    fireEvent.click(await screen.findByText("Edit academic profile"));
+    fireEvent.change(screen.getByLabelText("Course"),{target:{value:"Computer Science"}});
+    fireEvent.change(screen.getByLabelText("Profile edit reason"),{target:{value:"Reviewed learner course"}});
+    fireEvent.click(screen.getByRole("button",{name:"Save academic profile"}));
+    await waitFor(()=>expect(mocks.adminEditAcademicProfile).toHaveBeenCalledWith({userId:"student",course:"Computer Science",yearLevel:"1",section:"A",reason:"Reviewed learner course"}));
+  });
   it("loads, searches, and performs an audited reversible account action", async () => {
     mocks.getDocs.mockResolvedValue(
       snapshot([
@@ -143,6 +154,9 @@ describe("administrator account safeguards", () => {
     mocks.getDocs.mockResolvedValue(snapshot([{ id: "student-3", displayName: "Deleted Learner", email: "deleted@example.com", role: "student", status: "deactivated" }]));
     renderRoute(<SecureAdminUsers />);
     await screen.findByText("Deleted Learner");
+    fireEvent.click(screen.getByRole("button", {name:"activate"}));
+    await waitFor(()=>expect(mocks.adminManageUser).toHaveBeenCalledWith(expect.objectContaining({userId:"student-3",action:"activate"})));
+    expect(screen.queryByRole("button", {name:"suspend"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "delete" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Firebase Console" })).toHaveAttribute("target", "_blank");
     expect(mocks.adminDeleteUser).not.toHaveBeenCalled();
@@ -250,6 +264,8 @@ describe("administrator progress, logs, and settings recovery", () => {
     progressView.unmount();
     mocks.getDocs.mockRejectedValue(new Error("Audit logs are offline."));
     renderRoute(<SecureAdminLogs />);
+    expect(screen.getByText(/Practice uses live Gemini requests/)).toBeVisible();
+    expect(screen.queryByText(/does not call a live AI service/)).not.toBeInTheDocument();
     expect(await screen.findByText("Audit logs are offline.")).toBeVisible();
   });
 

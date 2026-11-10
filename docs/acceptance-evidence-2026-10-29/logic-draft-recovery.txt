@@ -1,0 +1,24 @@
+- banner:
+  - generic: MG
+  - 'heading "Socratic Session: Discrete Mathematics" [level=1]'
+  - paragraph: Logic
+  - link "Close session and return to history":
+    - /url: /student/history
+  - generic: Problem Understanding
+  - generic: 0%
+  - progressbar "Learning progress"
+- generic "Session details"
+- log "Socratic tutor conversation":
+  - article "AI tutor":
+    - generic: MG
+    - generic: Let's begin by understanding the problem. In your own words, what do you need to find, and which given information helps you find it?
+- contentinfo:
+  - button "I need a hint":
+    - text: I need a hint
+  - button "Add equation"
+  - textbox "Message your tutor":
+    - /placeholder: Type your response here…
+    - text: We need truth tables for p→q and ¬p∨q, compare their truth values in all four rows, and explain when the implication is false. The row order is TT, TF, FT, FF for p and q. We are told to use material implication and inclusive OR.
+  - button "Send message":
+- region "Notifications alt+T"
+- alert

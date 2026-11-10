@@ -1,0 +1,18 @@
+{
+  "projectId": "socratic-ai-a7765",
+  "sourceFileHash": "f1fded3636d0514fb5f09ae29b7a2d2f65cdf3341a6225853a4cad36a5446dc0",
+  "mode": "apply",
+  "questions": 36,
+  "publicationStatus": "approved",
+  "newQuestions": 0,
+  "skippedQuestions": 36,
+  "duplicates": 0,
+  "plannedDocuments": 468,
+  "missingDocuments": 0,
+  "topics": 12,
+  "pilotState": "open",
+  "enabledTopics": 12,
+  "missingAnswers": 0,
+  "missingSolutions": 0,
+  "semanticAssessmentQuestions": 36
+}

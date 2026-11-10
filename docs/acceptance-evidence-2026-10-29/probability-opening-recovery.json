@@ -1,0 +1,17 @@
+{
+  "checkedAt": "2026-10-29T08:38:04.751Z",
+  "readOnly": true,
+  "totalLearnerSessions": 8,
+  "sessions": [
+    {
+      "id": "MTFad2RDfAWnnCIHnpeUSBPX3pg2_eb531ce7-e2e7-4aa8-8405-4bcddbe3dc73",
+      "problemId": "DM-06-B01",
+      "status": "in_progress",
+      "phase": "problem_understanding",
+      "needsOpening": false,
+      "responses": 0,
+      "score": null,
+      "statsCommitted": false
+    }
+  ]
+}

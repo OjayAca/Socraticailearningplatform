@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-04T00:55:23.279Z",
+  "projectId": "socratic-ai-a7765",
+  "scope": "production QA, read only, user-designated existing student",
+  "uniqueExactDisplayNameMatch": true,
+  "profileStatus": "active",
+  "rosterStatus": "admitted",
+  "topicId": "discrete-mathematics-logic",
+  "approvedIntermediateIds": [
+    "DM-04-I01",
+    "DM-04-I02",
+    "DM-04-I03"
+  ],
+  "submitted": [
+    {
+      "problem": "DM-04-I03",
+      "score": 100,
+      "statisticsCommitted": true,
+      "workflow": 6
+    },
+    {
+      "problem": "DM-04-I02",
+      "score": 100,
+      "statisticsCommitted": true,
+      "workflow": 6
+    },
+    {
+      "problem": "DM-04-I01",
+      "score": 100,
+      "statisticsCommitted": true,
+      "workflow": 6
+    }
+  ],
+  "approvedIdsWithoutCommittedSubmission": [],
+  "recomputedDecision": "maintain_mixed_evidence",
+  "recommendedDifficulty": "Intermediate",
+  "meanAccuracy": 100,
+  "meanReasoning": 100,
+  "repeatedDifficulties": 0,
+  "savedDecision": "maintain_mixed_evidence",
+  "savedNextLevel": "Intermediate"
+}

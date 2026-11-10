@@ -1,0 +1,99 @@
+
+ RUN  v3.2.7 C:/Users/OjayAca/OneDrive/Documents/Code Projects/Socraticailearningplatform
+
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > bounds a premature calculation opening to understanding without accepting evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > reassesses conflicting intent through the complete mean workflow and persists one scorecard
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > reassesses conflicting intent through the complete logic workflow and persists one scorecard
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > keeps unresolved intent gated with explicit recovery and accounts for the extra call
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > does not accept unsupported praise or empty assessment evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > bounds hints to problem_understanding without granting evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > bounds hints to method_selection without granting evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > bounds hints to guided_computation_or_proof without granting evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > bounds hints to result_interpretation without granting evidence
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: invented, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: assistant, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: wrong_stage, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: wrong_solution, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: low_confidence, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves reasoning on failed reveal: quota, then recovers the same request
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > records wrong_formula and provides corrective dialogue instead of an error
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > records invalid_logic and provides corrective dialogue instead of an error
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > records incorrect_interpretation and provides corrective dialogue instead of an error
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves a reliable, specific corrective prompt for an ordinary wrong answer
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > keeps an incomplete answer in its stage until mastery is demonstrated
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > advances an existing partially completed stage without repeating accepted criteria
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > recovers only the authenticated user's exact saved operation without generating again
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > keeps the request lease valid through a slow retried provider call
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > pins private references and starts an AI conversation
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > requires the current AI processing consent
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > requires active accounts and real pilot admission
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > reports remaining launch blockers together before reserving work
+ ✓ tests/unit/ai-learning.test.ts > AI session authority and recovery > does not assign stale or unapproved content 12ms
+ ✓ tests/unit/ai-learning.test.ts > AI session authority and recovery > does not assign an altered approved snapshot 16ms
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > accepts assessed reasoning and advances only one gate
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > question does not count as a failed attempt
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > help does not count as a failed attempt
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > recognizes natural question messages sent using the answer action
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > recognizes natural help messages sent using the answer action
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > progresses requested help without marking it as a failed answer
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > replays a duplicate request without a second model call
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > rejects stale tabs before calling Gemini
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > does not overwrite a draft changed during request reservation
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > preserves student work on quota failure and retries the same operation
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > recovers the reserved session when the opening call fails
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > enforces shared free quota before calling the model
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > asks for clarification on low confidence without falsely diagnosing a misconception
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > does not unlock a solution before all reasoning
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > corrects conflicting mathematical acceptance conversationally and rejects ownership changes
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > scores four criteria, unlocks after scoring, and submits exactly once
+ ↓ tests/unit/ai-learning.test.ts > AI session authority and recovery > completes four stages and reveals from the conversation without a final draft
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > does not promote an exhausted Basic bank or consume AI quota
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > selects another eligible same-level question
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > does not accept a final answer alone even when the provider says accepted
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > overrides generic AI diagnosis for the exact QM-07-B01 signed-square failure
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured wrong_formula without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured procedural_error without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured invalid_logic without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured skipped_reasoning without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured weak_justification without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured incorrect_interpretation without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured theorem_condition_violation without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > persists structured unrecognized_alternative without advancing
+ ↓ tests/unit/ai-learning.test.ts > core feature completion regressions > rejects release from another learner and smuggled client completion flags
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic (4+8+12)/3
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic -2^2
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic 2^-2
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic 50%
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic 1/0
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic 2;process.exit()
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > bounded arithmetic 2**3
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > keeps proofs and unsupported notation distinct from wrong mathematics
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > unlocks progressively stronger help without accepting gates
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > uses reasoning and assistance, not only answer accuracy
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > excludes incomplete histories and clamps both recommendation boundaries
+ ✓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > assigns 'QM-08-I01' through session start after 'advance' 97ms
+ ✓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > assigns 'QM-08-I01' through session start after 'maintain_mixed_evidence' 33ms
+ ✓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > assigns 'QM-08-B01' through session start after 'remediation' 28ms
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > fails safely before using provider capacity when approved content is absent
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > does not send account identity or secrets as educational context
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > rejects malformed or truncated Gemini output
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > distinguishes provider status 404 without retrying or exposing provider details
+ ↓ tests/unit/ai-learning.test.ts > Mathematics and adaptation > distinguishes provider status 429 without retrying or exposing provider details
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > computes a private reference and preserves the Socratic gates
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects mean: 2, garbage without writes
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects Given f(x) = x+1, find f(2). without writes
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects variance: 2, 4 without writes
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects changed confirmed inputs {"question":"mean: 2, 3"}
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects changed confirmed inputs {"requestedDifficulty":"Advanced"}
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects changed confirmed inputs {"questionLatex":"2, 8"}
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > preserves both original forms and expands notation for the tutor
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > blocks a leaking custom opening without releasing a solution
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > resumes identical custom work but refuses to silently substitute a different active problem
+ ✓ tests/unit/ai-learning.test.ts > custom problem secure integration > does not bypass validation when another assignment is active 7ms
+ ↓ tests/unit/ai-learning.test.ts > custom problem secure integration > rejects malformed preview contracts and unapproved subjects
+
+ Test Files  1 passed (1)
+      Tests  6 passed | 84 skipped (90)
+   Start at  13:49:09
+   Duration  2.59s (transform 433ms, setup 463ms, collect 901ms, tests 195ms, environment 0ms, prepare 187ms)
+

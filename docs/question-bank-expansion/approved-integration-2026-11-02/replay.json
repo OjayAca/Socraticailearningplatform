@@ -1,0 +1,49 @@
+{
+  "checkedAt": "2026-11-02T01:18:27.528Z",
+  "projectId": "socratic-ai-a7765",
+  "database": "(default)",
+  "sourceHash": "5579cfa063b1cb640948662f0399acabd51ad8d6b8271d445390508e7cf93ce0",
+  "evidenceHash": "be37114a8a9a51378cad2f0cef454eb642c52f11551a961ecd2cbdee27aa5c13",
+  "originalDocuments": 468,
+  "originalVersionHash": "fb94b9b5071ea80e38720c62d368467a4d369f22200a63378b84f130759b9c9d",
+  "questions": 120,
+  "plannedDocuments": 1092,
+  "missingDocuments": 0,
+  "groups": [
+    336,
+    336,
+    336,
+    84
+  ],
+  "committedThisRun": [],
+  "receipts": [
+    {
+      "path": "audit_logs/approved-expansion-5579cfa063b1cb64-0",
+      "commitTime": [
+        1793582258,
+        362930000
+      ]
+    },
+    {
+      "path": "audit_logs/approved-expansion-5579cfa063b1cb64-1",
+      "commitTime": [
+        1793582261,
+        330197000
+      ]
+    },
+    {
+      "path": "audit_logs/approved-expansion-5579cfa063b1cb64-2",
+      "commitTime": [
+        1793582264,
+        341431000
+      ]
+    },
+    {
+      "path": "audit_logs/approved-expansion-5579cfa063b1cb64-3",
+      "commitTime": [
+        1793582266,
+        164430000
+      ]
+    }
+  ]
+}

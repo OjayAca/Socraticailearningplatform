@@ -147,6 +147,10 @@ export async function adminManageUser(input: {
   return call("adminManageUser", { ...input, requestId: newRequestId() });
 }
 
+export async function adminEditAcademicProfile(input: {userId:string; course:string; yearLevel:string; section:string; reason:string}): Promise<Record<string, unknown>> {
+  return call("adminEditAcademicProfile", {...input, requestId:newRequestId()});
+}
+
 export async function adminDeleteContent(
   input: Omit<AdminDeleteContentRequest, "requestId">
 ): Promise<Record<string, unknown>> {
@@ -208,7 +212,7 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
   }
 }
 
-export async function previewVerifiedProblem(input: { topicId: string; question: string; requestedDifficulty: string }): Promise<{ confirmationHash: string; description: string }> {
+export async function previewVerifiedProblem(input: { topicId: string; question: string; questionLatex?: string; requestedDifficulty: string }): Promise<{ confirmationHash: string; description: string }> {
   return call("previewVerifiedProblem", { ...input, requestId: newRequestId() });
 }
 

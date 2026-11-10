@@ -1,0 +1,67 @@
+{
+  "at": "2026-11-10T09:05:50.288Z",
+  "project": "socratic-ai-a7765",
+  "qaReference": "ea072141dc63",
+  "sessions": [
+    {
+      "problem": "DM-04-B03",
+      "level": "Basic",
+      "status": "submitted",
+      "score": "100",
+      "committed": true,
+      "phase": "critical_thinking_scorecard",
+      "responses": 4,
+      "decision": "advance",
+      "assignmentDecision": "maintain_insufficient_evidence",
+      "assignmentEvidenceCount": "2"
+    },
+    {
+      "problem": "DM-04-I01",
+      "level": "Intermediate",
+      "status": "submitted",
+      "score": "100",
+      "committed": true,
+      "phase": "critical_thinking_scorecard",
+      "responses": 8,
+      "decision": "maintain_insufficient_evidence",
+      "assignmentDecision": "advance",
+      "assignmentEvidenceCount": "3"
+    },
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "expired",
+      "committed": false,
+      "phase": "problem_understanding",
+      "responses": 0,
+      "assignmentDecision": "maintain_insufficient_evidence",
+      "assignmentEvidenceCount": "0"
+    },
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "submitted",
+      "score": "100",
+      "committed": true,
+      "phase": "critical_thinking_scorecard",
+      "responses": 5,
+      "decision": "maintain_insufficient_evidence",
+      "assignmentDecision": "maintain_insufficient_evidence",
+      "assignmentEvidenceCount": "0"
+    },
+    {
+      "problem": "DM-04-B02",
+      "level": "Basic",
+      "status": "submitted",
+      "score": "100",
+      "committed": true,
+      "phase": "critical_thinking_scorecard",
+      "responses": 4,
+      "decision": "maintain_insufficient_evidence",
+      "assignmentDecision": "maintain_insufficient_evidence",
+      "assignmentEvidenceCount": "1"
+    }
+  ],
+  "quotaDay": "2026-11-10",
+  "sharedReservations": 16
+}

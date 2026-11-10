@@ -1,0 +1,48 @@
+{
+  "checkedAt": "2026-11-10T04:21:01.875Z",
+  "project": "socratic-ai-a7765",
+  "qaReference": "ea072141dc63",
+  "learnerCompletions": 2,
+  "history": [
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "expired",
+      "phase": "problem_understanding",
+      "assessedResponses": 0,
+      "score": null,
+      "persistedScorecards": 0,
+      "statisticsCommitted": false
+    },
+    {
+      "problem": "DM-04-B01",
+      "level": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "assessedResponses": 5,
+      "score": 100,
+      "persistedScorecards": 1,
+      "statisticsCommitted": true,
+      "decision": "maintain_insufficient_evidence",
+      "evidenceCount": "1",
+      "recommendedLevel": "Basic"
+    },
+    {
+      "problem": "DM-04-B02",
+      "level": "Basic",
+      "status": "submitted",
+      "phase": "critical_thinking_scorecard",
+      "assessedResponses": 4,
+      "score": 100,
+      "persistedScorecards": 1,
+      "statisticsCommitted": true,
+      "decision": "maintain_insufficient_evidence",
+      "evidenceCount": "2",
+      "recommendedLevel": "Basic"
+    }
+  ],
+  "sharedQuotaCounter": {
+    "day": "2026-11-09",
+    "reservations": 15
+  }
+}

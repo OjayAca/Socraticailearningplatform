@@ -96,6 +96,11 @@
     "@tailwindcss/postcss": "4.1.12",
     "@next/env": "^16.3.6"
   },
+  "overrides": {
+    "@firebase/firestore": {
+      "@grpc/grpc-js": "1.14.6"
+    }
+  },
   "pnpm": {
     "overrides": {
       "vite": "6.4.3"

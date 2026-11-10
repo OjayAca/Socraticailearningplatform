@@ -51,6 +51,62 @@ beforeEach(() => {
   memory.records.set("users/student", { role: "student", status: "active" });
 });
 describe("actual administrator service with in-memory Firestore", () => {
+  it("edits only academic fields atomically with audit, preserves identity, and rejects replay", async () => {
+    memory.records.set("users/student", {role:"student",status:"active",academicProfile:{studentNumber:"KEEP",course:"Old",yearLevel:"1",section:"A"},academicProfileComplete:true});
+    const input={userId:"student",course:" IT ",yearLevel:"2",section:"B",reason};
+    memory.failCommit=true;
+    await expect(invoke("adminEditAcademicProfile",input)).rejects.toThrow();
+    expect(memory.records.get("users/student").academicProfile.course).toBe("Old");
+    expect(audits()).toHaveLength(0);
+    await invoke("adminEditAcademicProfile",input);
+    expect(memory.records.get("users/student")).toMatchObject({role:"student",status:"active",academicProfile:{studentNumber:"KEEP",course:"IT",yearLevel:"2",section:"B"},academicProfileComplete:true});
+    expect(audits()).toHaveLength(1);
+    await expect(invoke("adminEditAcademicProfile",input)).rejects.toThrow("already recorded");
+  });
+  it.each([{course:" "},{section:"x".repeat(101)},{role:"admin"},{studentNumber:"changed"},{reason:""}])("rejects invalid or privileged profile edits %j", async change => {
+    await expect(invoke("adminEditAcademicProfile",{userId:"student",course:"IT",yearLevel:"2",section:"B",reason,...change})).rejects.toThrow();
+    expect(audits()).toHaveLength(0);
+  });
+  it("denies learner report exports and academic edits", async () => {
+    memory.uid="student";
+    await expect(invoke("adminExportReport",{kind:"activity",output:"csv",exportReason:reason})).rejects.toThrow();
+    await expect(invoke("adminEditAcademicProfile",{userId:"student",course:"IT",yearLevel:"2",section:"B",reason})).rejects.toThrow();
+  });
+  it("exports filtered statuses and subjects without exposing identity in session IDs", async () => {
+    memory.records.set("sessions/private-uid_session",{studentId:"private-uid",studentName:"Private Name",subject:"Discrete Mathematics",topic:"Logic",status:"expired",createdAt:100});
+    memory.records.set("sessions/other",{studentId:"private-uid",subject:"Quantitative Methods",topic:"Descriptive Statistics",status:"submitted",createdAt:200});
+    const exported=await invoke("adminExportReport",{kind:"activity",output:"csv",exportReason:reason,subject:"Discrete Mathematics",topic:"Logic",from:100,to:100});
+    expect(exported.rows).toHaveLength(1);
+    expect(exported.totalRows).toBe(1);
+    expect(exported.rows[0]).toMatchObject({status:"expired",subject:"Discrete Mathematics",topic:"Logic"});
+    expect(exported.csv).toContain('"status"');
+    expect(exported.csv).not.toContain("private-uid");
+    expect(exported.csv).not.toContain("Private Name");
+    const identified=await invoke("adminExportReport",{kind:"activity",output:"csv",exportReason:reason,includeIdentity:true});
+    expect(identified.csv).toContain("Private Name");
+  });
+  it("reactivates a deactivated learner directly with audit and preserves unrelated records", async () => {
+    memory.records.set("users/student", {role:"student",status:"deactivated",academicProfile:{course:"IT"}});
+    memory.records.set("sessions/saved", {studentId:"student",status:"submitted",scorecard:{total:80}});
+    const before=structuredClone(memory.records.get("sessions/saved"));
+    await invoke("adminManageUser",{userId:"student",action:"activate",reason});
+    expect(memory.records.get("users/student")).toMatchObject({role:"student",status:"active",academicProfile:{course:"IT"}});
+    expect(memory.records.get("sessions/saved")).toEqual(before);
+    expect(audits()).toHaveLength(1);
+  });
+  it.each(["anonymized","unknown"])("rejects activation from %s", async status => {
+    memory.records.set("users/student",{role:"student",status});
+    await expect(invoke("adminManageUser",{userId:"student",action:"activate",reason})).rejects.toThrow("transition");
+    expect(audits()).toHaveLength(0);
+  });
+  it("rejects suspension of a deactivated learner without writes", async () => {
+    const before = { role: "student", status: "deactivated" };
+    memory.records.set("users/student", before);
+    await expect(invoke("adminManageUser", { userId: "student", action: "suspend", reason })).rejects.toThrow("transition");
+    expect(memory.records.get("users/student")).toEqual(before);
+    expect(audits()).toHaveLength(0);
+    expect(memory.commits).toBe(0);
+  });
   it.each([
     ["formula_theorem_references", { kind: "formula", statement: "sum / count", domain: "Quantitative Methods", status: "draft" }],
     ["socratic_prompt_bank", { problemId: "question", phase: "problem_understanding", prompt: "What is requested?", status: "draft" }],
@@ -76,6 +132,14 @@ describe("actual administrator service with in-memory Firestore", () => {
     expect(memory.records.get("topics/quantitative-methods-descriptive-statistics").subtopics).toHaveLength(4);
     await expect(invoke("adminArchiveContent", { collection: "topics", id: "quantitative-methods-descriptive-statistics" })).rejects.toThrow("fixed");
     await expect(invoke("adminUpsertContent", { collection: "subjects", id: "duplicate", value: { name: "Quantitative Methods", description: "Duplicate", status: "approved" } })).rejects.toThrow("validated subject");
+  });
+  it("allows only an active administrator to enter the question-bank readiness review", async () => {
+    const result = await invoke("adminCatalogReadiness", {});
+    expect(result.cells).toBeDefined();
+    for (const profile of [{role:"student",status:"active"},{role:"admin",status:"suspended"}]) {
+      memory.records.set("users/admin",profile);
+      await expect(invoke("adminCatalogReadiness", {})).rejects.toThrow("Administrator access");
+    }
   });
   it("requires an active administrator before any operation", async () => {
     memory.records.get("users/admin").role = "student";
@@ -175,5 +239,8 @@ describe("actual administrator service with in-memory Firestore", () => {
   });
   it.each(["learning_progress", "scorecards", "misconceptions", "activity", "usage"])("supports %s empty reports", async kind => {
     expect((await invoke("adminQueryReport", { kind })).rows).toEqual([]);
+    const exported = await invoke("adminExportReport", {kind,output:"csv",exportReason:reason});
+    expect(exported.csv).toContain('"kind"');
+    expect(exported.csv.split("\r\n")).toHaveLength(1);
   });
 });

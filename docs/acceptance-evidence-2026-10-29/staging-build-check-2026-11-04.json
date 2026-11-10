@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-04T00:33:08.428Z",
+  "scope": "local isolated Next build",
+  "buildId": "qfPmZpssj3QA0q2sA8ETn",
+  "javascriptAssets": 45,
+  "stagingWebAppBundled": true,
+  "stagingProjectBundled": true,
+  "productionWebAppBundled": false,
+  "productionProjectBundled": false,
+  "loopback": {
+    "home": 200,
+    "identityWithoutMarker": 404,
+    "learningWithoutAuthentication": 401,
+    "learningContentType": "application/json"
+  }
+}

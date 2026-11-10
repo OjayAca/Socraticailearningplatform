@@ -1,0 +1,61 @@
+{
+  "checkedAt": "2026-11-03T13:53:32.569Z",
+  "readOnly": true,
+  "productionProject": "socratic-ai-a7765",
+  "stagingCandidate": "mindguide-stg-ojay-0823",
+  "productionAuth": {
+    "http": 200,
+    "emailPassword": true
+  },
+  "productionGoogle": {
+    "http": 200,
+    "enabled": true
+  },
+  "stagingAuth": {
+    "http": 200,
+    "emailPassword": true
+  },
+  "stagingWebApps": {
+    "http": 200,
+    "count": 0
+  },
+  "hostingOrigin": "https://mindguide-stg-ojay-0823.web.app",
+  "hostingRoot": {
+    "http": 200,
+    "contentType": "text/html; charset=utf-8",
+    "identityMatches": false
+  },
+  "stagingIdentity": {
+    "http": 200,
+    "contentType": "text/html; charset=utf-8",
+    "identityMatches": false
+  },
+  "firestore": {
+    "system_settings/staging_verification": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    "topics/discrete-mathematics-logic": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    "system_settings/pilot": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    "problems/DM-04-I01": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    "problems/DM-04-I02": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    },
+    "problems/DM-04-I03": {
+      "http": 404,
+      "error": "NOT_FOUND"
+    }
+  },
+  "qaAccountCreated": false,
+  "liveRemediationExecuted": false
+}

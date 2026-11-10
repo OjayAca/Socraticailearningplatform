@@ -1,0 +1,458 @@
+
+> mindguide@3.0.0 check
+> npm run typecheck && npm run lint && npm run test -- --maxWorkers=2 && npm run build && npm run scan:bundle
+
+
+> mindguide@3.0.0 typecheck
+> npm run build:contracts && tsc -p tsconfig.json --noEmit
+
+
+> mindguide@3.0.0 build:contracts
+> npm run build --workspace @mindguide/contracts
+
+
+> @mindguide/contracts@3.0.0 build
+> tsc -p tsconfig.json
+
+
+> mindguide@3.0.0 lint
+> eslint .
+
+
+> mindguide@3.0.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v3.2.7 C:/Users/OjayAca/OneDrive/Documents/Code Projects/Socraticailearningplatform
+
+ ✓ tests/component/task-start-p1.test.tsx (10 tests) 4187ms
+   ✓ P1 subject-first task start > shows the exact curriculum and nested subtopics using stable selection IDs  598ms
+   ✓ P1 subject-first task start > reuses setup immediately when returning to the page  332ms
+   ✓ P1 subject-first task start > validates the screenshot question and starts directly with the problem givens  674ms
+   ✓ P1 subject-first task start > shows validation failures beside the start button and allows a retry  804ms
+   ✓ P1 subject-first task start > shows a retryable load failure instead of claiming no topics are ready  381ms
+   ✓ P1 subject-first task start > changes custom guidance with topic and accurately disables unsupported topics  477ms
+   ✓ P1 subject-first task start > passes optional notation unchanged and prevents duplicate in-flight starts  625ms
+ ✓ tests/component/secure-session.test.tsx (21 tests) 4837ms
+   ✓ SecureSession AI workflow v6 workflow > replaces the repeated form and retains the reveal request across retries and remounts  506ms
+   ✓ SecureSession AI workflow v6 workflow > reloads saved conversation and sends a natural question without a message selector  495ms
+   ✓ SecureSession AI workflow v6 workflow > handles keyboard input and blocks duplicate sends while a reply is pending  497ms
+   ✓ SecureSession AI workflow v6 workflow > keeps a confirmed reply when the history refresh fails and does not resend it  467ms
+   ✓ SecureSession AI workflow v6 workflow > preserves the reading position and provides a jump to the latest message  421ms
+ ✓ tests/component/student-shell.test.tsx (6 tests) 1515ms
+   ✓ StudentShell > renders the student identity and preserves all navigation destinations  708ms
+   ✓ StudentShell > opens the accessible mobile navigation sheet  410ms
+ ✓ tests/component/student-dashboard.test.tsx (5 tests) 2918ms
+   ✓ SecureStudentDashboard > preserves metric calculations and session destinations  1277ms
+   ✓ SecureStudentDashboard > updates metrics live and retains loaded records across navigation  382ms
+   ✓ SecureStudentDashboard > hides misleading zeros after an error and retries the listener  926ms
+ ✓ tests/component/student-supporting-features.test.tsx (14 tests) 1176ms
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = 2x + 3, find f(5).
+{"event":"learning_auth_timing","durationMs":32}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = 2x + 3, find f(5).
+{"event":"learning_request_timing","durationMs":110}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = 2x + 3, find f(5).
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = 2x + 3, find f(5).
+{"event":"learning_request_timing","durationMs":56}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = [math], find f(3).
+{"event":"learning_auth_timing","durationMs":110}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = [math], find f(3).
+{"event":"learning_request_timing","durationMs":133}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = [math], find f(3).
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = [math], find f(3).
+{"event":"learning_request_timing","durationMs":20}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-descriptive-statistics: sample variance: 2, 4, 6
+{"event":"learning_auth_timing","durationMs":20}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-descriptive-statistics: sample variance: 2, 4, 6
+{"event":"learning_request_timing","durationMs":24}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-descriptive-statistics: sample variance: 2, 4, 6
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-descriptive-statistics: sample variance: 2, 4, 6
+{"event":"learning_request_timing","durationMs":9}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts discrete-mathematics-combinatorics: combination: 8, 3
+{"event":"learning_auth_timing","durationMs":44}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts discrete-mathematics-combinatorics: combination: 8, 3
+{"event":"learning_request_timing","durationMs":50}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts discrete-mathematics-combinatorics: combination: 8, 3
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > accepts discrete-mathematics-combinatorics: combination: 8, 3
+{"event":"learning_request_timing","durationMs":15}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects mean: 4, 8, 12 before creating a session
+{"event":"learning_auth_timing","durationMs":33}
+
+stderr | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects mean: 4, 8, 12 before creating a session
+{"event":"learning_request_failed","status":422,"code":"invalid-problem"}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects mean: 4, 8, 12 before creating a session
+{"event":"learning_request_timing","durationMs":39}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Find the derivative of f(x)=x^2 before creating a session
+{"event":"learning_auth_timing","durationMs":42}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Find the derivative of f(x)=x^2 before creating a session
+{"event":"learning_request_timing","durationMs":44}
+stderr | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Find the derivative of f(x)=x^2 before creating a session
+{"event":"learning_request_failed","status":422,"code":"invalid-problem"}
+
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Given f(x) = 2x +, find f(5). before creating a session
+{"event":"learning_auth_timing","durationMs":16}
+
+stderr | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Given f(x) = 2x +, find f(5). before creating a session
+{"event":"learning_request_failed","status":422,"code":"invalid-problem"}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects Given f(x) = 2x +, find f(5). before creating a session
+{"event":"learning_request_timing","durationMs":22}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects modified input with an old confirmation through the real client
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects modified input with an old confirmation through the real client
+{"event":"learning_request_timing","durationMs":12}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects modified input with an old confirmation through the real client
+{"event":"learning_auth_timing","durationMs":1}
+
+stderr | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects modified input with an old confirmation through the real client
+{"event":"learning_request_failed","status":422,"code":"invalid-request"}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > rejects modified input with an old confirmation through the real client
+{"event":"learning_request_timing","durationMs":25}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_auth_timing","durationMs":28}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_request_timing","durationMs":30}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_request_timing","durationMs":84}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_request_timing","durationMs":29}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_request_timing","durationMs":52}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance
+{"event":"learning_request_timing","durationMs":29}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > preserves the prepared-problem path from the UI
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/component/custom-problem-integration.test.tsx > custom input UI → real client → in-memory secure service acceptance > preserves the prepared-problem path from the UI
+{"event":"learning_request_timing","durationMs":16}
+
+ ✓ tests/component/custom-problem-integration.test.tsx (10 tests) 8563ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = 2x + 3, find f(5).  1426ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-functions: Given f(x) = [math], find f(3).  1099ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > accepts quantitative-methods-descriptive-statistics: sample variance: 2, 4, 6  996ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > accepts discrete-mathematics-combinatorics: combination: 8, 3  1262ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > rejects mean: 4, 8, 12 before creating a session  739ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > rejects Find the derivative of f(x)=x^2 before creating a session  647ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > rejects Given f(x) = 2x +, find f(5). before creating a session  874ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > keeps wrong computation in the existing stage and returns corrective guidance  1039ms
+   ✓ custom input UI → real client → in-memory secure service acceptance > preserves the prepared-problem path from the UI  377ms
+ ✓ tests/component/admin-supporting-features.test.tsx (15 tests) 8787ms
+   ✓ administrator account safeguards > edits the approved academic fields and sends a mandatory audit reason  1057ms
+   ✓ administrator account safeguards > loads, searches, and performs an audited reversible account action  488ms
+   ✓ administrator account safeguards > directs privileged Auth operations to Firebase Console  650ms
+   ✓ administrator account safeguards > surfaces account-list failures instead of leaving a permanent spinner  345ms
+   ✓ administrator reports and announcements > previews pseudonymized report rows and opens a prepared print result  789ms
+   ✓ administrator reports and announcements > requires complete announcement input and reports delivery  352ms
+   ✓ administrator reports and announcements > keeps a partial announcement available for retry and blocks a second in-flight click  605ms
+   ✓ administrator progress, logs, and settings recovery > joins learner profiles with canonical progress and filters the table  537ms
+   ✓ administrator progress, logs, and settings recovery > shows progress-detail and log loading failures  654ms
+   ✓ administrator progress, logs, and settings recovery > edits typed privacy settings and labels maintenance as cohort records  647ms
+   ✓ administrator progress, logs, and settings recovery > does not permit overwriting settings after a failed load  413ms
+   ✓ administrator progress, logs, and settings recovery > shows full totals independently of the recent 50 sessions  537ms
+   ✓ administrator progress, logs, and settings recovery > loads older logs and clearly labels the legacy AI feed  918ms
+   ✓ administrator review safeguards > requires meaningful reasons and comments before privileged review actions  583ms
+ ✓ tests/component/student-history-review.test.tsx (3 tests) 412ms
+ ✓ tests/component/admin-print-p1.test.tsx (1 test) 668ms
+   ✓ protected P1 report print view > renders audited print rows and pseudonymization status  664ms
+ ✓ tests/component/auth-minor-features.test.tsx (6 tests) 342ms
+ ✓ tests/component/tooltip.test.tsx (2 tests) 320ms
+ ✓ tests/unit/admin-service.test.ts (36 tests) 197ms
+ ✓ tests/component/admin-answer-editor.test.tsx (3 tests) 182ms
+ ✓ tests/component/math-input.test.tsx (2 tests) 247ms
+ ✓ tests/unit/spark-learning.test.ts (17 tests) 97ms
+ ✓ tests/component/tutor-message-bubble.test.tsx (2 tests) 168ms
+ ✓ tests/unit/pilot-bank.test.ts (19 tests) 96ms
+ ✓ tests/unit/p1-progress.test.ts (2 tests) 39ms
+ ✓ tests/component/session-viewport.test.tsx (3 tests) 57ms
+ ✓ tests/unit/dashboard-progress.test.ts (3 tests) 44ms
+ ✓ tests/unit/session-state.test.ts (5 tests) 33ms
+ ✓ tests/unit/verified-problems.test.ts (72 tests) 32ms
+ ✓ tests/unit/problem-bank-v4.test.ts (3 tests) 18ms
+ ✓ tests/unit/validated-curriculum.test.ts (8 tests) 14ms
+ ✓ tests/unit/optimistic-updates.test.ts (8 tests) 22ms
+ ✓ tests/unit/method-references.test.ts (4 tests) 6ms
+ ✓ tests/unit/problem-bank.test.ts (3 tests) 10ms
+ ✓ tests/unit/view-cache.test.ts (4 tests) 15ms
+ ✓ tests/unit/admin-auth-profile.test.ts (4 tests) 11ms
+ ✓ tests/unit/solver-stages.test.ts (2 tests) 5ms
+ ✓ tests/unit/notification-routes.test.ts (4 tests) 5ms
+ ✓ tests/unit/migration-v2.test.mjs (5 tests) 5ms
+ ✓ tests/unit/migration-v3.test.ts (5 tests) 7ms
+ ✓ tests/unit/session-compatibility.test.ts (9 tests) 6ms
+ ✓ tests/unit/lifecycle.test.ts (2 tests) 4ms
+ ✓ tests/unit/scorecard-presentation.test.ts (4 tests) 5ms
+ ✓ tests/unit/secure-error.test.ts (4 tests) 5ms
+stdout | tests/unit/ai-learning.test.ts > Mathematics and adaptation > rejects malformed or truncated Gemini output
+{"event":"gemini_request_timing","retried":false,"durationMs":1}
+
+stdout | tests/unit/ai-learning.test.ts > Mathematics and adaptation > distinguishes provider status 404 without retrying or exposing provider details
+{"event":"gemini_request_timing","retried":false,"durationMs":0}
+
+stderr | tests/unit/ai-learning.test.ts > Mathematics and adaptation > distinguishes provider status 404 without retrying or exposing provider details
+{"event":"gemini_request_failed","httpStatus":404,"providerCode":"NOT_FOUND","locationBlocked":false,"retried":false}
+
+stdout | tests/unit/ai-learning.test.ts > Mathematics and adaptation > distinguishes provider status 429 without retrying or exposing provider details
+{"event":"gemini_request_timing","retried":false,"durationMs":0}
+
+ ✓ tests/unit/ai-learning.test.ts (87 tests) 339ms
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects unauthenticated calls before reading or dispatching operations
+{"event":"learning_request_timing","durationMs":1}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > rejects unauthenticated calls before reading or dispatching operations
+{"event":"learning_request_failed","status":401,"code":"unauthenticated"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {
+{"event":"learning_auth_timing","durationMs":0}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {
+{"event":"learning_request_failed","status":400,"code":"invalid-request"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {
+{"event":"learning_request_timing","durationMs":10}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload null
+{"event":"learning_request_failed","status":400,"code":"invalid-request"}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload []
+{"event":"learning_request_failed","status":400,"code":"invalid-request"}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {}
+{"event":"learning_request_failed","status":400,"code":"invalid-request"}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > limits streamed body bytes, including multibyte characters
+{"event":"learning_request_failed","status":413,"code":"too-large"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload null
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload null
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload []
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload []
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {}
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > rejects malformed payload {}
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > limits streamed body bytes, including multibyte characters
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > limits streamed body bytes, including multibyte characters
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps startLearningSession dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps startLearningSession dispatch compatible
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps createFollowUpSession dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps createFollowUpSession dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps evaluatePhaseResponse dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps evaluatePhaseResponse dispatch compatible
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps requestSessionSupport dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps requestSessionSupport dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps finalizeScorecard dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps finalizeScorecard dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps submitLearningSession dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps submitLearningSession dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps abandonLearningSession dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps abandonLearningSession dispatch compatible
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps saveSessionDraft dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps saveSessionDraft dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps resumeTutorOpening dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps resumeTutorOpening dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps checkLearningSessionActivity dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps checkLearningSessionActivity dispatch compatible
+{"event":"learning_request_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps previewVerifiedProblem dispatch compatible
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > keeps previewVerifiedProblem dispatch compatible
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_auth_timing","durationMs":0}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_request_failed","status":429,"code":"ai-quota"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_request_timing","durationMs":1}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_auth_timing","durationMs":0}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_request_timing","durationMs":1}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > preserves retryable quota errors and hides unexpected failures
+{"event":"learning_request_failed","status":503,"code":"unavailable"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > restricts health diagnostics to active operators
+{"event":"learning_auth_timing","durationMs":0}
+
+stderr | tests/unit/backend-route.test.ts > Next learning route > restricts health diagnostics to active operators
+{"event":"learning_request_failed","status":403,"code":"forbidden"}
+
+stdout | tests/unit/backend-route.test.ts > Next learning route > restricts health diagnostics to active operators
+{"event":"learning_request_timing","durationMs":5}
+
+ ✓ tests/unit/backend-route.test.ts (19 tests) 67ms
+ ✓ tests/unit/question-bank-import.test.ts (4 tests) 317ms
+ ✓ tests/unit/ai-client.test.ts (10 tests) 28ms
+ ✓ tests/unit/backend-auth.test.ts (10 tests) 17ms
+ ✓ tests/unit/mathematical-diagnosis.test.ts (25 tests) 15ms
+stdout | tests/unit/backend-store.test.ts > Admin Firestore compatibility > atomically creates and fully replaces documents after checking every version
+{"event":"learning_storage_timing","action":"commit","durationMs":1}
+
+stdout | tests/unit/backend-store.test.ts > Admin Firestore compatibility > rejects even a nanosecond version difference without any writes
+{"event":"learning_storage_timing","action":"commit","durationMs":1}
+
+stdout | tests/unit/backend-store.test.ts > Admin Firestore compatibility > does not overwrite an existing document when creating
+{"event":"learning_storage_timing","action":"commit","durationMs":0}
+
+stdout | tests/unit/backend-store.test.ts > Admin Firestore compatibility > maps commit conflicts and outages to safe service errors
+{"event":"learning_storage_timing","action":"commit","durationMs":0}
+
+stdout | tests/unit/backend-store.test.ts > Admin Firestore compatibility > maps commit conflicts and outages to safe service errors
+{"event":"learning_storage_timing","action":"commit","durationMs":0}
+
+ ✓ tests/unit/backend-store.test.ts (5 tests) 15ms
+ ✓ tests/unit/learning-policy.test.ts (10 tests) 9ms
+
+ Test Files  45 passed (45)
+      Tests  496 passed (496)
+   Start at  23:28:23
+   Duration  66.35s (transform 5.72s, setup 8.84s, collect 27.27s, tests 35.86s, environment 40.07s, prepare 7.22s)
+
+
+> mindguide@3.0.0 build
+> npm run build:contracts && next build --webpack
+
+
+> mindguide@3.0.0 build:contracts
+> npm run build --workspace @mindguide/contracts
+
+
+> @mindguide/contracts@3.0.0 build
+> tsc -p tsconfig.json
+
+▲ Next.js 16.4.3 (webpack)
+- Environments: .env.local, .env
+⚠ React 18 support is deprecated in Next.js 16 and will be removed in Next.js 17. Please upgrade to React 19. Learn more: https://nextjs.org/docs/messages/react-version
+✓ Running next.config.mjs took 37ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.7s
+  Running TypeScript ...
+  Finished TypeScript in 8.6s ...
+  Collecting page data using 5 workers ...
+  Generating static pages using 5 workers (0/2) ...
+⚠ metadataBase property in metadata export is not set for resolving social open graph or twitter images, using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+✓ Generating static pages using 5 workers (2/2) in 2.1s
+  Finalizing page optimization ...
+  Collecting build traces ...
+
+Route (app)
+┌ ○ /_not-found
+├ ƒ /[[...slug]]
+└ ƒ /api/learning
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+
+> mindguide@3.0.0 scan:bundle
+> node scripts/scan-browser-bundle.mjs
+
+Browser bundle scan passed: 47 assets checked against 12 markers and 357 curated private strings.

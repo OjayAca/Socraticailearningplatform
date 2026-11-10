@@ -1,4 +1,6 @@
+import { studentMessage, studentSession } from "@/lib/learning/student-response";
 import { Tooltip } from "./ui/tooltip";
+import { closedSessionMessage } from "@/lib/learning/session-message";
 import { MathText } from "./MathText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
@@ -78,7 +80,7 @@ export function SecureSession() {
   const refreshMessages = useCallback(async () => {
     if (!db || !sessionId) return;
     const result = await getDocs(collection(db, "sessions", sessionId, "messages"));
-    setMessages(result.docs.map(item => ({ ...item.data(), id: item.id, createdAt: item.get("createdAt")?.toMillis?.() ?? 0 } as TutorMessage)).sort((a,b) => a.createdAt-b.createdAt));
+    setMessages(result.docs.map(item => studentMessage.parse({ ...item.data(), id: item.id, createdAt: item.get("createdAt")?.toMillis?.() ?? 0 }) as TutorMessage).sort((a,b) => a.createdAt-b.createdAt));
   }, [sessionId]);
 
   const load = useCallback(async () => {
@@ -281,7 +283,7 @@ export function SecureSession() {
 
   if (["submitted", "reviewed", "returned", "abandoned", "expired"].includes(session.status)) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-950 p-6"><div className="max-w-xl rounded-3xl border bg-white dark:bg-slate-900 p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600 dark:text-emerald-400" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600 dark:text-slate-300">Your practice reasoning record and scorecard are saved. Administrator feedback appears in your history.</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
+      <div className="flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-950 p-6"><div className="max-w-xl rounded-3xl border bg-white dark:bg-slate-900 p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600 dark:text-emerald-400" /><h1 className="mt-4 text-2xl font-bold">Session {session.status}</h1><p className="mt-2 text-slate-600 dark:text-slate-300">{closedSessionMessage(session.status, session.scorecard)}</p><Link to="/student/history" className="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white">View learning history</Link></div></div>
     );
   }
 
@@ -402,7 +404,7 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
       status: acceptedGates === phases.length ? "completed" : stage === currentStage ? "active" : "locked",
     }];
   })) as SessionProjection["stageProgress"];
-  return {
+  return studentSession({
     needsOpening: data.needsOpening ?? false,
     scoringSource: data.scoringSource,
     id,
@@ -436,7 +438,7 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     createdAt: millis(data.createdAt),
     updatedAt: millis(data.updatedAt),
     learningCompletedAt: data.learningCompletedAt ? millis(data.learningCompletedAt) : null,
-  };
+  }) as SessionProjection;
 }
 
 function promptFor(phase: string): string {

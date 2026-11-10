@@ -26,9 +26,19 @@ describe("scorecard presentation", () => {
       },
     };
     const result = presentScorecard(scorecard);
-    expect(result.strength.category).toBe("logicalValidity");
-    expect(result.weakness.category).toBe("accuracy");
+    expect(result.strength?.category).toBe("logicalValidity");
+    expect(result.weakness?.category).toBe("accuracy");
     expect(result.improvements).toEqual(["Shared improvement"]);
     expect(result.sessionSummary).toBe("Session summary");
+  });
+  it.each([0, 15, 25])("does not invent relative strengths or weaknesses for tied scores of %s", score => {
+    const criterion = (category: ScorecardCategory): ScorecardResult["criteria"][ScorecardCategory] => ({category, score, evidence:[], reason:"Saved feedback", improvementAdvice:score === 25 ? "None" : "Explain your reasoning", confidence:"high", source:"ai"});
+    const criteria = {accuracy:criterion("accuracy"),logicalValidity:criterion("logicalValidity"),methodSelection:criterion("methodSelection"),explanationQuality:criterion("explanationQuality")};
+    const card = {criteria, total:score * 4, feedback:"Summary", generatedAt:1};
+    const result = presentScorecard(card);
+    expect(result.strength).toBeNull();
+    expect(result.weakness).toBeNull();
+    expect(result.improvements).toEqual(score === 25 ? [] : ["Explain your reasoning"]);
+    expect(card.total).toBe(score * 4);
   });
 });

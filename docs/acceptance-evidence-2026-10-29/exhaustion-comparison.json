@@ -1,0 +1,10 @@
+{
+  "sessionsBefore": 7,
+  "sessionsAfter": 7,
+  "completedBefore": 5,
+  "completedAfter": 5,
+  "quotaBefore": 10,
+  "quotaAfter": 10,
+  "recommendationAfter": "Basic",
+  "decisionAfter": "maintain_insufficient_evidence"
+}

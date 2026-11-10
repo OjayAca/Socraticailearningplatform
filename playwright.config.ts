@@ -4,6 +4,8 @@ const stagingBaseURL = process.env.MINDGUIDE_E2E_BASE_URL?.trim();
 const baseURL = stagingBaseURL || "http://localhost:4173";
 
 export default defineConfig({
+  globalSetup: stagingBaseURL || Object.keys(process.env).some(k => k.startsWith("MINDGUIDE_E2E_") && process.env[k])
+    ? "./scripts/staging-browser-setup.ts" : undefined,
   testDir: "./tests/e2e",
   fullyParallel: false,
   forbidOnly: Boolean(process.env.CI),

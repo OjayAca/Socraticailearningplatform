@@ -45,4 +45,4 @@ if (baseURL.hostname.toLowerCase().includes("socratic-ai-a7765")) {
   process.exit(1);
 }
 
-console.log(`Staging E2E preflight passed for ${baseURL.origin}.`);
+console.log(`Staging credentials supplied for ${baseURL.origin}. Playwright must verify deployment identity before running tests.`);

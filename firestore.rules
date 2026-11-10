@@ -19,6 +19,22 @@ service cloud.firestore {
         && (!('reducedMotion' in value) || value.reducedMotion is bool);
     }
     match /users/{uid} {
+      function academicField(value) {
+        return value is string && value.size() > 0 && value.size() <= 100 && value.matches('\\S(.*\\S)?');
+      }
+      function academicEdit() {
+        let after = request.resource.data;
+        let evidence = getAfter(/databases/$(database)/documents/audit_logs/$(after.lastAcademicProfileEdit)).data;
+        return resource.data.role == 'student' && resource.data.status != 'anonymized'
+          && after.diff(resource.data).affectedKeys().hasOnly(['academicProfile','lastAcademicProfileEdit','updatedAt'])
+          && resource.data.academicProfile is map && after.academicProfile is map
+          && after.academicProfile.diff(resource.data.academicProfile).affectedKeys().hasOnly(['course','yearLevel','section'])
+          && academicField(after.academicProfile.course) && academicField(after.academicProfile.yearLevel) && academicField(after.academicProfile.section)
+          && after.updatedAt == request.time
+          && evidence.actorId == request.auth.uid && evidence.action == 'adminEditAcademicProfile'
+          && evidence.target == 'users/' + uid && evidence.reason is string && evidence.reason.size() >= 8 && evidence.reason.size() <= 1000
+          && evidence.createdAt == request.time;
+      }
       allow get: if owner(uid) || admin();
       allow list: if admin();
       allow create: if owner(uid)
@@ -35,7 +51,11 @@ service cloud.firestore {
         && preferences(request.resource.data.preferences) && request.resource.data.updatedAt == request.time)
         || (admin() && resource.data.role == 'student'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
-          && request.resource.data.status in ['active','suspended','deactivated'] && request.resource.data.updatedAt == request.time);
+          && ((resource.data.status == 'active' && request.resource.data.status in ['suspended','deactivated'])
+            || (resource.data.status == 'suspended' && request.resource.data.status in ['active','deactivated'])
+            || (resource.data.status == 'deactivated' && request.resource.data.status == 'active'))
+          && request.resource.data.updatedAt == request.time)
+        || (admin() && request.resource.data.lastAcademicProfileEdit is string && academicEdit());
       allow delete: if false;
       match /consents/{version} {
         allow read: if (owner(uid) && active()) || admin();

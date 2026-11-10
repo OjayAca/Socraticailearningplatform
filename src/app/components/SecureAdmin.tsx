@@ -1,4 +1,5 @@
 import { Tooltip } from "./ui/tooltip";
+import { accountActions } from "@/lib/account-transitions";
 import { AdminPrivacySettings } from "./AdminPrivacySettings";
 import { PilotControls } from "./PilotControls";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -34,6 +35,7 @@ import { db } from "@/lib/firebase";
 import {
   adminExportReport,
   adminManageUser,
+  adminEditAcademicProfile,
   adminOverrideSessionSupport,
   adminPublishAnnouncement,
   adminQueryReport,
@@ -519,12 +521,10 @@ export function SecureAdminUsers() {
                     </td>
                     <td className="p-4">
                       <div className="flex flex-wrap gap-1.5">
-                        <Action onClick={() => void act(user.id, user.status === "suspended" ? "activate" : "suspend")}>
-                          {user.status === "suspended" ? "activate" : "suspend"}
-                        </Action>
-                        {user.status !== "deactivated" && user.status !== "anonymized" && (
-                          <Action onClick={() => void act(user.id, "deactivate")}>deactivate</Action>
-                        )}
+                        {accountActions(user.status, user.role).map(action => (
+                          <Action key={action} onClick={() => void act(user.id, action)}>{action}</Action>
+                        ))}
+                        {user.role === "student" && user.status !== "anonymized" && user.academicProfile && <AcademicProfileEditor user={user} onSaved={load} />}
                       </div>
                     </td>
                   </tr>
@@ -536,6 +536,29 @@ export function SecureAdminUsers() {
       )}
     </AdminShell>
   );
+}
+
+function AcademicProfileEditor({user, onSaved}: {user: DocumentData; onSaved: () => Promise<void>}) {
+  const [open, setOpen] = useState(false);
+  const [values, setValues] = useState({course:"", yearLevel:"", section:""});
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return <div>
+    <Action onClick={() => {setValues({course:user.academicProfile.course ?? "", yearLevel:user.academicProfile.yearLevel ?? "", section:user.academicProfile.section ?? ""}); setError(""); setReason(""); setOpen(true);}}>Edit academic profile</Action>
+    {open && <form aria-label={`Edit academic profile for ${user.displayName}`} className="mt-3 space-y-2" onSubmit={async event => {
+      event.preventDefault(); if (busy) return; setBusy(true); setError("");
+      try {await adminEditAcademicProfile({userId:user.id,...values,reason}); await onSaved(); setOpen(false);}
+      catch (cause) {setError(errorMessage(cause,"Profile update failed."));}
+      finally {setBusy(false);}
+    }}>
+      {([['course','Course'],['yearLevel','Year level'],['section','Section']] as const).map(([key,label]) => <label key={key} className="block">{label}<input aria-label={label} className="block rounded border p-2 dark:bg-slate-900" required maxLength={100} disabled={busy} value={values[key]} onChange={event=>setValues({...values,[key]:event.target.value})} /></label>)}
+      <label className="block">Profile edit reason<input aria-label="Profile edit reason" className="block rounded border p-2 dark:bg-slate-900" required minLength={8} maxLength={1000} disabled={busy} value={reason} onChange={event=>setReason(event.target.value)} /></label>
+      <button type="submit" disabled={busy} className="rounded bg-indigo-600 px-3 py-2 text-white">Save academic profile</button>
+      <button type="button" disabled={busy} onClick={()=>setOpen(false)} className="px-3 py-2">Cancel</button>
+      {error && <p role="alert">{error}</p>}
+    </form>}
+  </div>;
 }
 
 export function SecureAdminContent() {
@@ -631,12 +654,18 @@ export function SecureAdminReports() {
         output: format,
       });
       if (result.output === "csv") {
-        const url = URL.createObjectURL(new Blob([result.csv], { type: "text/csv" }));
+        const url = URL.createObjectURL(new Blob([result.csv], { type: "text/csv;charset=utf-8" }));
         const anchor = document.createElement("a");
         anchor.href = url;
         anchor.download = result.filename;
-        anchor.click();
-        URL.revokeObjectURL(url);
+        document.body.append(anchor);
+        try { anchor.click(); }
+        finally {
+          anchor.remove();
+          // Allow the browser to consume the URL before bounded cleanup.
+          // This is defensive lifecycle handling, not proof of file delivery.
+          window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        }
       } else {
         navigate("/admin/reports/print", { state: { report: result } });
       }
@@ -1110,7 +1139,7 @@ export function SecureAdminLogs() {
   // Load one initial page; subsequent pages are user requested.
   useEffect(() => { void load(true); }, []);
   return <AdminShell active="logs">
-    <PageTitle title="Activity and Legacy AI Logs" description="Review application administrative events and existing AI failure records. The current practice engine does not call a live AI service. These logs do not cover external Firebase Console actions." />
+    <PageTitle title="Activity and Legacy AI Logs" description="Practice uses live Gemini requests through the learning API. Configuration alone does not confirm provider availability. Current request failures, quota rejections and concurrency conflicts are recorded as sanitized status/code metadata in server logs; request timing is also logged. The records below are administrative events and legacy AI failures, not a live provider health monitor. These logs do not cover external Firebase Console actions." />
     {error && <ErrorBox message={error} />}
     {busy && <p role="status">Loading logs…</p>}
     <div className="mt-6 grid gap-6 xl:grid-cols-2">
