@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { prepareQuestionBank } from "../../scripts/question-bank-core";
 import { questionBankDocuments } from "../../scripts/question-bank-documents";
 import { LearningService } from "../../server/services/LearningService";
+import { verifiedConceptTurn } from "../../server/tutor-dialogue";
 import { AI_WORKFLOW_VERSION, allowedSupport, checkMath, educationalContext, initialGates, numericValue, recommendation, GeminiTutor, type Turn, type Score, type Tutor } from "../../server/gemini";
 import { ServiceError, type Env } from "../../server/platform";
 import { REASONING_PHASES } from "@mindguide/contracts";
@@ -23,10 +24,75 @@ beforeEach(()=>{
   db.put("problems/problem",{status:"approved",topicId:"quantitative-methods-descriptive-statistics",difficulty:"Basic",validationRecordId:"approval",version:1,problemText:"Find the mean of 4, 8 and 12."});
   db.put("content_validation_records/approval",{decision:"approved",problemId:"problem",problemVersion:1});db.put("problem_scoring/problem",baseReference);
 });
-const start=()=>service.operation("startLearningSession",{mode:"curated",topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()});
+const start=(requestedDifficulty = "Basic")=>service.operation("startLearningSession",{mode:"curated",subjectId:"quantitative-methods",requestedDifficulty,topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()});
 const answer=(session:any,intent="answer",requestId=crypto.randomUUID())=>service.operation("evaluatePhaseResponse",{sessionId:session.id,expectedPhase:session.currentPhase,revision:session.revision,intent,response:{plainText:"The target is the average of the given values."},requestId});
 
 describe("AI session authority and recovery",()=>{
+  async function varianceMethod() {
+    const input={subjectId:"quantitative-methods",question:"Find the population variance of 2, 4, 6."};
+    const preview=await service.operation("previewVerifiedProblem",{...input,requestId:crypto.randomUUID()});
+    const opening=await service.operation("startLearningSession",{...input,mode:"free_form",confirmationHash:preview.confirmationHash,requestId:crypto.randomUUID()});
+    generate.mockResolvedValue(response({accepted:true,questionStage:"method_selection",question:"Why do we use the population variance formula?"}));
+    return (await submitText(opening.session,"Find the population variance of the three given observations.")).session;
+  }
+  function submitText(session:any,plainText:string) {
+    return service.operation("evaluatePhaseResponse",{sessionId:session.id,revision:session.revision,expectedPhase:session.currentPhase,response:{plainText},requestId:crypto.randomUUID()});
+  }
+  it("keeps partial variance evidence across help and reload, then advances on the missing population condition",async()=>{
+    const session=await varianceMethod();
+    const partial="Because we need to measure the spread of the data.";
+    const question="Do the observations cover every member of the group being studied or only a sample?";
+    generate.mockResolvedValue(response({outcome:"correct_incomplete",missingCriterion:"formula_theorem_justification",questionStage:"method_selection",feedback:"Variance measures spread.",evidence:[partial],question}));
+    const first=await submitText(session,partial);
+    expect(first.evaluation.outcome).toBe("correct_incomplete");
+    expect(first.nextPrompt).toBe(question);
+    expect(first.session.diagnosisSummary).toEqual([]);
+    const help={sessionId:session.id,revision:first.session.revision,expectedPhase:"method_selection",response:{plainText:"I don’t know, can you help?"},requestId:crypto.randomUUID()};
+    const calls=generate.mock.calls.length;
+    const hint=await service.operation("evaluatePhaseResponse",help);
+    expect(await service.operation("evaluatePhaseResponse",help)).toEqual(hint);
+    expect(hint.session.responseCount).toBe(first.session.responseCount);
+    expect(hint.session.supportHistory).toHaveLength(1);
+    expect(generate).toHaveBeenCalledTimes(calls);
+    service=new LearningService(db,{generate} as Tutor,env,"alice");
+    generate.mockImplementation(async ctx=>{
+      expect(educationalContext(ctx).stageEvidence.method_selection).toMatchObject({demonstrated:[partial],missingCriterion:"formula_theorem_justification"});
+      return response({accepted:true,outcome:"correct_complete",feedback:"You identified that every member is included.",evidence:[ctx.response.plainText],questionStage:"computation",question:"What is your first calculation?"});
+    });
+    const complete=await submitText(hint.session,"Because the problem includes all members of the population.");
+    expect(complete.evaluation.outcome).toBe("correct_complete");
+    expect(complete.session.currentStage).toBe("computation");
+    expect(complete.tutorMessage.text).toContain("every member");
+  });
+  it("diagnoses the group-size misconception and switches to a smaller task on repeated difficulty",async()=>{
+    const session=await varianceMethod(), claim="Because it is used when there are only a few numbers.";
+    const wrong=await submitText(session,claim);
+    expect(wrong.evaluation).toMatchObject({outcome:"incorrect",source:"deterministic"});
+    expect(wrong.diagnosis).toMatchObject({category:"conceptual_error",incorrectStep:claim});
+    const again=await submitText(wrong.session,claim);
+    expect(again.session.currentStage).toBe("method_selection");
+    expect(again.nextPrompt).not.toBe(wrong.nextPrompt);
+    expect(again.session.supportHistory.at(-1).level).toBe("stronger_hint");
+    expect(again.tutorMessage.text).toContain("whole group");
+  });
+  it("asks for clarification on an irrelevant reply without crediting it or diagnosing a mistake",async()=>{
+    const session=await varianceMethod();
+    const question="Which group of observations do you mean?";
+    generate.mockResolvedValue(response({outcome:"unclear",category:"unsupported_response",evidence:[],feedback:"Help me connect that to the problem.",question}));
+    const result=await submitText(session,"Yesterday was sunny.");
+    expect(result.evaluation.outcome).toBe("unclear");
+    expect(result.nextPrompt).toBe(question);
+    expect(result.diagnosis.category).toBe("none");
+    expect(result.session.diagnosisSummary).toEqual([]);
+    expect(result.session.currentStage).toBe("method_selection");
+  });
+  it("leaves qualified or conflicting reasoning to full assessment",()=>{
+    for(const plainText of ["Find the union of the two sets, but only keep what is in both.","I do not need to find the union of the two sets."]) {
+      expect(verifiedConceptTurn("union","problem_understanding",{plainText})).toBeUndefined();
+    }
+    expect(verifiedConceptTurn("union","problem_understanding",{plainText:"Find the union of the two sets",latex:"A\\cap B"})).toBeUndefined();
+    expect(verifiedConceptTurn("population variance","method_selection",{plainText:"There are only a few numbers, but the size is irrelevant."})).toBeUndefined();
+  });
   it("bounds a premature calculation opening to understanding without accepting evidence", async () => {
     generate.mockResolvedValue(response({accepted:true, question:"What is the sum of the given values?"}));
     const result = await start();
@@ -37,13 +103,16 @@ describe("AI session authority and recovery",()=>{
     expect(result.tutorMessage.text).not.toContain("sum");
     expect(generate).toHaveBeenCalledOnce();
   });
-  it.each(["mean", "logic"])("reassesses conflicting intent through the complete %s workflow and persists one scorecard", async kind => {
+  it.each(["mean", "logic", "own mean"])("reassesses conflicting intent through the complete %s workflow and persists one scorecard", async kind => {
     const logic = kind === "logic";
     const problem = logic ? "Evaluate p AND q when p=true and q=false." : "Find the mean of 4, 6, and 8.";
     const finalAnswer = logic ? "false" : "6";
     db.put("problems/problem", {...(await db.get("problems/problem")).data, problemText:problem});
     db.put("problem_scoring/problem", {...baseReference, finalAnswer, answerSpecification:logic ? {kind:"truth",value:false} : {kind:"number",value:6}});
-    let {session} = await start();
+    const own = {mode:"free_form",subjectId:"quantitative-methods",question:problem,requestId:crypto.randomUUID()};
+    let {session} = kind === "own mean"
+      ? await service.operation("startLearningSession",{...own,...await service.operation("previewVerifiedProblem",own)})
+      : await start();
     const submit = async (text:string, accepted=true, conflict=false) => {
       generate.mockResolvedValue(response({accepted, evidence:[text]}));
       if (conflict) generate.mockResolvedValueOnce(response({intent:"question",accepted:true,feedback:"Task successfully completed."}));
@@ -81,6 +150,13 @@ describe("AI session authority and recovery",()=>{
     expect(await service.operation("submitLearningSession",finish)).toEqual(submitted);
     expect((await db.get(`sessions/${session.id}`)).data.scorecard).toEqual(scored.session.scorecard);
     expect(submitted.session.status).toBe("submitted");
+    if (kind === "own mean") {
+      const progress = (await db.get("learning_progress/alice")).data;
+      expect(progress.topicRecommendations.descriptive_statistics.evidence).toMatchObject({currentDifficulty:"Basic",completedSessions:1});
+      generate.mockResolvedValue(response());
+      const followUp = await service.operation("createFollowUpSession",{sessionId:session.id,requestId:crypto.randomUUID()});
+      expect(followUp.session).toMatchObject({topicId:session.topicId,difficulty:"Basic",problemId:"problem"});
+    }
   });
 
   it("keeps unresolved intent gated with explicit recovery and accounts for the extra call", async () => {
@@ -211,7 +287,7 @@ describe("AI session authority and recovery",()=>{
   });
 
   it("recovers only the authenticated user's exact saved operation without generating again", async () => {
-    const input = { mode: "curated", topicId: "quantitative-methods-descriptive-statistics", requestId: crypto.randomUUID() };
+    const input = { mode: "curated", subjectId: "quantitative-methods", requestedDifficulty: "Basic", topicId: "quantitative-methods-descriptive-statistics", requestId: crypto.randomUUID() };
     const result = await service.operation("startLearningSession", input);
     const calls = generate.mock.calls.length;
     const recovery = { operation: "startLearningSession", input };
@@ -246,7 +322,7 @@ describe("AI session authority and recovery",()=>{
     db.put("system_settings/pilot",{state:"closed",enabledTopicIds:[]});
     db.records.delete("problems/problem");
     const disabled=new LearningService(db,{generate} as Tutor,{...env,AI_ENABLED:"false"},"alice");
-    const failure=await disabled.operation("startLearningSession",{mode:"curated",topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()}).catch(error=>error);
+    const failure=await disabled.operation("startLearningSession",{mode:"curated",subjectId:"quantitative-methods",requestedDifficulty:"Basic",topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()}).catch(error=>error);
     expect(failure.message).toContain("sessions are paused");
     expect(failure.message).toContain("topic is not enabled");
     expect(failure.message).toContain("AI service is disabled");
@@ -254,8 +330,35 @@ describe("AI session authority and recovery",()=>{
     expect(generate).not.toHaveBeenCalled();
     expect(await db.query("sessions")).toHaveLength(0);
   });
+  it("requires a valid matching subject, topic and difficulty for prepared starts", async () => {
+    const valid = {mode:"curated",subjectId:"quantitative-methods",topicId:"quantitative-methods-descriptive-statistics",requestedDifficulty:"Basic",requestId:crypto.randomUUID()};
+    for (const change of [{topicId:undefined},{requestedDifficulty:undefined},{requestedDifficulty:"Expert"},{subjectId:"discrete-mathematics"}]) {
+      await expect(service.operation("startLearningSession",{...valid,...change})).rejects.toThrow();
+    }
+    const {topicId} = valid;
+    expect(await service.operation("getPreparedTopicIds",{subjectId:valid.subjectId})).toEqual([topicId]);
+    db.put("content_validation_records/approval",{decision:"draft"});
+    expect(await service.operation("getPreparedTopicIds",{subjectId:valid.subjectId})).toEqual([]);
+    expect(await db.query("sessions")).toHaveLength(0);
+  });
+
+  it("reports exhausted levels and conflicts without substituting another prepared level", async () => {
+    await expect(start("Advanced")).rejects.toThrow("available at Advanced. Choose another difficulty or topic");
+    expect(await db.query("sessions")).toHaveLength(0);
+    const {session} = await start();
+    await expect(start("Advanced")).rejects.toMatchObject({status:409});
+    expect((await start()).session.id).toBe(session.id);
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
   it("does not assign stale or unapproved content",async()=>{
     db.put("content_validation_records/approval",{decision:"approved",problemId:"problem",problemVersion:2});await expect(start()).rejects.toThrow("No unanswered");
+  });
+  it("excludes questions with an incomplete private mathematical specification", async () => {
+    db.put("problem_scoring/problem", {...baseReference,answerSpecification:{kind:"number"}});
+    expect(await service.operation("getPreparedTopicIds",{subjectId:"quantitative-methods"})).toEqual([]);
+    await expect(start()).rejects.toThrow("No unanswered");
+    expect(await db.query("sessions")).toHaveLength(0);
   });
   it("does not assign an altered approved snapshot",async()=>{
     db.put("content_validation_records/approval",{decision:"approved",problemId:"problem",problemVersion:1,scoringSnapshotHash:"wrong"});await expect(start()).rejects.toThrow("No unanswered");
@@ -319,7 +422,7 @@ describe("AI session authority and recovery",()=>{
     expect(await db.query("sessions")).toHaveLength(1);generate.mockResolvedValue(response());const result=await start();expect(result.session.needsOpening).toBe(false);expect(await db.query("sessions")).toHaveLength(1);
   });
   it("enforces shared free quota before calling the model",async()=>{
-    const limited=new LearningService(db,{generate} as Tutor,{...env,GEMINI_RPM:"1"},"alice");const result=await limited.operation("startLearningSession",{mode:"curated",topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()});
+    const limited=new LearningService(db,{generate} as Tutor,{...env,GEMINI_RPM:"1"},"alice");const result=await limited.operation("startLearningSession",{mode:"curated",subjectId:"quantitative-methods",requestedDifficulty:"Basic",topicId:"quantitative-methods-descriptive-statistics",requestId:crypto.randomUUID()});
     await expect(limited.operation("evaluatePhaseResponse",{sessionId:result.session.id,expectedPhase:result.session.currentPhase,revision:result.session.revision,response:{plainText:"Find the requested average"},requestId:crypto.randomUUID()})).rejects.toThrow("free AI allowance");expect(generate).toHaveBeenCalledTimes(1);
   });
   it("asks for clarification on low confidence without falsely diagnosing a misconception",async()=>{
@@ -489,7 +592,7 @@ describe("Mathematics and adaptation",()=>{
 
     const attempts = history(score, false, current);
     for (const attempt of attempts) db.put(`sessions/${attempt.id}`, { ...attempt, studentId:"alice", topicId });
-    const { session } = await start();
+    const { session } = await start(next);
     expect(session).toMatchObject({ topicId, difficulty:next, problemId:question });
     const saved = (await db.get(`sessions/${session.id}`)).data;
     expect(saved.adaptiveRecommendation).toMatchObject({
@@ -528,7 +631,37 @@ describe("Mathematics and adaptation",()=>{
 });
 
 describe('custom problem secure integration', () => {
-  const input = (question = 'sample variance: 2, 4, 6') => ({ mode:'free_form', topicId:'quantitative-methods-descriptive-statistics', question, requestedDifficulty:'Basic', requestId:crypto.randomUUID() });
+  const input = (question = 'sample variance: 2, 4, 6') => ({ mode:'free_form', subjectId:'quantitative-methods', question, requestId:crypto.randomUUID() });
+  it("ignores browser classifications and binds the server's instructional level to confirmation", async () => {
+    const request = { ...input(), topicId:"discrete-mathematics-logic", requestedDifficulty:"Advanced" };
+    const preview = await service.operation("previewVerifiedProblem", request);
+    db.put("learning_progress/alice", {topicRecommendations:{descriptive_statistics:{
+      recommendedDifficulty:"Intermediate", reason:"Saved topic recommendation", confidence:"medium"
+    }}});
+    await expect(service.operation("startLearningSession", {...request,...preview})).rejects.toThrow("Confirm");
+    expect(await db.query("sessions")).toHaveLength(0);
+    const confirmed = await service.operation("previewVerifiedProblem", request);
+    const {session} = await service.operation("startLearningSession", {...request,...confirmed});
+    expect(session).toMatchObject({topicId:"quantitative-methods-descriptive-statistics",difficulty:null});
+    expect(educationalContext(generate.mock.calls[0][0])).toMatchObject({instructionalLevel:"Intermediate",difficulty:null});
+    expect(educationalContext({...generate.mock.calls[0][0],intent:"score"})).not.toHaveProperty("instructionalLevel");
+  });
+
+  it("rejects an old confirmation for a different approved subject sharing the same grammar", async () => {
+    for (const [id,name,topic] of [
+      ["quantitative-methods","Quantitative Methods","Functions"],
+      ["discrete-mathematics","Discrete Mathematics","Relations and Functions"],
+    ]) {
+      db.put("subjects/"+id,{name,status:"approved"});
+      db.put("topics/"+id+"-"+topic.toLowerCase().replaceAll(" ","-"),{subjectId:id,subject:name,name:topic,status:"approved"});
+    }
+    db.put("system_settings/pilot",{state:"open",enabledTopicIds:["quantitative-methods-functions","discrete-mathematics-relations-and-functions"]});
+    const request=input("Given f(x) = x+1, find f(2).");
+    const preview=await service.operation("previewVerifiedProblem",request);
+    await expect(service.operation("startLearningSession",{...request,...preview,subjectId:"discrete-mathematics"})).rejects.toThrow("Confirm");
+    expect(await db.query("sessions")).toHaveLength(0);
+  });
+
   it('computes a private reference and preserves the Socratic gates', async () => {
     const request = input();
     const preview = await service.operation('previewVerifiedProblem', request);
@@ -544,13 +677,13 @@ describe('custom problem secure integration', () => {
     expect(generate.mock.calls[0][0].reference.answerSpecification).toMatchObject({kind:'number',value:4});
     await expect(service.operation('finalizeScorecard',{sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID()})).rejects.toThrow();
   });
-  it.each(['mean: 2, garbage', 'Given f(x) = x+1, find f(2).', 'variance: 2, 4'])('rejects %s without writes', async question => {
+  it.each(['mean: 2, garbage', 'Find the union of {1} and {2}.', 'variance: 2, 4'])('rejects %s without writes', async question => {
     await expect(service.operation('previewVerifiedProblem',input(question))).rejects.toMatchObject({status:422});
     await expect(service.operation('startLearningSession',{...input(question),confirmationHash:'invented'})).rejects.toMatchObject({status:422});
     expect(await db.query('sessions')).toHaveLength(0);
     expect(generate).not.toHaveBeenCalled();
   });
-  it.each([{question:'mean: 2, 3'}, {requestedDifficulty:'Advanced'}, {questionLatex:'2, 8'}])('rejects changed confirmed inputs %j', async change => {
+  it.each([{question:'mean: 2, 3'}, {subjectId:'discrete-mathematics'}, {questionLatex:'2, 8'}])('rejects changed confirmed inputs %j', async change => {
     const request = input('mean: [math]'); request.question = 'mean: [math]';
     const full = {...request,questionLatex:'2, 4'};
     const preview = await service.operation('previewVerifiedProblem',full);

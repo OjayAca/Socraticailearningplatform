@@ -9,6 +9,7 @@ import { verifiedConfirmation } from "@/lib/learning/verified-problems";
 const mocks = vi.hoisted(() => ({
   getDoc: vi.fn(),
   getLearningCatalog: vi.fn(),
+  getPreparedTopicIds: vi.fn(),
   getCurrentConsentNotice: vi.fn(),
   startLearningSession: vi.fn(),
   previewVerifiedProblem: vi.fn(),
@@ -19,6 +20,7 @@ vi.mock("@/lib/firebase", () => ({ db: {} }));
 vi.mock("@/lib/secure-api", () => ({
   bootstrapProfile: vi.fn(),
   getLearningCatalog: mocks.getLearningCatalog,
+  getPreparedTopicIds: mocks.getPreparedTopicIds,
   getCurrentConsentNotice: mocks.getCurrentConsentNotice,
   startLearningSession: mocks.startLearningSession,
   previewVerifiedProblem: mocks.previewVerifiedProblem,
@@ -32,9 +34,15 @@ vi.mock("@/stores/auth-store", () => ({
 }));
 vi.mock("@/app/components/StudentShell", () => ({ StudentShell: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
+async function choose(mode: "Prepared Problem" | "Own Problem", subject = /Quantitative Methods/) {
+  fireEvent.click(await screen.findByRole("button", { name: subject }));
+  fireEvent.click(screen.getByRole("button", { name: mode }));
+}
+
 describe("P1 subject-first task start", () => {
   beforeEach(() => {
     clearViews();
+    mocks.getPreparedTopicIds.mockImplementation(async id => VALIDATED_TOPICS.filter(t => t.subjectId === id).map(t => t.id));
     mocks.startLearningSession.mockReset();
     mocks.previewVerifiedProblem.mockReset();
     mocks.startLearningSession.mockResolvedValue({ session: { id: "new-session" } });
@@ -60,20 +68,26 @@ describe("P1 subject-first task start", () => {
   it("shows the exact curriculum and nested subtopics using stable selection IDs", async () => {
     mocks.getLearningCatalog.mockResolvedValue({ subjects: VALIDATED_SUBJECTS.map(item => ({ ...item, status: "approved", version: 1 })), topics: VALIDATED_TOPICS.map(item => ({ ...item, status: "approved", version: 1, ready: true })), generatedAt: 1 });
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    await screen.findByText("Images and Pre-images");
-    expect(screen.getAllByRole("option").map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(0, 6).map(item => item.name));
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "quantitative-methods-descriptive-statistics" } });
+    expect(screen.queryByRole("button", { name: "Prepared Problem" })).not.toBeInTheDocument();
+    await choose("Prepared Problem");
+    let select = await screen.findByRole("combobox", { name: "Topic" });
+    expect(screen.getAllByRole("option").slice(1).map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(0, 6).map(item => item.name));
+    fireEvent.change(select, { target: { value: "quantitative-methods-functions" } });
+    expect(screen.getByText("Images and Pre-images")).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "quantitative-methods-descriptive-statistics" } });
     expect(screen.getByText("Descriptive Measures")).toBeInTheDocument();
     expect(screen.getByText("Kurtosis")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /Discrete Mathematics/ }));
-    expect(screen.getAllByRole("option").map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(6).map(item => item.name));
+    await choose("Prepared Problem", /Discrete Mathematics/);
+    select = await screen.findByRole("combobox", { name: "Topic" });
+    expect(select).toHaveValue("");
+    expect(screen.getAllByRole("option").slice(1).map(item => item.textContent)).toEqual(VALIDATED_TOPICS.slice(6).map(item => item.name));
   });
   it("reuses setup immediately when returning to the page", async () => {
     const view = render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    await screen.findByRole("button", { name: "Assign my prepared problem" });
+    await screen.findByRole("button", { name: /Quantitative Methods/ });
     view.unmount();
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    expect(screen.getByRole("button", { name: "Assign my prepared problem" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /Quantitative Methods/ })).toBeVisible();
     await waitFor(() => expect(mocks.getDoc).toHaveBeenCalledTimes(2));
     expect(mocks.getLearningCatalog).toHaveBeenCalledOnce();
   });
@@ -86,11 +100,11 @@ describe("P1 subject-first task start", () => {
       verifiedConfirmation(question, "Descriptive Statistics"));
     const confirm = vi.spyOn(window, "confirm");
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", { name: "My own problem" }));
+    await choose("Own Problem");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: question } });
     fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
     await waitFor(() => expect(mocks.startLearningSession).toHaveBeenCalledWith({
-      mode: "free_form", topicId: "quantitative-methods-descriptive-statistics", question, requestedDifficulty: "Basic",
+      mode: "free_form", subjectId: "quantitative-methods", question,
       confirmationHash: preview.confirmationHash,
     }));
     expect(confirm).not.toHaveBeenCalled();
@@ -99,7 +113,7 @@ describe("P1 subject-first task start", () => {
   it("shows validation failures beside the start button and allows a retry", async () => {
     mocks.previewVerifiedProblem.mockRejectedValue(new Error("Use a verified format: mean: 4, 8, 12"));
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    fireEvent.click(await screen.findByRole("button", { name: "My own problem" }));
+    await choose("Own Problem");
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "unsupported question" } });
     fireEvent.click(screen.getByRole("button", { name: "Validate and start" }));
     const alert = await screen.findByRole("alert");
@@ -122,7 +136,7 @@ describe("P1 subject-first task start", () => {
       .mockResolvedValueOnce({ exists: () => false })
       .mockResolvedValueOnce({ exists: () => true });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(await screen.findByRole("button", { name: "Assign my prepared problem" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: /Quantitative Methods/ })).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
@@ -135,10 +149,14 @@ describe("P1 subject-first task start", () => {
 
   it("lets learners without an academic profile start a prepared session", async () => {
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-    const start = await screen.findByRole("button", { name: "Assign my prepared problem" });
+    await choose("Prepared Problem");
+    const start = screen.getByRole("button", { name: "Start Session" });
+    expect(start).toBeDisabled();
+    fireEvent.change(await screen.findByRole("combobox", {name:"Topic"}), {target:{value:"quantitative-methods-introduction-to-probability"}});
+    expect(screen.getByRole("combobox", {name:/Difficulty/})).toHaveValue("Basic");
     expect(screen.queryByText("Complete your academic profile")).not.toBeInTheDocument();
     fireEvent.click(start);
-    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", topicId: "quantitative-methods-introduction-to-probability" });
+    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", subjectId:"quantitative-methods", requestedDifficulty:"Basic", topicId: "quantitative-methods-introduction-to-probability" });
   });
 
   it("shows descriptions and personalized progress before topic selection", async () => {
@@ -147,24 +165,49 @@ describe("P1 subject-first task start", () => {
     expect(screen.getByText("Practice logic and proof.")).toBeVisible();
     expect(screen.getByText("84/100")).toBeVisible();
     expect(screen.getByText("Intermediate")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: /discrete mathematics/i }));
-    expect(screen.getByRole("option", { name: "Logic" })).toBeVisible();
+    await choose("Prepared Problem", /Discrete Mathematics/);
+    expect(await screen.findByRole("option", { name: "Logic" })).toBeVisible();
   });
 
-it('changes custom guidance with topic and accurately disables unsupported topics', async () => {
-  clearViews();
-  mocks.getLearningCatalog.mockResolvedValue({subjects:VALIDATED_SUBJECTS,topics:VALIDATED_TOPICS,generatedAt:1});
-  mocks.getDoc.mockReset().mockResolvedValueOnce({exists:()=>false}).mockResolvedValueOnce({exists:()=>true});
-  render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole('button',{name:'My own problem'}));
-  expect(screen.getByText(/Function evaluation with/)).toBeVisible();
-  fireEvent.change(screen.getByRole('combobox',{name:/Validated topic/}),{target:{value:'quantitative-methods-descriptive-statistics'}});
-  expect(screen.getByText(/population\/sample variance/)).toBeVisible();
-  fireEvent.change(screen.getByRole('combobox',{name:/Validated topic/}),{target:{value:'quantitative-methods-probability-distributions'}});
-  expect(screen.getByText(/Custom problems are not supported/)).toBeVisible();
-  expect(screen.getByRole('button',{name:'Validate and start'})).toBeDisabled();
-  cleanup();
-});
+  it("clears the question, notation and manual level when switching modes or subjects", async () => {
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    await choose("Own Problem");
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox"), {target:{value:"probability: [math]"}});
+    const field = screen.getByLabelText("Mathematical expression editor") as HTMLElement & {value:string};
+    field.value = "3, 10"; fireEvent.input(field);
+    await choose("Own Problem", /Discrete Mathematics/);
+    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(screen.getByLabelText("Mathematical expression editor")).not.toHaveValue("3, 10");
+    expect(screen.getByRole("button",{name:"Validate and start"})).toBeDisabled();
+    await choose("Prepared Problem");
+    let topic = await screen.findByRole("combobox", {name:"Topic"});
+    fireEvent.change(topic, {target:{value:"quantitative-methods-introduction-to-probability"}});
+    fireEvent.change(screen.getByRole("combobox",{name:/Difficulty/}), {target:{value:"Advanced"}});
+    await choose("Own Problem");
+    await choose("Prepared Problem");
+    topic = await screen.findByRole("combobox", {name:"Topic"});
+    expect(topic).toHaveValue("");
+    fireEvent.change(topic, {target:{value:"quantitative-methods-introduction-to-probability"}});
+    expect(screen.getByRole("combobox",{name:/Difficulty/})).toHaveValue("Basic");
+  });
+
+  it("defaults to the saved topic recommendation and lets the student override it", async () => {
+    mocks.getDoc.mockReset().mockResolvedValueOnce({exists:()=>true,data:()=>({
+      topicRecommendations:{logic:{recommendedDifficulty:"Intermediate"}}
+    })}).mockResolvedValueOnce({exists:()=>true});
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    await choose("Prepared Problem", /Discrete Mathematics/);
+    fireEvent.change(await screen.findByRole("combobox", {name:"Topic"}), {target:{value:"discrete-mathematics-logic"}});
+    const level = screen.getByRole("combobox", {name:/Difficulty/});
+    expect(level).toHaveValue("Intermediate");
+    fireEvent.change(level, {target:{value:"Advanced"}});
+    fireEvent.click(screen.getByRole("button", {name:"Start Session"}));
+    expect(mocks.startLearningSession).toHaveBeenCalledWith({
+      mode:"curated",subjectId:"discrete-mathematics",topicId:"discrete-mathematics-logic",requestedDifficulty:"Advanced"
+    });
+  });
+
 it('passes optional notation unchanged and prevents duplicate in-flight starts', async () => {
   clearViews();
   mocks.getLearningCatalog.mockResolvedValue({subjects:VALIDATED_SUBJECTS,topics:VALIDATED_TOPICS,generatedAt:1});
@@ -173,7 +216,7 @@ it('passes optional notation unchanged and prevents duplicate in-flight starts',
   mocks.previewVerifiedProblem.mockImplementation(()=>new Promise(r=>{resolve=r;}));
   mocks.startLearningSession.mockReset().mockResolvedValue({session:{id:'custom'}});
   render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
-  fireEvent.click(await screen.findByRole('button',{name:'My own problem'}));
+  await choose("Own Problem");
   fireEvent.change(screen.getByRole('textbox'),{target:{value:'Given f(x) = [math], find f(5).'}});
   const field=screen.getByLabelText('Mathematical expression editor') as HTMLElement & {value:string};
   field.value='2x+3'; fireEvent.input(field);

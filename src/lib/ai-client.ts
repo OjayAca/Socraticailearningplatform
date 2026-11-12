@@ -1,7 +1,7 @@
 import { auth } from "./firebase";
 
 export const AI_OPERATIONS = new Set([
-  "startLearningSession", "createFollowUpSession", "evaluatePhaseResponse", "requestSessionSupport",
+  "getPreparedTopicIds", "startLearningSession", "createFollowUpSession", "evaluatePhaseResponse", "requestSessionSupport",
   "finalizeScorecard", "submitLearningSession", "abandonLearningSession", "checkLearningSessionActivity", "previewVerifiedProblem", "saveSessionDraft", "resumeTutorOpening",
 ]);
 

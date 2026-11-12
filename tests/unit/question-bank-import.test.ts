@@ -30,7 +30,7 @@ describe('supplied question bank adapter', () => {
         for (let i=0;i<3;i++) store.put(`sessions/history-${i}`, {studentId:'local-unit-only',topicId:r.problem.topicId,problemId:`prior-${i}`,difficulty:previous,status:'submitted',workflowVersion:6,statsCommittedAt:new Date(i+1),submittedAt:new Date(i+1),supportHistory:[],scorecard:{criteria:Object.fromEntries(['accuracy','logicalValidity','methodSelection','explanationQuality'].map(k=>[k,{score:25}]))}});
       }
       const service = new LearningService(store, { generate: async () => { throw new Error('No provider calls in assignment test'); } }, {} as Env, 'local-unit-only');
-      const prepared = await (service as any).prepare({ topicId: r.problem.topicId, mode: 'curated' }, {});
+      const prepared = await (service as any).prepare({ subjectId: r.problem.subjectId, topicId: r.problem.topicId, mode: 'curated' }, {});
       expect(prepared.session.problemId).toBe(r.id);
       expect(prepared.session.originalQuestion).toBe(r.problem.problemText);
       expect(prepared.session.releasedSolution).toBeNull();

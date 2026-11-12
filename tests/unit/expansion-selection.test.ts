@@ -13,7 +13,7 @@ it.each(VALIDATED_TOPICS)("excludes both unpublished statuses and selects an app
   db.put("subjects/"+topic.subjectId,{status:"approved",name:topic.subject});
   db.put("topics/"+topic.id,{status:"approved",name:topic.name,subjectId:topic.subjectId,subject:topic.subject});
   const service=new LearningService(db,{generate:async()=>{throw new Error("Unexpected AI call");}},{} as Env,"unit");
-  const prepare=()=>(service as any).prepare({topicId:topic.id,mode:"curated"},{});
+  const prepare=()=>(service as any).prepare({subjectId:topic.subjectId,topicId:topic.id,mode:"curated"},{});
   for(const status of ["draft","pending_validation"]) {
     for(const r of plan.records) db.put("problems/"+r.id,{...r.problem,status});
     await expect(prepare()).rejects.toMatchObject({code:"question-bank-exhausted"});

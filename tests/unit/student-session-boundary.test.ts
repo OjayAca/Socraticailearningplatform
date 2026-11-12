@@ -15,8 +15,8 @@ vi.mock("../../server/firestore",()=>({Firestore:class {constructor(){return db;
 const secrets = Object.fromEntries(["instructor_only","sourceGuidance","expected_final_answer","solutionSteps","expected_reasoning",
   "answerSpecification","common_errors","scoring_references","expected_evidence","adminReview","answerKey"].map(k=>[k,"SECRET-"+k]));
 const topicId = "discrete-mathematics-logic";
-const input = {requestId:"67bcb95b-eaf4-4895-a172-74f46c418347",mode:"curated",topicId};
-const session = {id:"unit-session",studentId:"student",workflowVersion:6,topicId,status:"in_progress",currentPhase:REASONING_PHASES[0],
+const input = {requestId:"67bcb95b-eaf4-4895-a172-74f46c418347",mode:"curated",subjectId:"discrete-mathematics",requestedDifficulty:"Basic",topicId};
+const session = {id:"unit-session",studentId:"student",workflowVersion:6,topicId,subjectId:"discrete-mathematics",problemMode:"curated",difficulty:"Basic",status:"in_progress",currentPhase:REASONING_PHASES[0],
   revision:1,originalQuestion:"Translate the sentence.",currentPrompt:"What must you establish?",gateStates:initialGates(),
   gateEvaluations:{problem_understanding:{phase:"problem_understanding",status:"pending",...secrets},internal:secrets},
   supportHistory:[{level:"socratic_prompt",content:["State your goal."],...secrets}],lastDiagnosis:{category:"none",...secrets},
@@ -27,6 +27,8 @@ const call=(operation:string,params:object)=>POST(new Request("http://localhost/
   body:JSON.stringify({operation,input:params})}));
 beforeEach(()=>{
   db.records.clear();
+  db.put("subjects/discrete-mathematics",{name:"Discrete Mathematics",status:"approved"});
+  db.put("topics/"+topicId,{subjectId:"discrete-mathematics",subject:"Discrete Mathematics",name:"Logic",status:"approved"});
   db.put("users/student",{status:"active"});
   db.put("system_settings/privacy",{currentConsentVersion:"v1"});
   db.put("policy_documents/v1",{status:"active",aiProcessingVersion:"gemini-free-v1"});

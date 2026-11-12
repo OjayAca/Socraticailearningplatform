@@ -1,6 +1,6 @@
 import type { PrivateProblemReference } from './workflow.js';
 import { REASONING_PHASES, type ReasoningPhase } from '@mindguide/contracts';
-import { parseVerifiedProblem, type VerifiedGivens } from './custom-problem-grammar';
+import { classifyVerifiedProblem, parseVerifiedProblem, type VerifiedGivens } from './custom-problem-grammar';
 import { bounded, evaluateFunction, evaluateLogic, invalid } from './custom-problem-parser';
 import { METHOD_REFERENCES } from './method-references';
 export { ProblemInputError } from './custom-problem-parser';
@@ -59,11 +59,23 @@ export function solveVerifiedProblem(givens: VerifiedGivens): PrivateProblemRefe
     interpretation: `This result represents the requested ${operation} for the confirmed givens.`, safeHints,
     socraticPrompts: Object.fromEntries(REASONING_PHASES.map(phase => [phase, safeHints[phase]!.socratic_prompt![0]])), rubricVersion: 'pilot-v5-draft' };
 }
-export function verifiedConfirmation(question: string, topic: string, latex = '', difficulty = '') {
+function combinedQuestion(question: string, latex: string) {
   if (typeof question !== 'string' || question.length > 2000 || typeof latex !== 'string' || latex.length > 2000) invalid('Problem text and notation must each be at most 2000 characters.');
   if (latex && question.split('[math]').length !== 2) invalid('Place [math] exactly once in your sentence where the optional notation belongs.');
-  const combined = latex ? question.replace('[math]', () => latex) : question;
-  const givens = parseVerifiedProblem(combined, topic);
+  return latex ? question.replace('[math]', () => latex) : question;
+}
+
+export function verifyOwnProblem(question: string, latex = '') {
+  const { family, givens } = classifyVerifiedProblem(combinedQuestion(question, latex));
+  return { family, givens, reference: solveVerifiedProblem(givens), description: describeGivens(givens) };
+}
+
+function describeGivens(givens: VerifiedGivens) {
+  return `${givens.operation}: ${givens.expression ?? givens.values.join(', ')}`;
+}
+
+export function verifiedConfirmation(question: string, topic: string, latex = '', difficulty = '') {
+  const givens = parseVerifiedProblem(combinedQuestion(question, latex), topic);
   solveVerifiedProblem(givens);
-  return { givens, confirmationHash: JSON.stringify({ question: question.trim(), topic, latex, difficulty, givens }), description: `${givens.operation}: ${givens.expression ?? givens.values.join(', ')}` };
+  return { givens, confirmationHash: JSON.stringify({ question: question.trim(), topic, latex, difficulty, givens }), description: describeGivens(givens) };
 }

@@ -4,11 +4,11 @@ import "server-only";
 import { recommendDifficulty } from "./learning-policy";
 import { SCORECARD_RUBRIC } from "./scorecard-rubric";
 import { z } from "zod";
-import { REASONING_PHASES, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase, type Difficulty, type MathResponse } from "../packages/contracts/src/index";
+import { REASONING_PHASES, RESPONSE_OUTCOMES, SOLVER_STAGES, SOLVER_STAGE_PHASES, solverStageForPhase, type Difficulty, type MathResponse } from "../packages/contracts/src/index";
 import { ensure, ServiceError, type Env } from "./platform";
 
 export const AI_WORKFLOW_VERSION = 6;
-export const PROMPT_VERSION = "socratic-v6-curriculum-diagnosis";
+export const PROMPT_VERSION = "socratic-v6-focused-followups";
 export const RUBRIC_VERSION = "ai-formative-v2-evidence";
 const categories = ["none", "conceptual_error", "procedural_error", "wrong_formula", "theorem_condition_violation", "weak_justification", "skipped_reasoning", "invalid_logic", "misinterpreted_variable", "computational_error", "incorrect_interpretation", "unsupported_response", "unrecognized_alternative"] as const;
 const text = z.string().min(1).max(2000);
@@ -17,6 +17,9 @@ export const turnSchema = z.object({
   category: z.enum(categories), evidence: z.array(text).max(4),
   intent: z.enum(["answer", "question", "help"]), leaksSolution: z.boolean(),
   incorrectStep: text.optional(), explanation: text.optional(), recommendedAction: text.optional(),
+  missingCriterion: z.enum(REASONING_PHASES).optional(),
+  outcome: z.enum(RESPONSE_OUTCOMES).optional(),
+  questionStage: z.enum(SOLVER_STAGES).optional(),
 });
 const criterion = z.object({ score: z.number().int().min(0).max(25), evidence: z.array(text).min(1).max(4), evidenceIds: z.array(z.string().min(1).max(100)).min(1).max(4), reason: text, improvementAdvice: text, confidence: z.enum(["low", "medium", "high"]) });
 export const scoreSchema = z.object({
@@ -42,18 +45,6 @@ export const stageQuestions = {
   computation: "Can you show your calculation or proof one step at a time and explain how you checked it?",
   interpretation: "What does your result mean in the context of the original problem?",
 };
-
-/** Bounded support cannot drift back to a checkpoint already accepted. */
-export function stageSupport(phase: Parameters<typeof solverStageForPhase>[0], level?: string): Pick<Turn, "feedback" | "question"> {
-  const stage = solverStageForPhase(phase);
-  const hints = {
-    problem_understanding: "Separate what the problem asks for from the facts it gives. Include all relevant values or assumptions.",
-    method_selection: "Connect the conditions of your proposed rule to the given facts. Explain why that rule answers the question.",
-    computation: "Apply your justified method one step at a time. Check each operation or logical implication before continuing.",
-    interpretation: "Use the result you have already established. Explain what it represents and how it answers the original question; you do not need to repeat the calculation.",
-  };
-  return {feedback: level === "socratic_prompt" ? "Let's focus on the current checkpoint." : hints[stage], question: stageQuestions[stage]};
-}
 
 /** Resolve conflicting evaluations into answer-free, current-stage dialogue. */
 export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageForPhase>[0], math: "correct" | "incorrect" | "unsupported"): Turn {
@@ -112,6 +103,7 @@ Assess the current learner-visible stage as a whole using currentStageCriteria, 
 There is no required number of answers. One sufficient response completes the stage; never ask for a second answer merely to tick another internal criterion.
 Problem understanding includes the goal and relevant givens; method selection includes a valid method and why it applies;
 computation includes correct working and verification; interpretation explains the result in context.
+When instructionalLevel is provided, use it for the amount of Socratic scaffolding. Use the same gates and scoring rubric at every level.
 Accept concise evidence appropriate to the problem's difficulty. A bare 'I understand' is not evidence of understanding.
 accepted applies ONLY to mastery of the current stage and an answer with high confidence. If accepted, ask the nextStage's question;
 otherwise ask only about the missing or incorrect understanding in this stage. Do not repeat criteria already demonstrated.
@@ -128,6 +120,13 @@ This is formative feedback, not an official grade. Supply a complete verified wo
 Stay within the selected subject, topic, curriculumScope, and supplied problem reference. Do not introduce unrelated topics, formulas, theorems, or problem types.
 Return only the requested JSON schema. No hidden reasoning or chain of thought; provide concise educational feedback and observable evidence.`;
 
+const ANSWER_GUIDANCE = `Set outcome to correct_complete, correct_incomplete, incorrect or unclear for every answer. Classify against this stage, combining prior demonstrated evidence with the latest learner reply. Later corrections supersede earlier claims.
+Complete: high confidence, accepted=true, category=none. Name what the learner demonstrated. Set questionStage to the next stage for the next question.
+Incomplete: accepted=false, category=none, high confidence. Quote what is correct in evidence; acknowledge it and ask ONE question about the remaining missingCriterion. Never ask again for information already supplied.
+Incorrect: identify the specific false claim and ask one corrective question. A false condition is a conceptual_error, not weak_justification. Unclear or irrelevant: use unsupported_response, ask one neutral clarification, and never invent an error.
+For all three unaccepted outcomes set questionStage to the current stage. Select missingCriterion from currentStageCriteria. On repeated difficulty with that criterion, give a concrete choice or partial step to apply. Do not credit tutor hints.
+For a simple union, naming union and identifying the supplied sets (even “numbers inside the curly braces”) satisfies understanding. Do not require listing every member. For population variance, identifying full group coverage justifies the formula; measuring spread alone leaves coverage unexplained; group size alone is an incorrect condition.`;
+
 export function educationalContext(context: TutorContext) {
   const { session, reference, messages } = context;
   const currentStage = solverStageForPhase(session.currentPhase);
@@ -135,6 +134,7 @@ export function educationalContext(context: TutorContext) {
   return {
     curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [],
     subject: session.subject, topic: session.topic, difficulty: session.difficulty, question: session.originalQuestion,
+    ...(session.instructionalLevel && context.intent !== "score" ? { instructionalLevel: session.instructionalLevel } : {}),
     currentPhase: session.currentPhase, currentStage,
     currentStageObjective: currentStage ? stageQuestions[currentStage] : undefined,
     unresolvedDifficulty: session.lastDiagnosis?.resolutionStatus === "open" ? session.lastDiagnosis : undefined,
@@ -177,10 +177,11 @@ export class GeminiTutor implements Tutor {
     const jsonSchema = context.intent === "score" ? scoreJsonSchema : turnJsonSchema;
     const schemaString = context.intent === "score" ? scoreJsonSchemaString : turnJsonSchemaString;
     const contextText = JSON.stringify(educationalContext(context));
+    const instruction = context.intent === "answer" ? SYSTEM_PROMPT + "\n" + ANSWER_GUIDANCE : SYSTEM_PROMPT;
     // Character-length heuristic avoids allocating a TextEncoder buffer. Content is predominantly ASCII.
-    ensure(SYSTEM_PROMPT.length + contextText.length + schemaString.length + 4096 <= 32000, "This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.", 422);
+    ensure(instruction.length + contextText.length + schemaString.length + 4096 <= 32000, "This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.", 422);
     const body = JSON.stringify({
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] }, contents: [{ role: "user", parts: [{ text: contextText }] }],
+      systemInstruction: { parts: [{ text: instruction }] }, contents: [{ role: "user", parts: [{ text: contextText }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json", responseJsonSchema: jsonSchema }
     });
     const raw = await this.callGemini(body, false);
@@ -222,7 +223,7 @@ export class GeminiTutor implements Tutor {
 }
 
 export function initialGates() { return Object.fromEntries(REASONING_PHASES.map((phase, i) => [phase, { status: i ? "locked" : "pending", attemptCount: 0, correctiveCycleCount: 0, acceptedAt: null }])); }
-export function exposesAnswer(turn: Turn, reference: any, response?: MathResponse) {
+export function exposesAnswer(turn: Pick<Turn,"feedback"|"question"|"evidence"|"leaksSolution"|"incorrectStep"|"explanation"|"recommendedAction">, reference: any, response?: MathResponse) {
   if (turn.leaksSolution) return true;
   const answer = String(reference.finalAnswer ?? "").trim();
   if (!answer || response && checkMath(response, reference.answerSpecification) === "correct") return false;

@@ -1,0 +1,3 @@
+# Preserve the approved source-file hashes on Windows checkouts.
+/scripts/data/E_MINDGUIDE_Problem_Bank.json text eol=lf
+/docs/question-bank-expansion/MINDGUIDE_84_Question_Expansion.json text eol=lf

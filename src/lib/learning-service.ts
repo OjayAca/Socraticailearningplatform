@@ -1,7 +1,7 @@
 import { studentOperationResult } from "./learning/student-response";
 import { VALIDATED_SUBJECTS, VALIDATED_TOPICS, isValidatedTopic } from "../data/validated-curriculum";
 import { collection, doc, getDoc, getDocs, query, where, runTransaction, serverTimestamp, Timestamp, type DocumentData, type Transaction } from "firebase/firestore";
-import { REASONING_PHASES, SCHEMA_VERSION, WORKFLOW_VERSION, type GetCurrentConsentNoticeResponse, type LearningCatalog, type ReasoningPhase, type StartLearningSessionInput, type Difficulty } from "@mindguide/contracts";
+import { REASONING_PHASES, SCHEMA_VERSION, WORKFLOW_VERSION, type GetCurrentConsentNoticeResponse, type LearningCatalog, type ReasoningPhase, type Difficulty } from "@mindguide/contracts";
 import { currentUser, database, ownSessions, millis, topicKey } from "./firestore-client";
 import { adaptiveDifficulty, selectUnanswered, type AccuracyEvidence } from "./learning/adaptive";
 import { initialGateStates, evaluateDeterministically, nextReasoningPhase, promptForPhase, supportContent, supportLevelsFor, buildScorecard, buildReleasedSolution, type PrivateProblemReference } from "./learning/workflow";
@@ -114,7 +114,11 @@ async function historyEvidence(sessions: DocumentData[]): Promise<{ answered: Se
   return { answered, evidence };
 }
 
-async function start(input: StartLearningSessionInput & { requestId: string }) {
+// Historical client-practice contract. Current New Session writes go to the authenticated learning route.
+type PracticeStartInput = { requestId: string; topicId: string } & (
+  { mode: "curated" } | { mode: "free_form"; question: string; requestedDifficulty: Difficulty; confirmationHash?: string }
+);
+async function start(input: PracticeStartInput) {
   const user = currentUser();
   const db = database();
   const [topic, profile, notice, sessions] = await Promise.all([

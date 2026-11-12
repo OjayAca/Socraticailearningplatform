@@ -15,7 +15,7 @@ export function recommendDifficulty(current: Difficulty, sessions: any[], workfl
   const policy = ADAPTIVE_POLICY;
   const seen = new Set<string>();
   const recent = sessions.filter(s => s.workflowVersion === workflowVersion && s.status === "submitted"
-    && s.statsCommittedAt && s.difficulty === current && (!topicId || s.topicId === topicId)
+    && s.statsCommittedAt && (s.instructionalLevel ?? s.difficulty) === current && (!topicId || s.topicId === topicId)
     && Number.isFinite(completionTime(s))
     && criteria.every(k => Number.isInteger(s.scorecard?.criteria?.[k]?.score) && s.scorecard.criteria[k].score >= 0 && s.scorecard.criteria[k].score <= 25))
     .sort((a,b) => completionTime(b) - completionTime(a))

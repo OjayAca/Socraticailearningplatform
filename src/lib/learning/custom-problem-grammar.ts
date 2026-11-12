@@ -10,7 +10,7 @@ function dataset(text: string, empty = false): number[] {
   if (values.length > 50) invalid('Use at most 50 values.');
   values.forEach(v => bounded(v, 1e6)); return values;
 }
-export function parseVerifiedProblem(question: string, topic: string): VerifiedGivens {
+export function classifyVerifiedProblem(question: string) {
   const text = normalizeNotation(question).trim().replace(/[?.]$/, '').trim();
   let givens: VerifiedGivens | undefined, family: CustomFamily | undefined;
   const forward = new RegExp(`^(?:Given\\s+)?f\\(x\\)\\s*=\\s*(.+?),\\s*find\\s+f\\((${num})\\)$`, 'i').exec(text);
@@ -35,11 +35,15 @@ export function parseVerifiedProblem(question: string, topic: string): VerifiedG
     }
     givens = { operation: 'logic', expression: logic[1], assignments, values: [] };
   }
-  if (!givens || !family) invalid('Unsupported or malformed problem. Use the selected topic example format with all values and the requested operation.');
-  if (!(CUSTOM_FAMILIES[family].topics as readonly string[]).includes(topic)) invalid('This problem does not match the selected topic. Choose the appropriate approved topic.');
+  if (!givens || !family) invalid('Unsupported or malformed problem. Use a supported example format with all values and the requested operation.');
   const { operation, values } = givens;
   if (family === 'counting' && (values.some(v => !Number.isInteger(v) || v < 0 || v > 100) || (operation !== 'product' && (values.length !== 2 || values[1] > values[0])))) invalid('Counting requires integers from 0 to 100; use n, r with r <= n.');
   if (family === 'probability' && (values.length !== 2 || values.some(v => !Number.isInteger(v) || v < 0 || v > 1e6) || values[1] === 0 || values[0] > values[1])) invalid('Use favorable, total integer counts with 0 <= favorable <= total and total > 0.');
   if (operation.startsWith('sample') && values.length < 2) invalid('Sample dispersion requires at least two values.');
+  return { family, givens };
+}
+export function parseVerifiedProblem(question: string, topic: string): VerifiedGivens {
+  const { family, givens } = classifyVerifiedProblem(question);
+  if (!(CUSTOM_FAMILIES[family].topics as readonly string[]).includes(topic)) invalid('This problem does not match the selected topic. Choose the appropriate approved topic.');
   return givens;
 }

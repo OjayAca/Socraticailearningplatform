@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { REASONING_PHASES, SOLVER_STAGES } from "../../../packages/contracts/src/index";
+import { REASONING_PHASES, RESPONSE_OUTCOMES, SOLVER_STAGES } from "../../../packages/contracts/src/index";
 
 const str = z.string(), num = z.number(), strings = str.array();
 const evaluation = z.object({
+  outcome:z.enum(RESPONSE_OUTCOMES),
   phase:str, status:str, attemptCount:num, correctiveCycleCount:num, evidenceSummary:str,
   confidence:str, source:str, evaluatedAt:num, acceptedAt:num.nullable(),
 }).partial();
@@ -30,7 +31,7 @@ const draft = z.object({answer:z.object({plainText:str, latex:str, normalizedLat
   methodology:str, reflection:str}).partial();
 const session = z.object({
   id:str, schemaVersion:num, workflowVersion:num, revision:num, studentId:str, subjectId:str, topicId:str,
-  subject:str, topic:str, difficulty:str, problemId:str.nullable(), originalQuestion:str,
+  subject:str, topic:str, difficulty:str.nullable(), problemId:str.nullable(), originalQuestion:str,
   originalProblemText:str, originalProblemLatex:str, needsOpening:z.boolean(), scoringSource:str,
   status:str, currentPhase:str, currentStage:str, currentInternalGate:str.nullable(), currentPrompt:str,
   stageProgress:progress, gates, responseCount:num, diagnosisSummary:strings, lastDiagnosis:diagnosis.nullable(),

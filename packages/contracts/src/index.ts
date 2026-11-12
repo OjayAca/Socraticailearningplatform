@@ -7,6 +7,8 @@ export type Subject = "Quantitative Methods" | "Discrete Mathematics";
 export type Difficulty = "Basic" | "Intermediate" | "Advanced";
 export type Confidence = "low" | "medium" | "high";
 export type EvaluationSource = "deterministic" | "ai" | "hybrid";
+export const RESPONSE_OUTCOMES = ["correct_complete", "correct_incomplete", "incorrect", "unclear"] as const;
+export type ResponseOutcome = (typeof RESPONSE_OUTCOMES)[number];
 export type ManagedContentStatus =
   | "draft"
   | "pending_validation"
@@ -176,6 +178,7 @@ export interface MathResponse {
 }
 
 export interface GateEvaluation {
+  outcome?: ResponseOutcome;
   phase: ReasoningPhase;
   status: Exclude<GateStatus, "locked" | "pending">;
   attemptCount: number;
@@ -281,7 +284,8 @@ export interface SessionProjection {
   topicId: string;
   subject: Subject;
   topic: string;
-  difficulty: Difficulty;
+  /** Intrinsic problem rating. Learner-authored problems can be unrated. */
+  difficulty: Difficulty | null;
   problemId: string | null;
   originalQuestion: string;
   originalProblemText?: string;
@@ -329,16 +333,20 @@ export interface BootstrapProfileRequest extends MutationRequest {
 
 export interface CuratedLearningSessionInput {
   mode: "curated";
+  subjectId: string;
   topicId: string;
+  requestedDifficulty: Difficulty;
 }
 
-export interface FreeFormLearningSessionInput {
-  mode: "free_form";
-  topicId: string;
+export interface OwnProblemInput {
+  subjectId: string;
   question: string;
   questionLatex?: string;
-  requestedDifficulty: Difficulty;
-  confirmationHash?: string;
+}
+
+export interface FreeFormLearningSessionInput extends OwnProblemInput {
+  mode: "free_form";
+  confirmationHash: string;
 }
 
 export type StartLearningSessionInput =

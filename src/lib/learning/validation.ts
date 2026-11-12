@@ -18,20 +18,24 @@ const bootstrapProfileSchema = z.object({
   consentVersion: z.string().trim().min(1).max(80).optional(),
 });
 
+const subjectId = z.enum(["quantitative-methods", "discrete-mathematics"]);
+const ownProblemSchema = z.object({
+  requestId,
+  subjectId,
+  question: z.string().trim().min(8).max(2_000),
+  questionLatex: z.string().max(2_000).optional(),
+});
 const startSessionSchema = z.discriminatedUnion("mode", [
   z.object({
     requestId,
     mode: z.literal("curated"),
-    topicId: z.string().trim().min(1).max(160),
-  }),
-  z.object({
-    requestId,
-    mode: z.literal("free_form"),
-    topicId: z.string().trim().min(1).max(160),
-    question: z.string().trim().min(8).max(2_000),
-    questionLatex: z.string().max(2_000).optional(),
+    subjectId,
+    topicId: z.string().regex(/^[A-Za-z0-9_-]{1,160}$/),
     requestedDifficulty: difficulty,
-    confirmationHash: z.string().min(1).max(4000).optional(),
+  }),
+  ownProblemSchema.extend({
+    mode: z.literal("free_form"),
+    confirmationHash: z.string().min(1).max(128),
   }),
 ]);
 
@@ -171,7 +175,7 @@ const scalarAnswer = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("set"), values: z.array(z.number().finite()).max(100) }),
   z.object({ kind: z.literal("proof"), conclusion: z.string().min(1).max(4000), requirements: z.array(z.string().min(1).max(2000)).min(1).max(30) }),
 ]);
-const answerSpecification = z.union([scalarAnswer, z.object({ kind: z.literal("parts"), parts: z.record(z.string().min(1).max(40), scalarAnswer) })]);
+export const answerSpecification = z.union([scalarAnswer, z.object({ kind: z.literal("parts"), parts: z.record(z.string().min(1).max(40), scalarAnswer) })]);
 const privateProblemSolution = z.object({
   answerSpecification: answerSpecification.optional(),
   rubricVersion: z.string().max(80).optional(),
@@ -383,7 +387,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 // Allocated once per isolate to avoid re-creating the schema map on every request.
 const operationSchemas: Record<string, z.ZodType> = {
-  previewVerifiedProblem: z.object({ requestId, topicId: z.string().regex(/^[A-Za-z0-9_-]{1,160}$/), question: z.string().trim().min(8).max(2000), questionLatex: z.string().max(2000).optional(), requestedDifficulty: difficulty }),
+  getPreparedTopicIds: z.object({ subjectId }),
+  previewVerifiedProblem: ownProblemSchema,
   bootstrapProfile: bootstrapProfileSchema,
   startLearningSession: startSessionSchema,
   evaluatePhaseResponse: evaluateResponseSchema,

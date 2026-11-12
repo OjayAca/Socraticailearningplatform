@@ -22,6 +22,7 @@ import type {
   SaveSessionDraftRequest,
   SessionMutationResponse,
   StartLearningSessionInput,
+  OwnProblemInput,
 } from "@mindguide/contracts";
 import { auth } from "./firebase";
 import { AI_OPERATIONS, aiOperation } from "./ai-client";
@@ -212,7 +213,11 @@ async function call<TRequest, TResponse>(name: string, input: TRequest): Promise
   }
 }
 
-export async function previewVerifiedProblem(input: { topicId: string; question: string; questionLatex?: string; requestedDifficulty: string }): Promise<{ confirmationHash: string; description: string }> {
+export function getPreparedTopicIds(subjectId: string): Promise<string[]> {
+  return loadView(`prepared-topics:${auth?.currentUser?.uid}:${subjectId}`, () => call("getPreparedTopicIds", { subjectId }));
+}
+
+export async function previewVerifiedProblem(input: OwnProblemInput): Promise<{ confirmationHash: string; description: string }> {
   return call("previewVerifiedProblem", { ...input, requestId: newRequestId() });
 }
 

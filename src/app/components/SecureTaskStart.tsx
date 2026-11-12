@@ -1,5 +1,5 @@
 import { loadView, peekView } from "@/lib/view-cache";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { useNavigate } from "react-router";
 import { AlertCircle, BookOpen, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
@@ -15,6 +15,7 @@ import {
   bootstrapProfile,
   getCurrentConsentNotice,
   getLearningCatalog,
+  getPreparedTopicIds,
   startLearningSession,
   previewVerifiedProblem,
 } from "@/lib/secure-api";
@@ -30,20 +31,24 @@ async function loadTaskSetup(userId: string) {
   ]);
   const consent = await getDoc(doc(db!, "users", userId, "consents", notice.version));
   const progressData = progress.exists() ? progress.data() : {};
-  return { catalog, notice, consented: consent.exists(),
+  return {
+    catalog, notice, consented: consent.exists(),
     topicRecommendations: (progressData.topicRecommendations ?? {}) as Record<string, AdaptiveRecommendation>,
-    subjectProgress: (progressData.subjectProgress ?? {}) as Record<string, SubjectProgress> };
+    subjectProgress: (progressData.subjectProgress ?? {}) as Record<string, SubjectProgress>
+  };
 }
 
 export function SecureTaskStart() {
   const navigate = useNavigate();
   const { firebaseUser, userProfile } = useAuthStore();
   const cached = peekView<Awaited<ReturnType<typeof loadTaskSetup>>>(`task-setup:${firebaseUser?.uid}`);
-  const [mode, setMode] = useState<"curated" | "free_form">("curated");
+  const [mode, setMode] = useState<"curated" | "free_form" | null>(null);
   const [catalog, setCatalog] = useState<LearningCatalog | null>(cached?.catalog ?? null);
-  const [subjectId, setSubjectId] = useState(cached?.catalog.subjects[0]?.id ?? "");
-  const [topicId, setTopicId] = useState(cached?.catalog.topics.find(topic => topic.subjectId === cached.catalog.subjects[0]?.id)?.id ?? "");
-  const [difficulty, setDifficulty] = useState<Difficulty>("Basic");
+  const [subjectId, setSubjectId] = useState("");
+  const [topicId, setTopicId] = useState("");
+  const [difficultyOverride, setDifficultyOverride] = useState<Difficulty | null>(null);
+  const [availableIds, setAvailableIds] = useState<string[] | null>(null);
+  const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
   const [question, setQuestion] = useState("");
   const [questionLatex, setQuestionLatex] = useState("");
   const submitting = useRef(false);
@@ -61,24 +66,20 @@ export function SecureTaskStart() {
     if (!db || !userId) return;
     let active = true;
     const timer = window.setTimeout(() => {
-    const key = `task-setup:${userId}`;
-    if (!peekView(key)) setLoading(true);
-    setError(null);
-    loadView(key, () => loadTaskSetup(userId))
-      .then(({ catalog: nextCatalog, notice: currentNotice, consented: nextConsented, topicRecommendations: recommendations, subjectProgress: progress }) => {
-        if (!active) return;
-        setCatalog(nextCatalog);
-        const firstSubject = nextCatalog.subjects[0]?.id ?? "";
-        const firstTopic = nextCatalog.topics.find((topic) => topic.subjectId === firstSubject)?.id ?? "";
-        setSubjectId((current) => current || firstSubject);
-        setTopicId((current) => current || firstTopic);
-        setConsented(nextConsented);
-        setNotice(currentNotice);
-        setTopicRecommendations(recommendations);
-        setSubjectProgress(progress);
-      })
-      .catch((cause) => active && setError(secureErrorMessage(cause, "Unable to load learning materials.")))
-      .finally(() => active && setLoading(false));
+      const key = `task-setup:${userId}`;
+      if (!peekView(key)) setLoading(true);
+      setError(null);
+      loadView(key, () => loadTaskSetup(userId))
+        .then(({ catalog: nextCatalog, notice: currentNotice, consented: nextConsented, topicRecommendations: recommendations, subjectProgress: progress }) => {
+          if (!active) return;
+          setCatalog(nextCatalog);
+          setConsented(nextConsented);
+          setNotice(currentNotice);
+          setTopicRecommendations(recommendations);
+          setSubjectProgress(progress);
+        })
+        .catch((cause) => active && setError(secureErrorMessage(cause, "Unable to load learning materials.")))
+        .finally(() => active && setLoading(false));
     }, 0);
     return () => {
       active = false;
@@ -86,15 +87,33 @@ export function SecureTaskStart() {
     };
   }, [userId, loadAttempt]);
 
-  const selectedTopic = catalog?.topics.find((topic) => topic.id === topicId) ?? null;
-  const guidance = customGuidance(topicId);
-  const adaptiveRecommendation = useMemo<AdaptiveRecommendation>(() =>
-    topicRecommendations[topicKey(selectedTopic?.name ?? "")] ?? {
-      recommendedDifficulty: "Basic",
-      reason: "No completed session exists for this topic, so adaptive practice begins at Basic.",
-      confidence: "low",
-    }, [selectedTopic?.name, topicRecommendations]);
-  const topics = catalog?.topics.filter((topic) => topic.subjectId === subjectId) ?? [];
+  useEffect(() => {
+    if (mode !== "curated") return;
+    let active = true;
+    getPreparedTopicIds(subjectId)
+      .then(ids => { if (active) setAvailableIds(ids); })
+      .catch(cause => { if (active) setError(secureErrorMessage(cause, "Unable to load available topics.")); });
+    return () => { active = false; };
+  }, [mode, subjectId, availabilityAttempt]);
+
+  const subjectTopics = catalog?.topics.filter(topic => topic.subjectId === subjectId) ?? [];
+  const topics = subjectTopics.filter(topic => topic.ready && availableIds?.includes(topic.id));
+  const selectedTopic = topics.find(topic => topic.id === topicId);
+  const recommendation = topicRecommendations[topicKey(selectedTopic?.name ?? "")];
+  const difficulty = difficultyOverride ?? recommendation?.recommendedDifficulty ?? "Basic";
+  const examples = subjectTopics.map(topic => customGuidance(topic.id)).filter(item => !!item);
+  const canStart = mode === "curated" ? !!selectedTopic :
+    mode === "free_form" && question.trim().length >= 8 && questionLatex.length <= 2000;
+
+  function changeMode(next: typeof mode) {
+    setMode(next);
+    setTopicId("");
+    setDifficultyOverride(null);
+    setQuestion("");
+    setQuestionLatex("");
+    setAvailableIds(null);
+    setError(null);
+  }
 
   async function acceptNotice() {
     if (!acknowledge || !userProfile || !notice) return;
@@ -111,21 +130,15 @@ export function SecureTaskStart() {
   }
 
   async function begin() {
-    if (submitting.current || loading || !topicId || (mode === "free_form" && (!guidance || question.trim().length < 8 || questionLatex.length > 2000))) return;
+    if (submitting.current || loading || !subjectId || !mode || !canStart) return;
     submitting.current = true;
     setError(null);
     setLoading(true);
     try {
-      let confirmationHash: string | undefined;
-      if (mode === "free_form") {
-        const preview = await previewVerifiedProblem({ topicId, question: question.trim(), ...(questionLatex ? { questionLatex } : {}), requestedDifficulty: difficulty });
-        confirmationHash = preview.confirmationHash;
-      }
-      const result = await startLearningSession(
-        mode === "curated"
-          ? { mode, topicId }
-          : { mode, topicId, question: question.trim(), ...(questionLatex ? { questionLatex } : {}), requestedDifficulty: difficulty, confirmationHash }
-      );
+      const ownInput = { subjectId, question: question.trim(), ...(questionLatex ? { questionLatex } : {}) };
+      const result = mode === "curated"
+        ? await startLearningSession({ mode, subjectId, topicId, requestedDifficulty: difficulty })
+        : await startLearningSession({ mode, ...ownInput, confirmationHash: (await previewVerifiedProblem(ownInput)).confirmationHash });
       navigate(`/session/${result.session.id}/learn`);
     } catch (cause) {
       setError(secureErrorMessage(cause, "The secure session could not be started."));
@@ -180,7 +193,6 @@ export function SecureTaskStart() {
       <div className="mx-auto max-w-3xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-950 dark:text-white">Start a secure MINDGUIDE session</h1>
-          <p className="mt-2 text-slate-600 dark:text-slate-400">Choose an approved topic. For prepared practice, MINDGUIDE selects an adaptive, non-repeating validated question.</p>
         </div>
         {catalog && catalog.subjects.length > 0 && (
           <section>
@@ -190,9 +202,10 @@ export function SecureTaskStart() {
                 const progress = subjectProgress[subject.name];
                 const selected = subject.id === subjectId;
                 return (
-                  <button key={subject.id} type="button" onClick={() => {
+                  <button key={subject.id} type="button" disabled={loading} aria-pressed={selected} onClick={() => {
+                    if (selected) return;
+                    changeMode(null);
                     setSubjectId(subject.id);
-                    setTopicId(catalog.topics.find((topic) => topic.subjectId === subject.id)?.id ?? "");
                   }} className={`rounded-2xl border p-5 text-left transition ${selected ? "border-indigo-600 bg-indigo-50 ring-2 ring-indigo-600/20 dark:bg-indigo-950/30" : "border-slate-200 bg-white hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900"}`}>
                     <h3 className="font-bold text-slate-950 dark:text-white">{subject.name}</h3>
                     <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{subject.description}</p>
@@ -207,52 +220,54 @@ export function SecureTaskStart() {
             </div>
           </section>
         )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <ModeButton active={mode === "curated"} onClick={() => setMode("curated")} icon={<BookOpen className="mx-auto mb-2 h-5 w-5" />} label="Prepared problem" />
-          <ModeButton active={mode === "free_form"} onClick={() => setMode("free_form")} icon={<CheckCircle2 className="mx-auto mb-2 h-5 w-5" />} label="My own problem" />
-        </div>
-        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-          {catalog && catalog.topics.length > 0 ? (
-            <>
-              <div className={`grid gap-4 ${mode === "free_form" ? "md:grid-cols-2" : "md:grid-cols-1"}`}>
-                <label className="text-sm font-bold">Validated topic
-                  <select value={topicId} onChange={(event) => setTopicId(event.target.value)} className="mt-2 w-full rounded-lg border p-3 font-normal">
-                    {topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>)}
-                  </select>
-                  {selectedTopic?.subtopics && <details className="mt-2 text-sm"><summary>Subtopics</summary><ul className="ml-5 list-disc">{selectedTopic.subtopics.map(item => <li key={item.id}>{item.name}{item.children && <ul className="ml-5 list-disc">{item.children.map(child => <li key={child.id}>{child.name}</li>)}</ul>}</li>)}</ul></details>}
-                </label>
-                {mode === "free_form" && (
-                  <label className="text-sm font-bold">Intrinsic complexity
-                    <select value={difficulty} onChange={(event) => setDifficulty(event.target.value as Difficulty)} className="mt-2 w-full rounded-lg border p-3 font-normal">
-                      <option>Basic</option><option>Intermediate</option><option>Advanced</option>
+        {!catalog?.subjects.length && <p>No approved topics are available yet.</p>}
+        {subjectId && <section>
+          <h2 className="text-lg font-bold text-slate-950 dark:text-white">Choose a problem type</h2>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ModeButton active={mode === "curated"} disabled={loading} onClick={() => changeMode("curated")} icon={<BookOpen className="mx-auto mb-2 h-5 w-5" />} label="Prepared Problem" />
+            <ModeButton active={mode === "free_form"} disabled={loading} onClick={() => changeMode("free_form")} icon={<CheckCircle2 className="mx-auto mb-2 h-5 w-5" />} label="Own Problem" />
+          </div>
+        </section>}
+        {mode && <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+          {mode === "curated" ? <>
+            {availableIds === null ? (error
+              ? <button type="button" onClick={() => { setError(null); setAvailabilityAttempt(n => n + 1); }}>Retry loading topics</button>
+              : <p role="status">Loading available topics…</p>)
+              : topics.length === 0 ? <p>No approved prepared topics are available for this subject.</p>
+                : <>
+                  <label className="block text-sm font-bold">Topic
+                    <select disabled={loading} value={topicId} onChange={event => {
+                      setTopicId(event.target.value); setDifficultyOverride(null); setError(null);
+                    }} className="mt-2 w-full rounded-lg border p-3 font-normal">
+                      <option value="">Select a topic</option>
+                      {topics.map(topic => <option key={topic.id} value={topic.id}>{topic.name}</option>)}
                     </select>
                   </label>
-                )}
-              </div>
-              {mode === "curated" ? (
-                <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/40">
-                  <p className="text-xs font-bold uppercase text-indigo-700 dark:text-indigo-300">Adaptive assignment · {adaptiveRecommendation.recommendedDifficulty}</p>
-                  <p className="mt-1 text-sm text-indigo-900 dark:text-indigo-200">{adaptiveRecommendation.reason}</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {guidance ? <><p>Supported problem types: {guidance.types}</p><p>Example: {guidance.example}</p><p className="text-sm">{guidance.limitation}</p></> : <p>Custom problems are not supported for this topic. Choose a prepared problem or another approved topic.</p>}
-                  <p className="text-sm">For optional notation, place [math] once in your sentence, for example: Given f(x) = [math], find f(5). Both fields are validated together.</p>
-                  <MathInput label="Keyboard-entered problem" maxLength={2000} disabled={loading} value={{ plainText: question, latex: questionLatex }} onChange={value => { setQuestion(value.plainText); setQuestionLatex(value.latex ?? ''); }} explanationPlaceholder={guidance?.example} />
-                  {questionLatex.length > 2000 && <p role="alert">Notation must be at most 2000 characters.</p>}
-                </div>
-              )}
-              {error && <ErrorMessage message={error} />}
-              <button disabled={loading || !topicId || (mode === "free_form" && (!guidance || question.trim().length < 8 || questionLatex.length > 2000))} onClick={() => void begin()} className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
-                {loading ? "Starting secure session..." : mode === "curated" ? "Assign my prepared problem" : "Validate and start"}
-              </button>
-            </>
-          ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
-              No approved topics are available yet.
-            </div>
-          )}
-        </div>
+                  {selectedTopic?.subtopics && <details className="text-sm"><summary>Subtopics</summary><ul className="ml-5 list-disc">{selectedTopic.subtopics.map(item => <li key={item.id}>{item.name}{item.children && <ul className="ml-5 list-disc">{item.children.map(child => <li key={child.id}>{child.name}</li>)}</ul>}</li>)}</ul></details>}
+                  {selectedTopic && <label className="block text-sm font-bold">Difficulty
+                    <select disabled={loading} value={difficulty} onChange={event => {
+                      setDifficultyOverride(event.target.value as Difficulty); setError(null);
+                    }} className="mt-2 w-full rounded-lg border p-3 font-normal">
+                      {(["Basic", "Intermediate", "Advanced"] as const).map(level => <option key={level}>{level}</option>)}
+                    </select>
+                    <span className="mt-1 block text-xs font-normal">Recommended level · {recommendation?.recommendedDifficulty ?? "Basic"}</span>
+                  </label>}
+                </>}
+          </> : <>
+            <MathInput label="Mathematical problem" maxLength={2000} disabled={loading} value={{ plainText: question, latex: questionLatex }}
+              onChange={value => { setQuestion(value.plainText); setQuestionLatex(value.latex ?? ""); setError(null); }}
+              explanationPlaceholder={examples[0]?.example} />
+            <p className="text-sm">For optional notation, place [math] once in your problem where the expression belongs.</p>
+            {examples.length > 0 && <details className="text-sm"><summary>Supported formats and examples</summary>
+              <ul className="ml-5 list-disc space-y-2">{examples.map(item => <li key={item.example}><strong>{item.types}</strong><br />{item.example}<br />{item.limitation}</li>)}</ul>
+            </details>}
+            {questionLatex.length > 2000 && <p role="alert">Notation must be at most 2000 characters.</p>}
+          </>}
+          {error && <ErrorMessage message={error} />}
+          <button disabled={loading || !canStart} onClick={() => void begin()} className="w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white disabled:opacity-50">
+            {loading ? "Starting secure session..." : mode === "curated" ? "Start Session" : "Validate and start"}
+          </button>
+        </div>}
       </div>
     </StudentShell>
   );
@@ -266,8 +281,8 @@ function ErrorMessage({ message }: { message: string }) {
   return <div role="alert" className="mt-4 flex gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"><AlertCircle className="h-5 w-5 shrink-0" />{message}</div>;
 }
 
-function ModeButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
-  return <button type="button" aria-pressed={active} onClick={onClick} className={`rounded-xl border p-4 font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/50 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"}`}>{icon}{label}</button>;
+function ModeButton({ active, disabled, onClick, icon, label }: { active: boolean; disabled: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
+  return <button type="button" aria-pressed={active} disabled={disabled} onClick={() => { if (!active) onClick(); }} className={`rounded-xl border p-4 font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${active ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/50 dark:text-indigo-200" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"}`}>{icon}{label}</button>;
 }
 
 function topicKey(value: string): string {
