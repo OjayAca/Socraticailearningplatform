@@ -19,7 +19,6 @@ import type {
   ReportExportResponse,
   RequestSupportRequest,
   RequestSupportResponse,
-  SaveSessionDraftRequest,
   SessionMutationResponse,
   StartLearningSessionInput,
   OwnProblemInput,
@@ -70,12 +69,6 @@ export async function requestSessionSupport(
   input: Omit<RequestSupportRequest, "requestId"> & { requestId?: string }
 ): Promise<RequestSupportResponse> {
   return call("requestSessionSupport", { ...input, requestId: input.requestId ?? newRequestId() });
-}
-
-export async function saveSessionDraft(
-  input: Omit<SaveSessionDraftRequest, "requestId"> & { requestId?: string }
-): Promise<SessionMutationResponse> {
-  return call("saveSessionDraft", { ...input, requestId: input.requestId ?? newRequestId() });
 }
 
 export async function finalizeScorecard(sessionId: string, revision: number, requestId = newRequestId()): Promise<SessionMutationResponse> {
@@ -219,6 +212,120 @@ export function getPreparedTopicIds(subjectId: string): Promise<string[]> {
 
 export async function previewVerifiedProblem(input: OwnProblemInput): Promise<{ confirmationHash: string; description: string }> {
   return call("previewVerifiedProblem", { ...input, requestId: newRequestId() });
+}
+
+export interface ExtractProblemMediaRequest {
+  file: File;
+  subjectId?: string;
+}
+
+export interface ExtractedProblemResponse {
+  detected: boolean;
+  problemText: string;
+  problemLatex?: string;
+  confidence: "high" | "medium" | "low";
+  warning?: string;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  const chunkSize = 0x8000;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.byteLength; offset += chunkSize) {
+    const slice = bytes.subarray(offset, offset + chunkSize);
+    chunks.push(String.fromCharCode(...slice));
+  }
+  return btoa(chunks.join(""));
+}
+
+async function readFileAsBase64(file: File): Promise<string> {
+  if (typeof file.arrayBuffer === "function") {
+    const buffer = await file.arrayBuffer();
+    return bytesToBase64(new Uint8Array(buffer));
+  }
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      const commaIndex = result.indexOf(",");
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+    };
+    reader.onerror = () => reject(new Error("Could not read the selected file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Uploads an image or PDF file to the authenticated problem extraction endpoint
+ * and returns the transcribed problem text and optional LaTeX notation.
+ *
+ * @param input - Media file and optional selected subject identifier.
+ * @returns Extracted problem statement, optional LaTeX, confidence, and optional warning.
+ */
+export async function extractProblemFromMedia(
+  input: ExtractProblemMediaRequest,
+): Promise<ExtractedProblemResponse> {
+  const user = auth?.currentUser;
+  if (!user) throw new Error("Sign in to continue.");
+  let token: string;
+  try {
+    token = await user.getIdToken();
+  } catch {
+    throw Object.assign(
+      new Error("Your sign-in could not be refreshed. Check your connection and sign in again if needed."),
+      { code: "auth-unavailable" },
+    );
+  }
+
+  const dataBase64 = await readFileAsBase64(input.file);
+  const requestPayload = JSON.stringify({
+    dataBase64,
+    mimeType: input.file.type,
+    ...(input.subjectId ? { subjectId: input.subjectId } : {}),
+  });
+
+  let response: Response;
+  try {
+    response = await fetch("/api/learning/extract-problem", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: requestPayload,
+      signal: AbortSignal.timeout(120000),
+    });
+  } catch (cause) {
+    const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
+    throw Object.assign(
+      new Error(
+        timedOut
+          ? "Reading the image took too long. Try a clearer photo or type your problem below."
+          : "The learning server could not be reached. Check your connection or type your problem below.",
+      ),
+      { code: timedOut ? "request-timeout" : "network-unavailable" },
+    );
+  }
+
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    throw Object.assign(
+      new Error("The learning server returned an unreadable response. You can still type your problem below."),
+      { code: "invalid-server-response" },
+    );
+  }
+
+  if (!response.ok) {
+    const errorPayload = (result as { error?: { message?: string; code?: string } })?.error;
+    const error = new Error(
+      errorPayload?.message ?? "Could not extract the problem from this file. You can still type it below.",
+    );
+    Object.assign(error, { code: errorPayload?.code, details: errorPayload });
+    throw error;
+  }
+
+  return result as ExtractedProblemResponse;
 }
 
 function stableInput(value: unknown): string {

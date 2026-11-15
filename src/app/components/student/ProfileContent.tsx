@@ -16,7 +16,7 @@ import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { UserStats } from "@/types";
-import type { AchievementAward, AchievementId } from "@mindguide/contracts";
+import type { AchievementAward, AchievementId, AdaptiveRecommendation } from "@mindguide/contracts";
 import { AchievementGrid } from "../AchievementGrid";
 
 export function ProfileContent() {
@@ -31,6 +31,7 @@ export function ProfileContent() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [learningStats, setLearningStats] = useState<UserStats | null>(null);
   const [achievements, setAchievements] = useState<Partial<Record<AchievementId, AchievementAward>>>({});
+  const [topicRecommendations, setTopicRecommendations] = useState<Record<string, AdaptiveRecommendation>>({});
 
   const displayName = userProfile?.displayName || "User";
   const initials = displayName
@@ -48,6 +49,7 @@ export function ProfileContent() {
         if (!active || !snapshot.exists()) return;
         const progress = snapshot.data();
         setAchievements(progress.achievements ?? {});
+        setTopicRecommendations((progress.topicRecommendations ?? {}) as Record<string, AdaptiveRecommendation>);
         const completed = Number(progress.sessionsCompleted ?? 0);
         setLearningStats({
           sessionsCompleted: completed,
@@ -258,6 +260,36 @@ export function ProfileContent() {
               <div className="text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">Day Streak</div>
             </div>
           </div>
+          {Object.keys(topicRecommendations).length > 0 && (
+            <section className="mt-10" aria-label="Topic Mastery">
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Topic Mastery</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {Object.entries(topicRecommendations).map(([key, rec]) => {
+                  const status = rec.masteryStatus ?? "Developing";
+                  const badgeTone = status === "Mastered"
+                    ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                    : status === "Needs remediation"
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                      : "bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300";
+                  const topicTitle = key.split("_").map(w => w ? w[0].toUpperCase() + w.slice(1) : "").join(" ");
+                  return (
+                    <div key={key} className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-sm text-slate-900 dark:text-white">{topicTitle}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                          Recommended level: {rec.recommendedDifficulty}
+                          {rec.decisionLabel ? ` · ${rec.decisionLabel}` : ""}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${badgeTone}`}>
+                        {status}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
           <div className="mt-10"><AchievementGrid achievements={achievements} /></div>
         </>
       )}

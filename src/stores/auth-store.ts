@@ -20,6 +20,9 @@ import {
   signInWithCredential,
   sendPasswordResetEmail,
   sendEmailVerification,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   reload,
   getIdToken,
   type User,
@@ -66,8 +69,8 @@ interface AuthState {
   initialize: () => () => void;
   /** Reloads the signed-in user's Firestore profile after a recoverable failure. */
   reloadProfile: () => Promise<UserProfile>;
-  /** Signs in with email and password. */
-  signIn: (email: string, password: string) => Promise<UserProfile>;
+  /** Signs in with email and password, configuring session or local persistence. */
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<UserProfile>;
   /** Creates a new account with email and password. */
   signUp: (name: string, email: string, password: string) => Promise<UserProfile>;
   /** Signs in with Google OAuth popup. */
@@ -173,11 +176,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signIn: async (email: string, password: string) => {
+  signIn: async (email: string, password: string, rememberMe = true) => {
     set({ error: null, isLoading: true });
     try {
+      const authInstance = requireAuth();
+      await setPersistence(
+        authInstance,
+        rememberMe ? browserLocalPersistence : browserSessionPersistence
+      );
       const credential = await signInWithEmailAndPassword(
-        requireAuth(),
+        authInstance,
         email,
         password
       );
@@ -208,6 +216,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Public account creation always writes a student profile. Administrator
       // promotion is intentionally a Firebase Console operation.
       const profile = await createUserProfile(credential.user, name);
+      let verificationError: string | null = null;
+      if (!credential.user.emailVerified) {
+        try {
+          await sendEmailVerification(credential.user);
+        } catch (verificationErr) {
+          verificationError = getFirebaseErrorMessage(verificationErr);
+        }
+      }
       // Invalidate any auth-listener profile read that began before the signup
       // document was fully written (it may have observed the temporary Auth name).
       ++authStateSequence;
@@ -215,7 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         firebaseUser: credential.user,
         userProfile: profile,
         isLoading: false,
-        error: null,
+        error: verificationError,
       });
       return profile;
     } catch (err) {
@@ -292,7 +308,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await reload(user);
     await getIdToken(user, true);
     if (auth?.currentUser?.uid !== user.uid) throw new Error("The signed-in account changed. Try again.");
-    set({ firebaseUser: user });
+    set((state) => ({
+      firebaseUser: user,
+      userProfile: state.userProfile
+        ? { ...state.userProfile, emailVerified: user.emailVerified }
+        : null,
+    }));
     return user.emailVerified;
   },
 
@@ -390,6 +411,7 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
     await verifyAdministratorAccess(user, snapshot.data());
     return normalizeUserProfile({
       uid: user.uid,
+      emailVerified: user.emailVerified,
       ...snapshot.data(),
     });
   }
@@ -428,7 +450,11 @@ async function createUserProfile(
       "Your secure account profile could not be created. Retry or contact the system administrator."
     );
   }
-  return normalizeUserProfile({ uid: user.uid, ...snapshot.data() });
+  return normalizeUserProfile({
+    uid: user.uid,
+    emailVerified: user.emailVerified,
+    ...snapshot.data(),
+  });
 }
 
 function loadUserProfile(user: User): Promise<UserProfile> {

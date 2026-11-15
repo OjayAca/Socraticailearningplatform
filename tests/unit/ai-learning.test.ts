@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { prepareQuestionBank } from "../../scripts/question-bank-core";
 import { questionBankDocuments } from "../../scripts/question-bank-documents";
 import { LearningService } from "../../server/services/LearningService";
-import { verifiedConceptTurn } from "../../server/tutor-dialogue";
+import { stageHint, verifiedConceptTurn } from "../../server/tutor-dialogue";
 import { AI_WORKFLOW_VERSION, allowedSupport, checkMath, educationalContext, initialGates, numericValue, recommendation, GeminiTutor, type Turn, type Score, type Tutor } from "../../server/gemini";
 import { ServiceError, type Env } from "../../server/platform";
 import { REASONING_PHASES } from "@mindguide/contracts";
@@ -314,7 +314,9 @@ describe("AI session authority and recovery",()=>{
   it("requires the current AI processing consent",async()=>{
     db.put("policy_documents/ai-notice",{status:"active"});await expect(start()).rejects.toThrow("privacy notice");expect(generate).not.toHaveBeenCalled();
   });
-  it("requires active accounts and real pilot admission",async()=>{
+  it("allows active accounts unless pilot access is revoked",async()=>{
+    db.records.delete("pilot_roster/alice");
+    expect((await start()).session.needsOpening).toBe(false);
     db.put("pilot_roster/alice",{status:"revoked"});await expect(start()).rejects.toThrow("not currently admitted");
     db.put("users/alice",{status:"suspended"});await expect(start()).rejects.toThrow("not active");
   });
@@ -549,6 +551,302 @@ describe("core feature completion regressions",()=>{
     db.put(`sessions/${session.id}`,{...(await db.get(`sessions/${session.id}`)).data,studentId:"bob"});
     await expect(service.operation("requestSessionSupport",{sessionId:session.id,revision:session.revision,requestId:crypto.randomUUID(),requestedLevel:"full_solution"})).rejects.toMatchObject({status:403});
     expect(generate).toHaveBeenCalledOnce();
+  });
+
+  it("calibrates inflated 25/25 AI scorecard down when learner explanation or verification is shallow", async () => {
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "Find the arithmetic mean of 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    expect(session.promptAdjustment).toBe("deepen");
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "Use the mean because every value has equal weight." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "guided_computation_or_proof",
+      response: { plainText: "(4+8+12)/3 = 8" }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "result_interpretation",
+      response: { plainText: "The answer is 8." }, requestId: crypto.randomUUID(),
+    }));
+    const learnerMessages = (await db.query(`sessions/${session.id}/messages`)).filter(m => m.data.role === "student");
+    const full = { score: 25, evidence: ["Saved work"], evidenceIds: learnerMessages.map(m => m.data.id), reason: "Complete", improvementAdvice: "None", confidence: "high" };
+    generate.mockResolvedValue({
+      accuracy: { ...full }, logicalValidity: { ...full }, methodSelection: { ...full }, explanationQuality: { ...full },
+      feedback: "Completed",
+      solution: { method: "Mean", justification: "Equal weight", steps: ["Sum and divide"], answer: "8", verification: "Check 3*8=24", interpretation: "Average is 8." },
+    });
+    const scored = await service.operation("finalizeScorecard", { sessionId: session.id, revision: session.revision, requestId: crypto.randomUUID() });
+    expect(scored.session.scorecard.criteria.explanationQuality.score).toBeLessThanOrEqual(12);
+    expect(scored.session.scorecard.criteria.logicalValidity.score).toBeLessThanOrEqual(20);
+    expect(scored.session.scorecard.criteria.accuracy.score).toBeLessThanOrEqual(20);
+    expect(scored.session.scorecard.total).toBeLessThan(100);
+  });
+
+  it("allows 21-25 mastery when learner provides thorough verified reasoning and contextual explanation", async () => {
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "We need to find the arithmetic mean of the three given observations 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "I will use the arithmetic mean because all three observations carry equal weight and we want the central value across the entire group." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "guided_computation_or_proof",
+      response: { plainText: "First I sum the observations: 4 + 8 + 12 = 24, then divide by count 3 to get 24 / 3 = 8. As a verification check, multiplying 8 * 3 returns 24." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "result_interpretation",
+      response: { plainText: "The mean of 8 represents the equal-share value per observation across the three data points, though it summarizes center rather than individual spread." }, requestId: crypto.randomUUID(),
+    }));
+    const learnerMessages = (await db.query(`sessions/${session.id}/messages`)).filter(m => m.data.role === "student");
+    const full = { score: 25, evidence: ["Saved work"], evidenceIds: learnerMessages.map(m => m.data.id), reason: "Thorough", improvementAdvice: "None", confidence: "high" };
+    generate.mockResolvedValue({
+      accuracy: { ...full }, logicalValidity: { ...full }, methodSelection: { ...full }, explanationQuality: { ...full },
+      feedback: "Thorough unassisted mastery",
+      solution: { method: "Mean", justification: "Equal weight", steps: ["Sum and divide"], answer: "8", verification: "Check 3*8=24", interpretation: "Average is 8." },
+    });
+    const scored = await service.operation("finalizeScorecard", { sessionId: session.id, revision: session.revision, requestId: crypto.randomUUID() });
+    expect(scored.session.scorecard.total).toBe(100);
+  });
+
+  it("holds a bare or filler-wrapped method name in method_selection until semantic conditions are justified and adapts promptAdjustment", async () => {
+    db.put("problem_scoring/problem", {
+      ...baseReference,
+      requiredFormula: "mean",
+      formulaTheoremConditions: ["Each observation carries equal weight."],
+    });
+    const { session } = await start();
+    db.put(`sessions/${session.id}`, { ...(await db.get(`sessions/${session.id}`)).data, currentPhase: "method_selection" });
+    generate.mockResolvedValue(response({ accepted: true }));
+    const filler = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "I will use the mean formula" }, requestId: crypto.randomUUID(),
+    });
+    expect(filler.session.currentPhase).toBe("method_selection");
+    expect(filler.diagnosis.category).toBe("weak_justification");
+    expect(filler.session.promptAdjustment).toBe("simplify");
+    expect(filler.tutorMessage.text).toContain("conditions apply");
+
+    const semantic = await service.operation("evaluatePhaseResponse", {
+      sessionId: filler.session.id, revision: filler.session.revision, expectedPhase: "method_selection",
+      response: { plainText: "equal weights" }, requestId: crypto.randomUUID(),
+    });
+    expect(semantic.session.currentPhase).toBe("guided_computation_or_proof");
+  });
+
+  it("does not penalize accuracy when hints are used on a verified computation and grants partial credit on valid intermediate steps", async () => {
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "We need to find the arithmetic mean of the given numbers 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "Use the arithmetic mean because every observation has equal weight." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("requestSessionSupport", {
+      sessionId: session.id, revision: session.revision, requestedLevel: "socratic_prompt", requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("requestSessionSupport", {
+      sessionId: session.id, revision: session.revision, requestedLevel: "targeted_hint", requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("requestSessionSupport", {
+      sessionId: session.id, revision: session.revision, requestedLevel: "stronger_hint", requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "guided_computation_or_proof",
+      response: { plainText: "First I sum 4 + 8 + 12 = 24, then divide by 3 to get 8. Checking: 8 * 3 = 24." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "result_interpretation",
+      response: { plainText: "The mean of 8 is the equal-share value per observation across the group, summarizing center rather than spread." }, requestId: crypto.randomUUID(),
+    }));
+    const learnerMessages = (await db.query(`sessions/${session.id}/messages`)).filter(m => m.data.role === "student");
+    const full = { score: 25, evidence: ["Saved work"], evidenceIds: learnerMessages.map(m => m.data.id), reason: "Thorough", improvementAdvice: "None", confidence: "high" };
+    generate.mockResolvedValue({
+      accuracy: { ...full }, logicalValidity: { ...full }, methodSelection: { ...full }, explanationQuality: { ...full },
+      feedback: "Accurate solution reached with computation hints",
+      solution: { method: "Mean", justification: "Equal weight", steps: ["Sum and divide"], answer: "8", verification: "Check 3*8=24", interpretation: "Average is 8." },
+    });
+    const scored = await service.operation("finalizeScorecard", { sessionId: session.id, revision: session.revision, requestId: crypto.randomUUID() });
+    expect(scored.session.scorecard.criteria.accuracy.score).toBe(25);
+    expect(scored.session.scorecard.criteria.logicalValidity.score).toBeLessThanOrEqual(18);
+    expect(scored.session.scorecard.assistanceCount).toBe(3);
+  });
+
+  it("grants partial credit on valid intermediate steps when final arithmetic disagrees", async () => {
+    const { session: partialSession } = await start();
+    const partialStored = (await db.get(`sessions/${partialSession.id}`)).data;
+    const allAccepted = Object.fromEntries(REASONING_PHASES.map(p => [p, { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 }]));
+    db.put(`sessions/${partialSession.id}`, { ...partialStored, currentPhase: "controlled_solution_release", gateStates: allAccepted });
+    for (const [id, phase, text] of [
+      ["method_student", "method_selection", "Use mean because all values have equal weight."],
+      ["computation_student", "guided_computation_or_proof", "(4 + 8 + 12) / 3 = 9"],
+      ["interpretation_student", "result_interpretation", "The mean summarizes the average value per observation across the observations."],
+    ]) {
+      db.put(`sessions/${partialSession.id}/messages/${id}`, { id, role: "student", phase, text, createdAt: new Date() });
+      db.put(`sessions/${partialSession.id}/responses/${id.replace(/_student$/, "")}`, { phase, response: { plainText: text }, evaluation: { status: "accepted" }, createdAt: new Date() });
+    }
+    const partialCriterion = { score: 25, evidence: ["Saved work"], evidenceIds: ["method_student", "computation_student", "interpretation_student"], reason: "Attempted", improvementAdvice: "None", confidence: "high" };
+    generate.mockResolvedValue({
+      accuracy: { ...partialCriterion }, logicalValidity: { ...partialCriterion }, methodSelection: { ...partialCriterion }, explanationQuality: { ...partialCriterion },
+      feedback: "Valid setup with final arithmetic error",
+      solution: { method: "Mean", justification: "Equal weight", steps: ["Sum and divide"], answer: "8", verification: "Check 3*8=24", interpretation: "Average is 8." },
+    });
+    const partialScored = await service.operation("finalizeScorecard", { sessionId: partialSession.id, revision: partialSession.revision, requestId: crypto.randomUUID() });
+    expect(partialScored.session.scorecard.criteria.accuracy.score).toBeGreaterThanOrEqual(6);
+    expect(partialScored.session.scorecard.criteria.accuracy.score).toBeLessThanOrEqual(12);
+  });
+
+  it("restricts stageHint reference details by checkpoint and handles incomplete or missing reference", () => {
+    const ref = {
+      requiredFormula: "Bayes theorem",
+      expectedConcepts: ["Bayes theorem", "conditional event partitions"],
+      formulaTheoremConditions: ["Prior probabilities must be positive"],
+    };
+    const stage1Targeted = stageHint("problem_understanding", "targeted_hint", ref, "");
+    expect(stage1Targeted.feedback).not.toContain("Bayes theorem");
+    expect(stage1Targeted.feedback).toContain("conditional event partitions");
+    const stage1Stronger = stageHint("problem_understanding", "stronger_hint", ref, "");
+    expect(stage1Stronger.feedback).toBe("Try just one part of this step.");
+    expect(stageHint("method_selection", "stronger_hint", ref, "").feedback).toContain("Prior probabilities must be positive");
+    expect(stageHint("problem_understanding", "targeted_hint", undefined, "").feedback).toBe("Let's focus on one detail.");
+  });
+
+  it("selectively regresses from computation to method_selection on a formula/condition violation while preserving earlier stage evidence", async () => {
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true, evidence: ["Goal: arithmetic mean of 4, 8, and 12."] }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "We need the arithmetic mean of the three values 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    expect(session.currentPhase).toBe("method_selection");
+    generate.mockResolvedValue(response({ accepted: true, evidence: ["Each value has equal weight."] }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "Use the mean because each value has equal weight." }, requestId: crypto.randomUUID(),
+    }));
+    expect(session.currentPhase).toBe("guided_computation_or_proof");
+
+    // In computation, learner uses an invalid theorem/formula setup that requires revisiting method_selection
+    generate.mockResolvedValue(response({
+      accepted: false,
+      outcome: "incorrect",
+      category: "theorem_condition_violation",
+      confidence: "high",
+      questionStage: "method_selection",
+      incorrectStep: "Dividing by n minus 1 for the mean",
+      evidence: ["Applied sample variance denominator n minus 1 instead of count n for the mean."],
+      feedback: "That denominator belongs to sample variance rather than the arithmetic mean.",
+      question: "Which denominator does the arithmetic mean formula require for three observations?",
+    }));
+    const regressed = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "guided_computation_or_proof",
+      response: { plainText: "I divide the sum by n minus 1 instead of n." }, requestId: crypto.randomUUID(),
+    });
+    expect(regressed.session.currentPhase).toBe("method_selection");
+    expect(regressed.session.stageProgress.problem_understanding.status).toBe("completed");
+    expect(regressed.session.stageProgress.method_selection.status).toBe("active");
+    expect(regressed.session.gates.problem_understanding?.status).toBe("accepted");
+    expect(regressed.session.gates.method_selection?.demonstrated).toContain("Each value has equal weight.");
+  });
+
+  it("rejects negated condition claims in method_selection, tracks self-correction with neutral Socratic prompt, and activates recoveryMode on 3rd cycle", async () => {
+    db.put("problem_scoring/problem", {
+      ...baseReference,
+      requiredFormula: "mean",
+      formulaTheoremConditions: ["Each observation carries equal weight."],
+    });
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "Find the arithmetic mean of 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    expect(session.currentPhase).toBe("method_selection");
+
+    // 1. Contradictory/negated condition is rejected with theorem_condition_violation and prompts for the arithmetic mean condition
+    const negated = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "Use the mean because the observations do not have equal weight." }, requestId: crypto.randomUUID(),
+    });
+    expect(negated.session.currentPhase).toBe("method_selection");
+    expect(negated.diagnosis.category).toBe("theorem_condition_violation");
+    expect(negated.nextPrompt).toBe("Why is the arithmetic mean appropriate for this dataset?");
+
+    // 2. Neutral socratic_prompt keeps highestHintLevel at 0 and does not disqualify self-correction
+    const neutral = await service.operation("requestSessionSupport", {
+      sessionId: negated.session.id, revision: negated.session.revision, requestedLevel: "socratic_prompt", requestId: crypto.randomUUID(),
+    });
+    expect(neutral.session.supportSummary?.highestHintLevel).toBe(0);
+    expect(neutral.session.supportSummary?.hintsRequested).toBe(1);
+
+    // 3. Independent self-correction with equivalent phrasing advances and records selfCorrected: true
+    generate.mockResolvedValue(response({ accepted: true, evidence: ["All observations contribute equally."] }));
+    const corrected = await service.operation("evaluatePhaseResponse", {
+      sessionId: neutral.session.id, revision: neutral.session.revision, expectedPhase: "method_selection",
+      response: { plainText: "All observations contribute equally." }, requestId: crypto.randomUUID(),
+    });
+    expect(corrected.session.currentPhase).toBe("guided_computation_or_proof");
+    expect(corrected.evaluation.selfCorrected).toBe(true);
+    expect(corrected.session.supportSummary?.selfCorrections).toBeGreaterThanOrEqual(1);
+
+    // 4. Three failed cycles in computation activate recoveryMode
+    generate.mockResolvedValue(response({ accepted: false, outcome: "incorrect", category: "procedural_error", confidence: "high", incorrectStep: "4 * 8 * 12", evidence: ["Multiplied instead of summing."] }));
+    let compSession = corrected.session;
+    for (let i = 0; i < 3; i++) {
+      const attempt = await service.operation("evaluatePhaseResponse", {
+        sessionId: compSession.id, revision: compSession.revision, expectedPhase: "guided_computation_or_proof",
+        response: { plainText: `I multiply the numbers step ${i + 1}.` }, requestId: crypto.randomUUID(),
+      });
+      compSession = attempt.session;
+    }
+    expect(compSession.recoveryMode).toBe(true);
+  });
+
+  it("does not reduce accuracy when step-by-step calculation is mathematically correct without explicit verification prose", async () => {
+    let { session } = await start();
+    generate.mockResolvedValue(response({ accepted: true }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "problem_understanding",
+      response: { plainText: "We need to determine the arithmetic mean of the three observations 4, 8, and 12." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "method_selection",
+      response: { plainText: "Use the arithmetic mean because every data point is treated with the same importance." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "guided_computation_or_proof",
+      response: { plainText: "First I add 4 + 8 + 12 = 24, and then divide 24 / 3 = 8." }, requestId: crypto.randomUUID(),
+    }));
+    ({ session } = await service.operation("evaluatePhaseResponse", {
+      sessionId: session.id, revision: session.revision, expectedPhase: "result_interpretation",
+      response: { plainText: "The mean of 8 represents the equal-share value per observation across the three data points in this group." }, requestId: crypto.randomUUID(),
+    }));
+    const learnerMessages = (await db.query(`sessions/${session.id}/messages`)).filter(m => m.data.role === "student");
+    const full = { score: 25, evidence: ["Saved work"], evidenceIds: learnerMessages.map(m => m.data.id), reason: "Accurate", improvementAdvice: "None", confidence: "high" };
+    generate.mockResolvedValue({
+      accuracy: { ...full }, logicalValidity: { ...full }, methodSelection: { ...full }, explanationQuality: { ...full },
+      feedback: "Accurate calculation",
+      solution: { method: "Mean", justification: "Equal weight", steps: ["Sum and divide"], answer: "8", verification: "Check 3*8=24", interpretation: "Average is 8." },
+    });
+    const scored = await service.operation("finalizeScorecard", { sessionId: session.id, revision: session.revision, requestId: crypto.randomUUID() });
+    expect(scored.session.scorecard.criteria.accuracy.score).toBe(25);
+    expect(scored.session.scorecard.supportSummary).toMatchObject({
+      hintsRequested: 0,
+      highestHintLevel: 0,
+      solutionUnlocked: true,
+    });
+    expect(scored.session.scorecard.nextPracticeRecommendation).toBeTruthy();
   });
 });
 

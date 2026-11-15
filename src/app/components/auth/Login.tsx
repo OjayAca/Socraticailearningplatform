@@ -5,14 +5,30 @@ import { useNavigate } from "react-router";
 import {
   Mail,
   Lock,
+  Eye,
+  EyeOff,
   ArrowRight,
   Loader2,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
+import {
+  getDashboardPath,
+  isAdminRole,
+  useAuthStore,
+} from "@/stores/auth-store";
 import { MindGuideLogo } from "../MindGuideLogo";
+
+const REMEMBERED_EMAIL_STORAGE_KEY = "mindguide.rememberedEmail";
+
+function readRememberedEmail(): string {
+  try {
+    return localStorage.getItem(REMEMBERED_EMAIL_STORAGE_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
 
 /** Screen 2: Email/password login form with Google OAuth option. */
 export function Login() {
@@ -20,8 +36,12 @@ export function Login() {
   const { signIn, signInWithGoogle, resetPassword, error, isLoading, clearError } =
     useAuthStore();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(readRememberedEmail);
   const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [rememberMe, setRememberMe] = useState(
+    () => readRememberedEmail().length > 0
+  );
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [isResetSending, setIsResetSending] = useState(false);
@@ -52,11 +72,27 @@ export function Login() {
     clearError();
     setResetSuccess(false);
 
-    if (!email.trim() || !password.trim()) return;
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password.trim()) return;
 
     try {
-      const profile = await signIn(email.trim(), password);
-      navigate(getDashboardPath(profile.role));
+      const profile = await signIn(trimmedEmail, password, rememberMe);
+      try {
+        if (rememberMe) {
+          localStorage.setItem(REMEMBERED_EMAIL_STORAGE_KEY, trimmedEmail);
+        } else {
+          localStorage.removeItem(REMEMBERED_EMAIL_STORAGE_KEY);
+        }
+      } catch {
+        // Ignore storage write errors in restricted browsing modes.
+      }
+      const isStudentEmailUnverified =
+        profile.emailVerified === false && !isAdminRole(profile.role);
+      navigate(
+        isStudentEmailUnverified
+          ? "/verify-email"
+          : getDashboardPath(profile.role)
+      );
     } catch {
       // Error is already set in the store
     }
@@ -221,16 +257,43 @@ export function Login() {
               </div>
               <input
                 id="login-password"
-                type="password"
+                type={isPasswordVisible ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
                 disabled={isLoading}
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
+                className="w-full pl-10 pr-11 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
               />
+              <button
+                type="button"
+                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                disabled={isLoading}
+                aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+              >
+                {isPasswordVisible ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between pt-0.5">
+              <label
+                htmlFor="login-remember-me"
+                className="inline-flex items-center gap-2 text-xs font-medium text-slate-600 cursor-pointer select-none"
+              >
+                <input
+                  id="login-remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading}
+                  className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-600 disabled:opacity-50 cursor-pointer"
+                />
+                <span>Remember me</span>
+              </label>
               <button
                 type="button"
                 onClick={showResetMode}

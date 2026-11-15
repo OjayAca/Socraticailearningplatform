@@ -15,11 +15,19 @@ function safePilotHints(operation: string): NonNullable<PrivateProblemReference[
     verification_and_checking: "Use an independent calculation or a small enumerated example to check your work.",
     result_interpretation: "Explain what the result represents in this question, including units where applicable.",
   };
-  return Object.fromEntries(REASONING_PHASES.map(phase => [phase, {
-    socratic_prompt: [prompts[phase]], targeted_hint: [`Focus on the meaning of ${operation}. ${prompts[phase]}`],
-    stronger_hint: ["Separate the setup from the calculation. Explain the relevant assumption before using the values."],
-    partial_step: ["Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."],
-  }])) as NonNullable<PrivateProblemReference["safeHints"]>;
+  return Object.fromEntries(REASONING_PHASES.map(phase => {
+    const isUnderstanding = phase === "problem_understanding" || phase === "relevant_information_identification";
+    return [phase, {
+      socratic_prompt: [prompts[phase]],
+      targeted_hint: [isUnderstanding
+        ? `Identify the given values or objects and state what the question asks you to find. ${prompts[phase]}`
+        : `Focus on the meaning of ${operation}. ${prompts[phase]}`],
+      stronger_hint: [isUnderstanding
+        ? "Separate what is already given in the problem statement from the target quantity or object you need to determine."
+        : "Separate the setup from the calculation. Explain the relevant assumption before using the values."],
+      partial_step: ["Write an incomplete setup with a blank for the next result. Fill that blank yourself and justify the operation."],
+    }];
+  })) as NonNullable<PrivateProblemReference["safeHints"]>;
 }
 
 export function solveVerifiedProblem(givens: VerifiedGivens): PrivateProblemReference {

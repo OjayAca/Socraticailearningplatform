@@ -6,6 +6,8 @@ import {
   Mail,
   Lock,
   User,
+  Eye,
+  EyeOff,
   ArrowRight,
   Loader2,
   AlertCircle,
@@ -24,6 +26,8 @@ export function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
   /**
@@ -44,7 +48,11 @@ export function SignUp() {
 
     try {
       const profile = await signUp(name.trim(), email.trim(), password);
-      navigate(getDashboardPath(profile.role));
+      navigate(
+        profile.emailVerified === false
+          ? "/verify-email"
+          : getDashboardPath(profile.role)
+      );
     } catch {
       // Error is already set in the store
     }
@@ -135,15 +143,28 @@ export function SignUp() {
               </div>
               <input
                 id="signup-password"
-                type="password"
+                type={isPasswordVisible ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a password (min. 6 characters)"
                 required
                 minLength={6}
                 disabled={isLoading}
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
+                className="w-full pl-10 pr-11 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
               />
+              <button
+                type="button"
+                onClick={() => setIsPasswordVisible((prev) => !prev)}
+                disabled={isLoading}
+                aria-label={isPasswordVisible ? "Hide password" : "Show password"}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+              >
+                {isPasswordVisible ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
           </div>
           <div className="space-y-1.5">
@@ -156,15 +177,32 @@ export function SignUp() {
               </div>
               <input
                 id="signup-confirm-password"
-                type="password"
+                type={isConfirmPasswordVisible ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Type your password again"
                 required
                 minLength={6}
                 disabled={isLoading}
-                className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
+                className="w-full pl-10 pr-11 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-600 focus:border-transparent transition-all outline-none disabled:opacity-50"
               />
+              <button
+                type="button"
+                onClick={() => setIsConfirmPasswordVisible((prev) => !prev)}
+                disabled={isLoading}
+                aria-label={
+                  isConfirmPasswordVisible
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors disabled:opacity-50"
+              >
+                {isConfirmPasswordVisible ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
             </div>
           </div>
 

@@ -12,6 +12,18 @@ export async function authenticate(request: Request, env: Env): Promise<string> 
     ensure(claims.aud === env.FIREBASE_PROJECT_ID
       && claims.iss === `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`
       && /^[A-Za-z0-9:_-]{1,128}$/.test(claims.uid), "Invalid sign-in token.", 401);
+    const isOperatorOrAdmin =
+      claims.role === "admin" ||
+      (typeof env.OPERATOR_UID === "string" &&
+        env.OPERATOR_UID.length > 0 &&
+        claims.uid === env.OPERATOR_UID);
+    if (claims.email_verified === false && !isOperatorOrAdmin) {
+      throw new ServiceError(
+        403,
+        "email-unverified",
+        "Verify your email address before continuing."
+      );
+    }
     return claims.uid;
   } catch (error) {
     if (error instanceof ServiceError) throw error;

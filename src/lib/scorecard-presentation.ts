@@ -30,6 +30,8 @@ export function presentScorecard(scorecard: ScorecardResult) {
     weakness: !tied && byGrowth[0].score < 25 && hasAdvice(byGrowth[0].improvementAdvice) ? byGrowth[0] : null,
     tied,
     sessionSummary: scorecard.feedback,
+    nextPracticeRecommendation: scorecard.nextPracticeRecommendation?.trim() || null,
+    supportSummary: scorecard.supportSummary ?? null,
     improvements: [...new Set(byGrowth.filter(criterion => criterion.score < 25).slice(0, 2).map((criterion) => criterion.improvementAdvice).filter(hasAdvice))],
   };
 }

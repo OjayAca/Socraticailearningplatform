@@ -44,6 +44,8 @@ import {
 import { useAuthStore } from "@/stores/auth-store";
 import { CONTENT_COLLECTIONS, ManagedContentEditor, type ContentCollection } from "./ManagedContentEditor";
 import { MindGuideLogo } from "./MindGuideLogo";
+import { NotificationDrawer } from "./NotificationDrawer";
+import { Banner } from "./ui/banner";
 import { NotificationContent } from "./student/NotificationContent";
 import { ProfileContent } from "./student/ProfileContent";
 import { ScorecardDetails } from "./ScorecardDetails";
@@ -192,7 +194,11 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
       </aside>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {signOutError && <div role="alert" className="bg-red-50 p-3 text-red-800">{signOutError}</div>}
+        {signOutError && (
+          <Banner tone="error" onDismiss={() => setSignOutError(null)}>
+            {signOutError}
+          </Banner>
+        )}
         <header className="z-30 flex h-16 shrink-0 items-center border-b border-slate-200 bg-white/95 px-4 backdrop-blur dark:border-slate-800/80 dark:bg-[#0b1120]/95 sm:px-6">
           <div className="mr-3 md:hidden">
             <Sheet>
@@ -234,6 +240,8 @@ function AdminShell({ active, children }: { active: string; children: ReactNode 
               Welcome, {displayName}
             </h1>
           </div>
+
+          <NotificationDrawer notificationsHref="/admin/notifications" />
 
           <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
             type="button"

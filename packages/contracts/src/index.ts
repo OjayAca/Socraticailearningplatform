@@ -117,6 +117,13 @@ export const SOLVER_STAGE_PHASES: Record<SolverStage, readonly ReasoningPhase[]>
   interpretation: ["result_interpretation"],
 };
 
+export const STAGE_ACCEPTANCE_CRITERIA: Record<SolverStage, string> = {
+  problem_understanding: "Identifies relevant information and what needs to be determined.",
+  method_selection: "Identifies an appropriate formula, method, or theorem and justifies why its conditions apply.",
+  computation: "Demonstrates valid mathematical procedures.",
+  interpretation: "Explains what the result means in the context of the problem.",
+};
+
 export const PHASE_LABELS: Record<WorkflowPhase, string> = {
   problem_understanding: "Understand the Problem",
   relevant_information_identification: "Identify Relevant Information",
@@ -162,6 +169,48 @@ export type DiagnosisCategory =
   | "unrecognized_alternative"
   | "none";
 
+export const DIAGNOSIS_CATEGORY_LABELS: Record<DiagnosisCategory, string> = {
+  conceptual_error: "Conceptual Error",
+  wrong_formula: "Formula Selection Error",
+  theorem_condition_violation: "Theorem Application Error",
+  procedural_error: "Procedural Error",
+  computational_error: "Computational Error",
+  invalid_logic: "Logical Error",
+  incorrect_interpretation: "Interpretation Error",
+  misinterpreted_variable: "Conceptual Error (Variable Identification)",
+  weak_justification: "Justification Needed",
+  skipped_reasoning: "Missing Reasoning Step",
+  unsupported_response: "Clarification Needed",
+  unrecognized_alternative: "Alternative Method Check",
+  none: "Reasoning Checkpoint",
+};
+
+export type TopicMasteryStatus = "Mastered" | "Developing" | "Needs remediation";
+export type AdaptiveDecisionLabel = "Advance" | "Maintain" | "Remediate";
+export type HintLevelNumber = 0 | 1 | 2 | 3;
+
+export interface SupportSummary {
+  hintsRequested: number;
+  highestHintLevel: HintLevelNumber;
+  solutionUnlocked: boolean;
+  correctiveAttempts: number;
+  selfCorrections: number;
+  completedIndependentlyAfterSupport: boolean;
+}
+
+export interface PersistentMisconceptionRecord {
+  category: DiagnosisCategory;
+  topicId: string;
+  subject: Subject;
+  status: "tentative" | "confirmed" | "resolved";
+  confidence: Confidence;
+  occurrences: number;
+  distinctSessionIds: string[];
+  lastSeenAt: number;
+  lastResolvedAt: number | null;
+  consecutiveResolvedSessions: number;
+}
+
 export type DiagnosisSeverity = "minor" | "moderate" | "major";
 export type DiagnosisResolution = "open" | "resolved" | "superseded";
 export type ScorecardCategory =
@@ -179,6 +228,9 @@ export interface MathResponse {
 
 export interface GateEvaluation {
   outcome?: ResponseOutcome;
+  selfCorrected?: boolean;
+  demonstrated?: string[];
+  missingCriterion?: ReasoningPhase | null;
   phase: ReasoningPhase;
   status: Exclude<GateStatus, "locked" | "pending">;
   attemptCount: number;
@@ -218,6 +270,8 @@ export interface ScorecardResult {
   rubricVersion?: string;
   calibrationStatus?: "pending" | "calibrated";
   assistanceCount?: number;
+  supportSummary?: SupportSummary;
+  nextPracticeRecommendation?: string;
   criteria: Record<ScorecardCategory, ScorecardCriterionResult>;
   total: number;
   feedback: string;
@@ -238,6 +292,10 @@ export interface AdaptiveRecommendation {
   recommendedDifficulty: Difficulty;
   reason: string;
   confidence: Confidence;
+  decision?: string;
+  decisionLabel?: AdaptiveDecisionLabel;
+  masteryStatus?: TopicMasteryStatus;
+  cooldownSessionsRemaining?: number;
 }
 
 export interface SessionCompletion {
@@ -273,7 +331,9 @@ export interface SessionProjection {
   needsOpening?: boolean;
   scoringSource?: "client_practice" | "ai_formative";
   lastDiagnosis?: DiagnosisResult | null;
-  supportHistory?: Array<{ phase: ReasoningPhase; level: SupportLevel; title: string; content: string[] }>;
+  supportHistory?: Array<{ phase: ReasoningPhase; level: SupportLevel; title: string; content: string[]; requestedAt?: number; hintLevel?: HintLevelNumber }>;
+  supportSummary?: SupportSummary;
+  recoveryMode?: boolean;
   responseCount?: number;
   id: string;
   schemaVersion: typeof SCHEMA_VERSION;
@@ -445,6 +505,7 @@ export interface LearningProgress {
   latestScorecard: LatestScorecardMetadata | null;
   subjectProgress: Partial<Record<Subject, SubjectProgress>>;
   topicRecommendations: Record<string, unknown>;
+  misconceptionProfile?: Record<string, PersistentMisconceptionRecord>;
 }
 
 export const ACHIEVEMENT_IDS = [

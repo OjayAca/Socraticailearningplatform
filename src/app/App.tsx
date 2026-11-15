@@ -11,7 +11,7 @@
 import { useEffect } from "react";
 import { RouterProvider } from "react-router";
 import { router } from "./routes";
-import { useAuthStore } from "@/stores/auth-store";
+import { isAdminRole, useAuthStore } from "@/stores/auth-store";
 import {
   getNotificationActionUrl,
   getNotificationText,
@@ -40,7 +40,9 @@ export default function App() {
   }, [initialize]);
 
   useEffect(() => {
-    if (!firebaseUser?.uid || !userProfile?.uid) {
+    const isUnverifiedStudent =
+      firebaseUser?.emailVerified === false && !isAdminRole(userProfile?.role);
+    if (!firebaseUser?.uid || !userProfile?.uid || isUnverifiedStudent) {
       stopListening();
       return;
     }
@@ -70,12 +72,10 @@ export default function App() {
             : undefined,
         });
       },
-      onError: (message) => {
-        toast.error("Notifications unavailable", { description: message });
-      },
     });
   }, [
     firebaseUser?.uid,
+    firebaseUser?.emailVerified,
     userProfile?.uid,
     userProfile?.role,
     listenToNotifications,

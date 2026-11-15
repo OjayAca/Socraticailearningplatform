@@ -32,6 +32,7 @@ describe("scoring context after corrected reasoning", () => {
       expect(sent.requiredEvidenceOptions.explanationQuality).toEqual([acceptedId("result_interpretation")]);
       expect(sent.requiredEvidenceOptions.logicalValidity).toContain(acceptedId("guided_computation_or_proof"));
       expect(sent.assistance).toEqual(captured.session.supportHistory);
+      expect(sent.stageDiagnostics.gates.guided_computation_or_proof).toMatchObject({ attemptCount: 2, correctiveCycleCount: 1 });
       expect(sent.reference.sourceGuidance).toEqual(captured.reference.sourceGuidance);
       expect(sent.reference.finalAnswer).toBe(captured.reference.finalAnswer);
       expect(sent.conversation).toEqual(captured.messages.slice(-12).filter(m=>m.role!=="student").map(({id,role,phase,text})=>({id,role,phase,text})));

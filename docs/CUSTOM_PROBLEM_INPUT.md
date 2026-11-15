@@ -46,7 +46,7 @@ Statistics/counting accept `Find`, `Calculate`, `Compute`, or `What is`, optiona
 
 ## Mathematical notation
 
-Use the existing MathInput plain-text field and optional notation editor. Insert `[math]` exactly once in the sentence where notation belongs. Example: text `Given f(x) = [math], find f(3).`, notation `x^{2}+\\frac{2x}{3}` (use single backslashes in the editor). The fields are submitted unchanged together. There is no implicit preference for one field over the other.
+Use the existing MathInput plain-text field and collapsible optional notation editor (`Mathematical notation (optional)`). The notation editor stays collapsed by default to keep plain-text problem entry clean, and expands when toggled or automatically when `[math]` or extracted LaTeX is present. Insert `[math]` exactly once in the sentence where notation belongs (manually or via the `+ Insert [math] in problem` button). Example: text `Given f(x) = [math], find f(3).`, notation `x^{2}+\\frac{2x}{3}` (use single backslashes in the editor). The fields are submitted unchanged together. There is no implicit preference for one field over the other.
 
 Supported normalization: `\\left`, `\\right`, escaped braces, spacing commands, `\\cdot`, `\\times`, `\\div`, literal braced integer powers, simple non-nested `\\frac{a}{b}`, `\\cup`, `\\cap`, `\\setminus`, `\\land`/`\\wedge`, `\\lor`/`\\vee`, `\\neg`/`\\lnot`, and corresponding Unicode set/logical symbols. Unknown commands fail the mathematical grammar. KaTeX rendering is only a preview, never mathematical validation. MathInput still supports its existing learner-response behavior; only the custom-problem text limit is configured to 2000.
 
@@ -59,7 +59,8 @@ Supported normalization: `\\left`, `\\right`, escaped braces, spacing commands, 
 - Counting: integer counts 0–100; permutation/combination exactly n,r with r <= n; result at most Number.MAX_SAFE_INTEGER. Product intermediate results are also bounded.
 - Probability: two integer counts 0–1,000,000, total positive, favorable <= total; equal likelihood is assumed by the compact form.
 - Logic: single-letter variables, explicit unique true/false assignments; expression 240 characters/100 tokens; precedence parentheses, NOT, AND, OR. Unknown variables/operators fail.
-- No calculus, domain/range, composition, arbitrary word problems, conditional probability, distributions, symbolic sets, proofs, quantifiers, OCR, or images. UI toolbar availability does not imply validator support.
+- No calculus, domain/range, composition, arbitrary word problems, conditional probability, distributions, symbolic sets, proofs, or quantifiers. UI toolbar availability does not imply validator support.
+- Photo and file extraction (`/api/learning/extract-problem` via `ProblemMediaCapture`): learners can take a photo or upload a PNG, JPEG, WEBP image, or PDF (up to 4 MB) to transcribe a problem into `MathInput`. Uploaded bytes are processed ephemerally via Gemini multimodal extraction (with membership, consent, pilot, and shared quota enforcement) and never stored. Extracted text and optional LaTeX populate `MathInput` for learner review and must still pass the exact same bounded deterministic validator (`verifyOwnProblem`) before a session can start.
 
 ## Security and session flow
 

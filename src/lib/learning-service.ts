@@ -44,23 +44,57 @@ async function consentNotice(): Promise<GetCurrentConsentNoticeResponse> {
 
 async function bootstrap(input: any) {
   const user = currentUser();
-  if (!input.displayName?.trim() || input.displayName.length > 120) throw new Error("Enter a name of 1–120 characters.");
-  if (input.consentVersion && (await consentNotice()).version !== input.consentVersion) throw new Error("The privacy notice changed. Reload before acknowledging it.");
-  const ref = doc(database(), "users", user.uid);
-  await runTransaction(database(), async tx => {
-    const snapshot = await tx.get(ref);
-    if (!snapshot.exists()) tx.set(ref, {
-      schemaVersion: SCHEMA_VERSION, displayName: input.displayName.trim(), email: user.email,
-      role: "student", status: "active", preferences: { liveAlertPopups: true },
-      createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-    });
-    else tx.update(ref, { displayName: input.displayName.trim(), preferences: snapshot.get("preferences") ?? { liveAlertPopups: true }, updatedAt: serverTimestamp() });
-    if (input.consentVersion) tx.set(doc(database(), "users", user.uid, "consents", input.consentVersion), {
-      version: input.consentVersion, acknowledgedAt: serverTimestamp(), source: "web",
-    });
+  if (!input.displayName?.trim() || input.displayName.length > 120) {
+    throw new Error("Enter a name of 1–120 characters.");
+  }
+  if (
+    input.consentVersion &&
+    (await consentNotice()).version !== input.consentVersion
+  ) {
+    throw new Error("The privacy notice changed. Reload before acknowledging it.");
+  }
+  const db = database();
+  const userRef = doc(db, "users", user.uid);
+  await runTransaction(db, async tx => {
+    const snapshot = await tx.get(userRef);
+    if (!snapshot.exists()) {
+      tx.set(userRef, {
+        schemaVersion: SCHEMA_VERSION,
+        displayName: input.displayName.trim(),
+        email: user.email,
+        role: "student",
+        status: "active",
+        preferences: { liveAlertPopups: true },
+        academicProfile: null,
+        academicProfileComplete: false,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } else {
+      tx.update(userRef, {
+        displayName: input.displayName.trim(),
+        preferences: snapshot.get("preferences") ?? { liveAlertPopups: true },
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    if (input.consentVersion) {
+      tx.set(
+        doc(db, "users", user.uid, "consents", input.consentVersion),
+        {
+          version: input.consentVersion,
+          acknowledgedAt: serverTimestamp(),
+          source: "web",
+        }
+      );
+    }
   });
-  return { profile: (await getDoc(ref)).data() };
+
+  return {
+    profile: (await getDoc(userRef)).data(),
+  };
 }
+
 
 async function catalog(): Promise<LearningCatalog> {
   try {
@@ -68,17 +102,17 @@ async function catalog(): Promise<LearningCatalog> {
     return {
       subjects: VALIDATED_SUBJECTS.flatMap(expected => subjects.docs.filter(item =>
         item.id === expected.id && item.get("name") === expected.name).map(item => ({
-          id:item.id, name:expected.name, status:"approved" as const,
-          description:typeof item.get("description") === "string" ? item.get("description") : "",
-          version:Number(item.get("version") ?? 1),
+          id: item.id, name: expected.name, status: "approved" as const,
+          description: typeof item.get("description") === "string" ? item.get("description") : "",
+          version: Number(item.get("version") ?? 1),
         }))),
       topics: VALIDATED_TOPICS.flatMap(expected => topics.docs.filter(item => item.id === expected.id &&
-        isValidatedTopic(item.id,item.data()) && subjects.docs.some(subject => subject.id === expected.subjectId &&
-        subject.get("name") === expected.subject)).map(item => ({
-          id:item.id, subjectId:expected.subjectId, subject:expected.subject, name:expected.name,
-          status:"approved" as const, version:Number(item.get("version") ?? 1), subtopics:expected.subtopics, ready:true,
-        }))),
-      generatedAt:Date.now(),
+        isValidatedTopic(item.id, item.data()) && subjects.docs.some(subject => subject.id === expected.subjectId &&
+          subject.get("name") === expected.subject)).map(item => ({
+            id: item.id, subjectId: expected.subjectId, subject: expected.subject, name: expected.name,
+            status: "approved" as const, version: Number(item.get("version") ?? 1), subtopics: expected.subtopics, ready: true,
+          }))),
+      generatedAt: Date.now(),
     } as LearningCatalog;
   } catch { throw new Error("Unable to load learning materials."); }
 }
@@ -143,8 +177,10 @@ async function start(input: PracticeStartInput) {
       if (!item.get("validationRecordId") || history.answered.has(item.id)) continue;
       const ref = await getDoc(doc(db, "problem_scoring", item.id));
       if (!ref.exists() || !ref.get("answerSpecification") || ref.get("validationRecordId") !== item.get("validationRecordId") || ref.get("problemVersion") !== item.get("version")) { unavailable = true; continue; }
-      candidates.push({ id:item.id, version:item.get("version"), validationRecordId:item.get("validationRecordId"),
-        problemText:item.get("problemText"), variant:item.get("variant"), reference:ref.data() });
+      candidates.push({
+        id: item.id, version: item.get("version"), validationRecordId: item.get("validationRecordId"),
+        problemText: item.get("problemText"), variant: item.get("variant"), reference: ref.data()
+      });
     }
     if (!candidates.length && unavailable) throw new Error(missingReference);
   } else {
@@ -186,7 +222,7 @@ async function start(input: PracticeStartInput) {
     };
     tx.set(doc(db, "sessions", sessionRef.id, "practice_reference", "reference"), reference);
     tx.set(sessionRef, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp(), lastActivityAt: serverTimestamp() });
-    tx.set(stateRef, { activeSessionId: sessionRef.id, answeredProblemIds: [...excluded], accuracyEvidence: history.evidence.sort((a,b) => b.completedAt - a.completedAt).slice(0,5), updatedAt: serverTimestamp() }, { merge: true });
+    tx.set(stateRef, { activeSessionId: sessionRef.id, answeredProblemIds: [...excluded], accuracyEvidence: history.evidence.sort((a, b) => b.completedAt - a.completedAt).slice(0, 5), updatedAt: serverTimestamp() }, { merge: true });
     return { session: projectSession(sessionRef.id, data) };
   });
 }
@@ -225,7 +261,8 @@ async function mutate(name: string, input: any) {
       const gates = { ...session.gateStates, [phase]: { ...gate, ...evaluation, acceptedAt: evaluation.acceptedAt ? Timestamp.fromMillis(evaluation.acceptedAt) : null } };
       const next = evaluation.status === "accepted" ? nextReasoningPhase(phase) : phase;
       if (next && evaluation.status === "accepted") gates[next] = { ...gates[next], status: "pending" };
-      Object.assign(updates, { gateStates: gates, gateEvaluations: { ...session.gateEvaluations, [phase]: evaluation },
+      Object.assign(updates, {
+        gateStates: gates, gateEvaluations: { ...session.gateEvaluations, [phase]: evaluation },
         currentPhase: next ?? "controlled_solution_release", currentPrompt: next ? promptForPhase(next, reference!) : "Complete your answer, methodology, and reflection.",
         allowedSupport: supportLevelsFor(gates), responseCount: (session.responseCount ?? 0) + 1, lastDiagnosis: result.diagnosis,
         diagnosisSummary: [...new Set([...(session.diagnosisSummary ?? []), result.diagnosis.category])],
@@ -277,8 +314,10 @@ async function complete(tx: Transaction, session: DocumentData, id: string, upda
   const recent = evidence.sort((a, b) => b.completedAt - a.completedAt).slice(0, 5);
   const recommendation = adaptiveDifficulty(session.difficulty as Difficulty, recent);
   const next = nextLearningProgress(user.uid, current, session.scorecard.total, now, { id, subject: session.subject, topic: session.topic, scorecardSummary: session.scorecard.feedback, scorecardGeneratedAt: session.scorecard.generatedAt, recommendation });
-  tx.set(progressRef, { ...next, accuracyEvidence: { ...(current.accuracyEvidence ?? {}), [session.topicId]: recent },
-    topicRecommendations: { ...(current.topicRecommendations ?? {}), [topicKey(session.topic)]: recommendation }, updatedAt: serverTimestamp() }, { merge: true });
+  tx.set(progressRef, {
+    ...next, accuracyEvidence: { ...(current.accuracyEvidence ?? {}), [session.topicId]: recent },
+    topicRecommendations: { ...(current.topicRecommendations ?? {}), [topicKey(session.topic)]: recommendation }, updatedAt: serverTimestamp()
+  }, { merge: true });
   for (const [key, award] of Object.entries(next.achievements)) {
     if (current.achievements?.[key] || !award) continue;
     tx.set(doc(database(), "notifications", `achievement_${user.uid}_${key}`), { recipientId: user.uid, eventType: "achievement_awarded", title: award.title, message: award.description, actionUrl: "/student/profile", read: false, createdAt: serverTimestamp() });

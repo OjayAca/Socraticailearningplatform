@@ -8,7 +8,8 @@
   "workspaces": {
     ".": {
       "entry": [
-        "scripts/**/*.{mjs,ts}"
+        "scripts/**/*.{mjs,ts}",
+        "tests/server-only.ts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",

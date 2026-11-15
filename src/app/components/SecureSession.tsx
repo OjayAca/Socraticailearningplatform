@@ -25,6 +25,7 @@ import type {
   TutorMessage,
 } from "@mindguide/contracts";
 import {
+  DIAGNOSIS_CATEGORY_LABELS,
   PHASE_LABELS,
   SCHEMA_VERSION,
   SOLVER_STAGES,
@@ -50,6 +51,8 @@ import { MathInput } from "./MathInput";
 import { ScorecardDetails } from "./ScorecardDetails";
 import { TutorMessageBubble } from "./TutorMessageBubble";
 import { SessionViewport } from "./SessionViewport";
+import { Alert } from "./ui/alert";
+import { ConfirmDialog } from "./ui/confirm-dialog";
 
 const EMPTY_RESPONSE: MathResponse = { plainText: "", latex: "" };
 
@@ -66,6 +69,7 @@ export function SecureSession() {
     return () => window.clearTimeout(timer);
   }, [loading]);
   const [error, setError] = useState<string | null>(null);
+  const [isAbandonDialogOpen, setIsAbandonDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
   const busy = useRef(false);
@@ -256,7 +260,7 @@ export function SecureSession() {
   }
 
   async function abandonSession() {
-    if (!session || !window.confirm("Abandon this session? Its reasoning record will be preserved as read-only history.")) return;
+    if (!session) return;
     setLoading(true);
     setError(null);
     try {
@@ -268,6 +272,7 @@ export function SecureSession() {
       busy.current = false;
       setPendingText(null);
       setLoading(false);
+      setIsAbandonDialogOpen(false);
     }
   }
 
@@ -312,7 +317,18 @@ export function SecureSession() {
           })}</div>
           {session.adaptiveRecommendation && <p className="text-xs text-slate-500 dark:text-slate-400">Adaptive difficulty: {session.adaptiveRecommendation.reason}</p>}
           {!!session.supportHistory?.length && <section><h2 className="font-semibold">Support history</h2>{session.supportHistory.map((entry, index) => <div key={index} className="mt-2 rounded-lg bg-slate-50 dark:bg-slate-950 p-3"><p className="mb-1 text-xs text-slate-500 dark:text-slate-400">{PHASE_LABELS[entry.phase]} · {entry.title}</p>{entry.content.map((line, i) => <MathText key={i} text={line} />)}</div>)}</section>}
-          <button onClick={() => void abandonSession()} disabled={loading} className="flex items-center gap-2 rounded-lg py-2 text-xs text-slate-500 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
+          <button type="button" onClick={() => setIsAbandonDialogOpen(true)} disabled={loading} className="flex items-center gap-2 rounded-lg py-2 text-xs text-slate-500 dark:text-slate-400 hover:text-red-700 dark:hover:text-red-300 disabled:opacity-50"><Ban className="h-4 w-4" />Abandon and preserve this session</button>
+          <ConfirmDialog
+            open={isAbandonDialogOpen}
+            onOpenChange={setIsAbandonDialogOpen}
+            variant="destructive"
+            title="Abandon this session?"
+            description="Your reasoning record will be preserved as read-only history, but you won't be able to continue this session."
+            confirmLabel="Abandon session"
+            cancelLabel="Keep working"
+            isLoading={loading}
+            onConfirm={() => void abandonSession()}
+          />
         </div>
       </details>
 
@@ -329,6 +345,32 @@ export function SecureSession() {
             {pendingText && <TutorMessageBubble role="student" text={pendingText} />}
             {loading && <p role="status" className="flex items-center gap-2 text-sm text-violet-700 dark:text-violet-300"><Loader2 className="h-4 w-4 animate-spin" />{slowRequest ? "Your tutor is taking longer than usual. Please keep this session open while we wait for your result…" : "Your tutor is thinking…"}</p>}
           </section>
+          {reasoning && session.lastDiagnosis && session.lastDiagnosis.resolutionStatus === "open" && session.lastDiagnosis.category && session.lastDiagnosis.category !== "none" && (
+            <section aria-label="Reasoning diagnosis" className="rounded-2xl border border-amber-200 dark:border-amber-800/80 bg-amber-50/90 dark:bg-amber-950/40 p-4 text-xs sm:text-sm text-amber-950 dark:text-amber-100 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>
+                  {session.lastDiagnosis.confidence === "medium"
+                    ? `Possible misconception detected: ${diagnosisLabel(session.lastDiagnosis.category)}`
+                    : `Diagnostic Feedback: ${diagnosisLabel(session.lastDiagnosis.category)}`}
+                </span>
+              </div>
+              {session.lastDiagnosis.incorrectStep && (
+                <p className="text-xs text-amber-900 dark:text-amber-200">
+                  <span className="font-semibold">Reviewed step: </span>
+                  <MathText text={session.lastDiagnosis.incorrectStep} />
+                </p>
+              )}
+              {session.lastDiagnosis.explanation && (
+                <p className="text-xs text-amber-800 dark:text-amber-200/90">{session.lastDiagnosis.explanation}</p>
+              )}
+              {session.lastDiagnosis.recommendedAction && (
+                <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                  <span className="font-bold">Next step: </span>{session.lastDiagnosis.recommendedAction}
+                </p>
+              )}
+            </section>
+          )}
           {session.needsOpening && <button disabled={loading} className="rounded-xl bg-violet-600 px-4 py-2 text-sm text-white disabled:opacity-50" onClick={async () => {
             if (busy.current) return;
             busy.current = true; setLoading(true); setError(null);
@@ -363,14 +405,21 @@ export function SecureSession() {
         </div>
       </div>
       {hasNewMessages && <button onClick={jumpToLatest} className="mx-auto mb-2 flex shrink-0 items-center gap-2 rounded-full border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-900 px-4 py-2 text-xs font-medium text-violet-700 dark:text-violet-300 shadow-sm"><ArrowDown className="h-3 w-3" />Jump to latest</button>}
-      {error && <div role="alert" className="mx-4 mb-2 flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-300"><AlertCircle className="h-4 w-4 shrink-0" /><span className="flex-1">{error}</span><button disabled={loading} onClick={() => void load()} className="underline">Reload saved progress</button></div>}
+      {error && <Alert tone="error" className="mx-4 mb-2 shrink-0 items-center" action={<button disabled={loading} onClick={() => void load()} className="underline">Reload saved progress</button>}>{error}</Alert>}
       {reasoning && <footer className="shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:pb-6">
         <div className="mx-auto max-w-2xl">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs">
-            <button disabled={loading || session.needsOpening || !session.allowedSupport.length} onClick={() => {
-              const level = session.allowedSupport.at(-1);
-              if (level) void requestSupport(level);
-            }} className="flex items-center gap-1.5 rounded-full bg-violet-100/70 dark:bg-violet-950/60 px-3 py-1.5 font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900 disabled:opacity-40"><Lightbulb className="h-3.5 w-3.5" />I need a hint</button>
+            <div className="flex items-center gap-2">
+              <button disabled={loading || session.needsOpening || !session.allowedSupport.length} onClick={() => {
+                const level = nextSupportLevel(session.allowedSupport, session.supportHistory, session.currentPhase);
+                if (level) void requestSupport(level);
+              }} className="flex items-center gap-1.5 rounded-full bg-violet-100/70 dark:bg-violet-950/60 px-3 py-1.5 font-medium text-violet-700 dark:text-violet-300 hover:bg-violet-100 dark:hover:bg-violet-900 disabled:opacity-40"><Lightbulb className="h-3.5 w-3.5" />I need a hint</button>
+              {session.allowedSupport.length > 1 && (
+                <span className="text-[11px] font-medium text-violet-700/80 dark:text-violet-300/80">
+                  {supportTierLabel(nextSupportLevel(session.allowedSupport, session.supportHistory, session.currentPhase))}
+                </span>
+              )}
+            </div>
             <button aria-expanded={showEquation} aria-controls="chat-equation" onClick={() => setShowEquation(!showEquation)} className="rounded-lg px-2 py-1 text-slate-500 dark:text-slate-400 hover:text-violet-700 dark:hover:text-violet-200">{showEquation ? "Hide equation" : response.latex?.trim() ? "Edit equation •" : "Add equation"}</button>
           </div>
           <form onSubmit={event => { event.preventDefault(); void submitReasoning(); }} className="rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 shadow-sm focus-within:border-violet-400 focus-within:ring-2 focus-within:ring-violet-100">
@@ -413,6 +462,8 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     revision: Number(data.revision ?? 0),
     lastDiagnosis: data.lastDiagnosis ?? null,
     supportHistory: data.supportHistory ?? [],
+    supportSummary: data.supportSummary ?? undefined,
+    recoveryMode: Boolean(data.recoveryMode),
     studentId: data.studentId,
     subjectId: data.subjectId ?? "",
     topicId: data.topicId ?? "",
@@ -452,4 +503,41 @@ function promptFor(phase: string): string {
     result_interpretation: "What does the verified result mean in the context of the original problem?",
   };
   return prompts[phase] ?? "Complete the controlled support and formative scorecard stages.";
+}
+
+function diagnosisLabel(category?: string): string {
+  const labels: Record<string, string> = DIAGNOSIS_CATEGORY_LABELS;
+  return (category && labels[category]) || "Reasoning Checkpoint";
+}
+
+function nextSupportLevel(
+  allowedSupport: SupportLevel[],
+  supportHistory: SessionProjection["supportHistory"] = [],
+  currentPhase?: string,
+): SupportLevel | undefined {
+  if (!allowedSupport.length) return undefined;
+  const phaseLevels = new Set(
+    (supportHistory ?? [])
+      .filter(entry => !currentPhase || !entry.phase || entry.phase === currentPhase)
+      .map(entry => entry.level),
+  );
+  const substantiveOrder: SupportLevel[] = ["targeted_hint", "stronger_hint", "partial_step"];
+  for (const candidate of substantiveOrder) {
+    if (allowedSupport.includes(candidate) && !phaseLevels.has(candidate)) {
+      return candidate;
+    }
+  }
+  return allowedSupport.at(-1);
+}
+
+function supportTierLabel(level?: SupportLevel): string {
+  const labels: Record<SupportLevel, string> = {
+    socratic_prompt: "Socratic prompt unlocked",
+    targeted_hint: "Level 1 · Conceptual hint unlocked",
+    stronger_hint: "Level 2 · Strategic hint unlocked",
+    partial_step: "Level 3 · Procedural hint unlocked",
+    worked_explanation: "Worked explanation unlocked",
+    full_solution: "Full solution unlocked",
+  };
+  return (level && labels[level]) || "Support unlocked";
 }

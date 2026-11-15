@@ -94,6 +94,12 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
   }
 
   const profileRole = userProfile.role;
+  const isEmailUnverified =
+    firebaseUser.emailVerified === false || userProfile.emailVerified === false;
+
+  if (isEmailUnverified && !isAdminRole(profileRole)) {
+    return <Navigate to="/verify-email" replace />;
+  }
 
   if (requiredRole && !rolesMatch(profileRole, requiredRole)) {
     return <Navigate to={getDashboardPath(profileRole)} replace />;

@@ -22,6 +22,7 @@ import {
 import { secureErrorMessage } from "@/lib/secure-error";
 import { useAuthStore } from "@/stores/auth-store";
 import { MathInput } from "./MathInput";
+import { ProblemMediaCapture } from "./ProblemMediaCapture";
 import { customGuidance } from "@/lib/learning/custom-problem-config";
 import { StudentShell } from "./StudentShell";
 
@@ -250,14 +251,35 @@ export function SecureTaskStart() {
                     }} className="mt-2 w-full rounded-lg border p-3 font-normal">
                       {(["Basic", "Intermediate", "Advanced"] as const).map(level => <option key={level}>{level}</option>)}
                     </select>
-                    <span className="mt-1 block text-xs font-normal">Recommended level · {recommendation?.recommendedDifficulty ?? "Basic"}</span>
+                    <span className="mt-1 block text-xs font-normal">
+                      Recommended level · {recommendation?.recommendedDifficulty ?? "Basic"}
+                      {recommendation?.masteryStatus ? ` · Mastery: ${recommendation.masteryStatus}` : ""}
+                      {recommendation?.decisionLabel ? ` (${recommendation.decisionLabel})` : ""}
+                    </span>
                   </label>}
                 </>}
           </> : <>
-            <MathInput label="Mathematical problem" maxLength={2000} disabled={loading} value={{ plainText: question, latex: questionLatex }}
+            <MathInput
+              label="Mathematical problem"
+              maxLength={2000}
+              disabled={loading}
+              value={{ plainText: question, latex: questionLatex }}
               onChange={value => { setQuestion(value.plainText); setQuestionLatex(value.latex ?? ""); setError(null); }}
-              explanationPlaceholder={examples[0]?.example} />
-            <p className="text-sm">For optional notation, place [math] once in your problem where the expression belongs.</p>
+              explanationPlaceholder={examples[0]?.example}
+              notationHint="For optional notation, place [math] once in your problem where the expression belongs."
+              notationHeaderActions={
+                <ProblemMediaCapture
+                  key={subjectId}
+                  subjectId={subjectId}
+                  disabled={loading}
+                  onExtracted={({ plainText, latex }) => {
+                    setQuestion(plainText);
+                    setQuestionLatex(latex);
+                    setError(null);
+                  }}
+                />
+              }
+            />
             {examples.length > 0 && <details className="text-sm"><summary>Supported formats and examples</summary>
               <ul className="ml-5 list-disc space-y-2">{examples.map(item => <li key={item.example}><strong>{item.types}</strong><br />{item.example}<br />{item.limitation}</li>)}</ul>
             </details>}

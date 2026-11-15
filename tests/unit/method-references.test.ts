@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { METHOD_REFERENCES } from "../../src/lib/learning/method-references";
 import { solveVerifiedProblem } from "../../src/lib/learning/verified-problems";
 import { containsExcludedContent } from "../../src/data/validated-curriculum";
+import {
+  conditionPromptForMethod,
+  evaluateConditionEquivalence,
+  isBareMethodSelection,
+  leaksFutureCheckpoint,
+  validateJustificationBySubject,
+} from "../../server/tutor-dialogue";
 
 describe("bounded mathematical reference conditions",()=>{
   it("every supported method has an application condition, misconception and justification",()=>{
@@ -10,6 +17,8 @@ describe("bounded mathematical reference conditions",()=>{
       expect(ref.conditions.length,operation).toBeGreaterThan(0);
       expect(ref.commonMisconceptions.length,operation).toBeGreaterThan(0);
       expect(ref.acceptedJustifications.length,operation).toBeGreaterThan(0);
+      expect(ref.equivalentConditions?.length,operation).toBeGreaterThan(0);
+      expect(ref.domain,operation).toMatch(/^(Quantitative Methods|Discrete Mathematics)$/);
       expect(containsExcludedContent(ref),operation).toBe(false);
     }
   });
@@ -30,5 +39,53 @@ describe("bounded mathematical reference conditions",()=>{
   it("does not use frequency ratios without an equal likelihood condition",()=>{
     expect(METHOD_REFERENCES.probability.conditions).toContain("Outcomes are equally likely");
     expect(solveVerifiedProblem({operation:"probability",values:[2,8]}).finalAnswer).toBe("0.25");
+  });
+
+  it("recognizes mathematically equivalent condition paraphrases and rejects negated or contradictory claims", () => {
+    const meanRef = solveVerifiedProblem({ operation: "mean", values: [4, 8, 12] });
+    for (const paraphrase of [
+      "Each value has equal weight.",
+      "All observations contribute equally.",
+      "Every data point is treated with the same importance.",
+    ]) {
+      const eq = evaluateConditionEquivalence({ plainText: paraphrase }, meanRef);
+      expect(eq.matched, paraphrase).toBe(true);
+      expect(eq.contradicted, paraphrase).toBe(false);
+      expect(isBareMethodSelection({ plainText: paraphrase }, meanRef), paraphrase).toBe(false);
+    }
+
+    const negatedMean = evaluateConditionEquivalence(
+      { plainText: "Use the mean because the observations do not have equal weight." },
+      meanRef,
+    );
+    expect(negatedMean.matched).toBe(false);
+    expect(negatedMean.contradicted).toBe(true);
+
+    const sampleVarRef = solveVerifiedProblem({ operation: "sample variance", values: [2, 4, 6] });
+    const wrongDenominator = validateJustificationBySubject(
+      { plainText: "We divide by N because this is the entire population." },
+      sampleVarRef,
+      "Quantitative Methods",
+    );
+    expect(wrongDenominator.valid).toBe(false);
+    expect(wrongDenominator.contradicted).toBe(true);
+
+    const combRef = solveVerifiedProblem({ operation: "combination", values: [6, 2] });
+    const wrongOrder = validateJustificationBySubject(
+      { plainText: "Use combinations because order matters in the arrangement." },
+      combRef,
+      "Discrete Mathematics",
+    );
+    expect(wrongOrder.valid).toBe(false);
+    expect(wrongOrder.contradicted).toBe(true);
+  });
+
+  it("generates formula-specific condition prompts and blocks future checkpoint leakage in Stage 1", () => {
+    const meanRef = solveVerifiedProblem({ operation: "mean", values: [4, 8, 12] });
+    expect(conditionPromptForMethod({ requiredFormula: "mean" }, "Quantitative Methods")).toBe(
+      "Why is the arithmetic mean appropriate for this dataset?",
+    );
+    expect(leaksFutureCheckpoint("Apply x̄ = (Σx)/n to the dataset.", "problem_understanding", "targeted_hint", meanRef)).toBe(true);
+    expect(leaksFutureCheckpoint("Identify the three given observations and what needs to be determined.", "problem_understanding", "targeted_hint", meanRef)).toBe(false);
   });
 });

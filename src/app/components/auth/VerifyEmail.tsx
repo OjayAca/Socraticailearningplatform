@@ -1,0 +1,264 @@
+/**
+ * Email verification gate screen for unverified email/password accounts.
+ *
+ * Requires users who registered with email and password to confirm ownership
+ * of their inbox via Firebase's verification link before accessing protected
+ * learning routes.
+ *
+ * @module components/auth/VerifyEmail
+ */
+
+import { useState } from "react";
+import { Navigate, useNavigate } from "react-router";
+import {
+  Mail,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
+  LogOut,
+  Send,
+} from "lucide-react";
+import { motion } from "motion/react";
+import {
+  getDashboardPath,
+  isAdminRole,
+  useAuthStore,
+} from "@/stores/auth-store";
+import { MindGuideLogo } from "../MindGuideLogo";
+
+/**
+ * Renders the email verification screen with actions to check verification
+ * status, resend the verification email, or sign out.
+ *
+ * @returns The email verification gate view or a redirect when inapplicable.
+ */
+export function VerifyEmail() {
+  const navigate = useNavigate();
+  const {
+    firebaseUser,
+    userProfile,
+    isLoading,
+    error,
+    sendVerification,
+    refreshVerification,
+    signOut,
+    clearError,
+  } = useAuthStore();
+
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [verificationStatusMessage, setVerificationStatusMessage] = useState<
+    string | null
+  >(null);
+  const [verificationErrorMessage, setVerificationErrorMessage] = useState<
+    string | null
+  >(null);
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-full bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+          <p className="text-slate-500 text-sm font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!firebaseUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isEmailAlreadyVerified =
+    firebaseUser.emailVerified === true || isAdminRole(userProfile?.role);
+
+  if (isEmailAlreadyVerified) {
+    return (
+      <Navigate
+        to={getDashboardPath(userProfile?.role ?? "student")}
+        replace
+      />
+    );
+  }
+
+  const targetEmailAddress =
+    firebaseUser.email || userProfile?.email || "your email address";
+  const isActionBusy = isCheckingStatus || isResendingEmail;
+
+  /**
+   * Reloads the Firebase Auth user and token claims to confirm whether the
+   * verification link has been clicked.
+   */
+  async function handleCheckVerification() {
+    clearError();
+    setVerificationStatusMessage(null);
+    setVerificationErrorMessage(null);
+    setIsCheckingStatus(true);
+
+    try {
+      const isNowVerified = await refreshVerification();
+      if (isNowVerified) {
+        navigate(getDashboardPath(userProfile?.role ?? "student"), {
+          replace: true,
+        });
+      } else {
+        setVerificationErrorMessage(
+          "Your email is still unverified. Open the verification link sent to your inbox (or spam folder), then try again."
+        );
+      }
+    } catch (caughtError) {
+      setVerificationErrorMessage(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Verification status could not be checked. Please try again."
+      );
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  }
+
+  /**
+   * Sends a fresh verification link to the signed-in user's email address.
+   */
+  async function handleResendVerification() {
+    clearError();
+    setVerificationStatusMessage(null);
+    setVerificationErrorMessage(null);
+    setIsResendingEmail(true);
+
+    try {
+      await sendVerification();
+      setVerificationStatusMessage(
+        "Verification email sent. Open the link in your inbox (or spam folder), then select \"I've Verified My Email\"."
+      );
+    } catch (caughtError) {
+      setVerificationErrorMessage(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Verification email could not be sent. Please try again."
+      );
+    } finally {
+      setIsResendingEmail(false);
+    }
+  }
+
+  /**
+   * Signs out the current unverified account and returns to the login screen.
+   */
+  async function handleSignOut() {
+    clearError();
+    setVerificationStatusMessage(null);
+    setVerificationErrorMessage(null);
+    try {
+      await signOut();
+      navigate("/login", { replace: true });
+    } catch {
+      // Error is handled by the store
+    }
+  }
+
+  const displayedError = verificationErrorMessage || error;
+
+  return (
+    <div className="auth-page flex min-h-full flex-1 flex-col items-center bg-slate-50 p-4 sm:p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="my-auto w-full max-w-md shrink-0 space-y-6 rounded-3xl bg-white p-5 sm:p-8 shadow-xl shadow-slate-200/50"
+      >
+        <div className="space-y-2 text-center">
+          <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />
+          <h2 className="text-2xl font-bold text-slate-900">
+            Verify Your Email
+          </h2>
+          <p className="text-slate-500 text-sm">
+            We sent a verification link to{" "}
+            <span className="font-semibold text-slate-800 break-all">
+              {targetEmailAddress}
+            </span>
+            . Click the link in your inbox to activate your account.
+          </p>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-xs leading-5 text-indigo-950">
+          <Mail className="h-5 w-5 shrink-0 text-indigo-600 mt-0.5" />
+          <div>
+            <p className="font-semibold">Why is this required?</p>
+            <p className="mt-1 text-indigo-900/80">
+              MINDGUIDE requires a real, verified email address before you can
+              access learning sessions. Check your spam or promotions folder if
+              the email does not appear within a minute.
+            </p>
+          </div>
+        </div>
+
+        {displayedError && (
+          <div
+            role="alert"
+            className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{displayedError}</span>
+          </div>
+        )}
+
+        {verificationStatusMessage && (
+          <div
+            role="status"
+            className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm"
+          >
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>{verificationStatusMessage}</span>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => void handleCheckVerification()}
+            disabled={isActionBusy}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCheckingStatus ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                I&apos;ve Verified My Email
+              </>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => void handleResendVerification()}
+            disabled={isActionBusy}
+            className="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-xl transition-all border border-slate-200 shadow-sm flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isResendingEmail ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                Resend Verification Email
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="pt-2 border-t border-slate-100 text-center">
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            disabled={isActionBusy}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign out or use a different email
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}

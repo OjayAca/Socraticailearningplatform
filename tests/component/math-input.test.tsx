@@ -21,4 +21,23 @@ describe("equation-only input", () => {
     expect(screen.getByLabelText("Mathematical expression editor")).toHaveProperty("readOnly", true);
     expect(screen.getByRole("button", { name: "Insert Fraction" })).toBeDisabled();
   });
+
+  it("collapses optional notation by default and expands on toggle or [math] insertion", () => {
+    const onChange = vi.fn();
+    render(
+      <MathInput
+        value={{ plainText: "Given f(x) =", latex: "" }}
+        onChange={onChange}
+        notationHint="Place [math] once in your problem."
+      />
+    );
+    const toggle = screen.getByRole("button", { name: /Mathematical notation \(optional\)/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Insert [math] in problem" }));
+    expect(onChange).toHaveBeenCalledWith({ plainText: "Given f(x) = [math]", latex: "" });
+  });
 });

@@ -307,16 +307,47 @@ export async function adminOperation(name: string, input: any): Promise<any> {
       return { announcementId: input.requestId, delivered: saved.get("deliveryCount") ?? delivered, total: saved.get("recipientIds")?.length ?? total, complete: false, error: error instanceof Error ? error.message : "Delivery interrupted." };
     }
   }
-  if (name === "adminPilotRoster") {
-    if (!input.uid?.trim() || input.uid.includes("/") || !["admitted", "revoked"].includes(input.status)) throw new Error("Choose a valid participant and cohort status.");
-    await runTransaction(db, async tx => {
-      const user = await tx.get(doc(db, "users", input.uid));
-      if (!user.exists() || user.get("role") !== "student") throw new Error("Choose an existing student.");
-      tx.set(doc(db, "pilot_roster", input.uid), { status: input.status, updatedAt: serverTimestamp() });
-      transactionAudit(tx, name, input.uid, { status: input.status });
-    });
-    return { status: input.status };
+  
+if (name === "adminPilotRoster") {
+  if (
+    !input.uid?.trim() ||
+    input.uid.includes("/") ||
+    !["admitted", "revoked"].includes(input.status)
+  ) {
+    throw new Error("Choose a valid participant and cohort status.");
   }
+
+  await runTransaction(db, async tx => {
+    const userRef = doc(db, "users", input.uid);
+    const rosterRef = doc(db, "pilot_roster", input.uid);
+
+    const [user, roster] = await Promise.all([
+      tx.get(userRef),
+      tx.get(rosterRef),
+    ]);
+
+    if (!user.exists() || user.get("role") !== "student") {
+      throw new Error("Choose an existing student.");
+    }
+
+    tx.set(
+      rosterRef,
+      {
+        status: input.status,
+        createdAt: roster.get("createdAt") ?? serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    transactionAudit(tx, name, input.uid, {
+      status: input.status,
+    });
+  });
+
+  return { status: input.status };
+}
+
   if (name === "adminSetPilot") {
     if (!["closed", "open", "drain", "write-freeze"].includes(input.state) || !Array.isArray(input.enabledTopicIds) || input.enabledTopicIds.some((id: unknown) => typeof id !== "string" || !id || id.includes("/"))) throw new Error("Invalid cohort settings.");
     const batch = writeBatch(db);

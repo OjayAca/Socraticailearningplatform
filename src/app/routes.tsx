@@ -17,6 +17,8 @@ import {
 } from "react-router";
 import { ArrowLeft, SearchX } from "lucide-react";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { NotificationErrorBanner } from "./components/NotificationErrorBanner";
+import { OfflineBanner } from "./components/OfflineBanner";
 
 /**
  * Base layout — provides a full-height container for all routes.
@@ -24,6 +26,8 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
  */
 const Layout = () => (
   <div className="relative flex h-dvh w-full flex-col overflow-hidden bg-slate-50">
+    <OfflineBanner />
+    <NotificationErrorBanner />
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain scroll-pt-16">
       <Outlet />
     </div>
@@ -88,6 +92,12 @@ export const router = createBrowserRouter([
         path: "signup",
         lazy: async () => ({
           Component: (await import("./components/auth/SignUp")).SignUp,
+        }),
+      },
+      {
+        path: "verify-email",
+        lazy: async () => ({
+          Component: (await import("./components/auth/VerifyEmail")).VerifyEmail,
         }),
       },
 

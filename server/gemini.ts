@@ -35,7 +35,7 @@ const turnJsonSchema = providerSchema(turnSchema);
 const scoreJsonSchema = providerSchema(scoreSchema);
 export type Turn = z.infer<typeof turnSchema>;
 export type Score = z.infer<typeof scoreSchema>;
-export type Intent = "answer" | "question" | "help";
+type Intent = "answer" | "question" | "help";
 export interface TutorContext { session: any; reference: any; messages: any[]; intent: Intent | "opening" | "score"; response?: MathResponse; supportLevel?: string; assessedResponses?: any[]; reassessIntent?: boolean }
 export interface Tutor { generate(context: TutorContext): Promise<Turn | Score> }
 
@@ -48,7 +48,9 @@ export const stageQuestions = {
 
 /** Resolve conflicting evaluations into answer-free, current-stage dialogue. */
 export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageForPhase>[0], math: "correct" | "incorrect" | "unsupported"): Turn {
-  const uncertain = turn.confidence !== "high";
+  const specificMedium = turn.confidence === "medium" && !["none", "unsupported_response"].includes(turn.category)
+    && Boolean(turn.incorrectStep?.trim()) && turn.evidence.some(item => item.trim());
+  const uncertain = turn.confidence === "low" || (turn.confidence !== "high" && !specificMedium);
   const category = math === "incorrect" ? "computational_error" : turn.category === "unrecognized_alternative" ? turn.category : uncertain ? "none" : turn.category;
   const questions: Partial<Record<Turn["category"], string>> = {
     wrong_formula: "What conditions does your chosen formula require, and which of the given facts meet those conditions?",
@@ -65,7 +67,7 @@ export function correctiveTurn(turn: Turn, phase: Parameters<typeof solverStageF
   return {
     ...turn, accepted: false, category, leaksSolution: false,
     confidence: math === "incorrect" ? "high" : turn.confidence,
-    feedback: math === "incorrect" ? "The calculation needs another check. Let's work through it together." : uncertain || category === "none" ? "I'd like to understand your reasoning more clearly before we move on." : "Let's examine this part of your reasoning together.",
+    feedback: math === "incorrect" ? "The calculation needs another check. Let's work through it together." : uncertain || category === "none" ? "I'd like to understand your reasoning more clearly before we move on." : specificMedium ? "This step may involve a possible misconception. Let's examine your reasoning together." : "Let's examine this part of your reasoning together.",
     question: questions[category] ?? stageQuestions[solverStageForPhase(phase)],
     evidence: math === "incorrect" ? ["The submitted calculation does not match the verified mathematical reference."] : uncertain ? ["The tutor needs clarification; no specific misconception has been established."] : turn.evidence,
     ...(uncertain && math !== "incorrect" ? {incorrectStep:undefined,explanation:"No specific mistake has been established from the available evidence.",recommendedAction:"Clarify the rule and reasoning behind your response before continuing."} : {}),
@@ -103,17 +105,17 @@ Assess the current learner-visible stage as a whole using currentStageCriteria, 
 There is no required number of answers. One sufficient response completes the stage; never ask for a second answer merely to tick another internal criterion.
 Problem understanding includes the goal and relevant givens; method selection includes a valid method and why it applies;
 computation includes correct working and verification; interpretation explains the result in context.
-When instructionalLevel is provided, use it for the amount of Socratic scaffolding. Use the same gates and scoring rubric at every level.
+When instructionalLevel is provided, it governs cross-session problem complexity; use promptAdjustment (simplify, maintain, deepen) to adjust in-session conversational scaffolding. Use the same gates and scoring rubric at every level.
 Accept concise evidence appropriate to the problem's difficulty. A bare 'I understand' is not evidence of understanding.
 accepted applies ONLY to mastery of the current stage and an answer with high confidence. If accepted, ask the nextStage's question;
 otherwise ask only about the missing or incorrect understanding in this stage. Do not repeat criteria already demonstrated.
 Never skip a future stage. No acceptance on opening, questions or help. If uncertain, ask for clarification.
 On opening, ask only for the goal and relevant givens in the learner's own words. Do not request a formula, sum, calculation, proof or final answer yet.
 For scoring only: assess the saved learner conversation and assessedResponses using four criteria each 0..25.
-Use accepted responses to identify the learner's final reasoning; distinguish earlier errors from later corrections.
-Score final demonstrated mastery. Corrected earlier mistakes do not create automatic deductions. Disclose assistance separately; never count tutor-provided work as learner evidence. Full marks require fully supported learner evidence for that criterion, not merely completion of all gates.
+Use accepted responses to identify the learner's final reasoning; weigh depth, explicit justification, verification, and independence.
+Gate acceptance only means minimum progress to advance, never automatic full marks (21–25). Disclose assistance separately; never count tutor-provided work as learner evidence. Full marks (21–25) require thorough, explicit, fully supported learner evidence for that criterion.
 Mathematical notation in learner responses is part of their evidence. Never substitute the reference solution for learner work.
-Anchors: 0=no usable evidence, 5=major errors, 10=partial understanding, 15=mostly sound with gaps, 20=sound with minor omissions, 25=fully supported.
+Anchors: 0=no usable evidence, 5=major errors, 12=brief or surface-level with weak justification/context, 18=adequate and correct with minor omissions, 25=thorough, verified, and fully supported in context.
 For each criterion cite at least one exact message ID from its requiredEvidenceOptions. Read the matching learnerEvidence text before scoring. Additional citations must be assessed learner responses. An ID can support multiple criteria.
 Quote learner work as evidence; do not infer reasoning from gate completion. Distinguish assisted from independent reasoning.
 This is formative feedback, not an official grade. Supply a complete verified worked solution only in score mode.
@@ -127,6 +129,13 @@ Incorrect: identify the specific false claim and ask one corrective question. A 
 For all three unaccepted outcomes set questionStage to the current stage. Select missingCriterion from currentStageCriteria. On repeated difficulty with that criterion, give a concrete choice or partial step to apply. Do not credit tutor hints.
 For a simple union, naming union and identifying the supplied sets (even “numbers inside the curly braces”) satisfies understanding. Do not require listing every member. For population variance, identifying full group coverage justifies the formula; measuring spread alone leaves coverage unexplained; group size alone is an incorrect condition.`;
 
+const SCORE_GUIDANCE = `Critical Thinking Scorecard calibration rules:
+Do NOT award 21–25 merely because all gates are accepted.
+explanationQuality (0..25): 21–25 requires a clear, multi-clause explanation of what the result means in the problem's real context, including units, scope, and limitations. Score 6–15 if the learner only states the number, repeats the question, or gives a vague/minimal sentence without contextual meaning. Score 16–20 if correct in context but concise or omitting scope/limitations.
+methodSelection (0..25): 21–25 requires naming a valid method/formula/theorem AND explicitly linking its preconditions to the problem's givens. Score 6–15 if the method is named without explaining why its conditions hold. Score 16–20 if the link to givens is brief or partially implicit.
+logicalValidity (0..25): 21–25 requires every step/implication to be justified AND an explicit verification check. Score 6–15 if only bare arithmetic is shown or multiple unassisted corrective cycles/heavy hints were needed. Score 16–20 if the calculation is sound but verification is brief or implicit.
+accuracy (0..25): Measures mathematical correctness of results and calculations, NOT hint usage or verification prose (independence/hints are reflected separately in the specific reasoning criteria that used them and assistanceCount). Award 21–25 for complete, accurate computation/proof matching the reference even if hints were requested or no extra verification prose was written; award 6–12 partial credit when the final answer is incorrect but valid intermediate steps are shown; award 0–5 when neither valid intermediate work nor a correct calculation is shown.`;
+
 export function educationalContext(context: TutorContext) {
   const { session, reference, messages } = context;
   const currentStage = solverStageForPhase(session.currentPhase);
@@ -135,9 +144,11 @@ export function educationalContext(context: TutorContext) {
     curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [],
     subject: session.subject, topic: session.topic, difficulty: session.difficulty, question: session.originalQuestion,
     ...(session.instructionalLevel && context.intent !== "score" ? { instructionalLevel: session.instructionalLevel } : {}),
+    ...(session.promptAdjustment && context.intent !== "score" ? { promptAdjustment: session.promptAdjustment } : {}),
     currentPhase: session.currentPhase, currentStage,
     currentStageObjective: currentStage ? stageQuestions[currentStage] : undefined,
     unresolvedDifficulty: session.lastDiagnosis?.resolutionStatus === "open" ? session.lastDiagnosis : undefined,
+    ...(session.activeTopicMisconceptions?.length && context.intent !== "score" ? { activeTopicMisconceptions: session.activeTopicMisconceptions } : {}),
     reassessIntent: context.reassessIntent ?? false,
     currentStageCriteria: currentStage ? SOLVER_STAGE_PHASES[currentStage] : [],
     nextStage: nextStage ?? "final reflection",
@@ -156,6 +167,12 @@ export function educationalContext(context: TutorContext) {
     // after an ordinary corrected attempt. Preserve tutor context separately.
     conversation: messages.slice(-12).filter(m => context.intent !== "score" || m.role !== "student").map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, 4000) })),
     ...(context.intent === "score" ? { rubric:SCORECARD_RUBRIC, assistance: session.supportHistory,
+      stageDiagnostics: {
+        diagnosisSummary: session.diagnosisSummary ?? [],
+        gates: Object.fromEntries(Object.entries(session.gateEvaluations ?? {}).map(([phase, gate]: [string, any]) => [
+          phase, { attemptCount: gate?.attemptCount ?? 0, correctiveCycleCount: gate?.correctiveCycleCount ?? 0, outcome: gate?.outcome ?? null }
+        ])),
+      },
       requiredEvidenceOptions: Object.fromEntries(Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => [
         criterion, (context.assessedResponses ?? [])
           .filter(response => response.status === "accepted" && (rubric.phases as readonly string[]).includes(response.phase))
@@ -177,7 +194,11 @@ export class GeminiTutor implements Tutor {
     const jsonSchema = context.intent === "score" ? scoreJsonSchema : turnJsonSchema;
     const schemaString = context.intent === "score" ? scoreJsonSchemaString : turnJsonSchemaString;
     const contextText = JSON.stringify(educationalContext(context));
-    const instruction = context.intent === "answer" ? SYSTEM_PROMPT + "\n" + ANSWER_GUIDANCE : SYSTEM_PROMPT;
+    const instruction = context.intent === "answer"
+      ? SYSTEM_PROMPT + "\n" + ANSWER_GUIDANCE
+      : context.intent === "score"
+        ? SYSTEM_PROMPT + "\n" + SCORE_GUIDANCE
+        : SYSTEM_PROMPT;
     // Character-length heuristic avoids allocating a TextEncoder buffer. Content is predominantly ASCII.
     ensure(instruction.length + contextText.length + schemaString.length + 4096 <= 32000, "This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.", 422);
     const body = JSON.stringify({
@@ -299,6 +320,6 @@ export function checkMath(response: MathResponse, spec: any): "correct" | "incor
   }
   return "unsupported";
 }
-export function recommendation(current: Difficulty, sessions: any[], topicId?: string) {
-  return recommendDifficulty(current, sessions, AI_WORKFLOW_VERSION, topicId);
+export function recommendation(current: Difficulty, sessions: any[], topicId?: string, misconceptionProfile?: any) {
+  return recommendDifficulty(current, sessions, AI_WORKFLOW_VERSION, topicId, misconceptionProfile);
 }

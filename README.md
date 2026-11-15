@@ -28,7 +28,7 @@ npm run ai:health
 
 ai:preflight reads the real learning configuration using the signed-in Firebase operator. ai:health authenticates the existing operator account and checks the running backend, defaulting to localhost:5173; use MINDGUIDE_BASE_URL for another deployment. It does not create learning records. Add -- --probe to health to test structured Gemini output. npm run ai:probe -- --free-tier-confirmed tests Gemini directly without student data or database writes. Probes consume provider quota.
 
-Unit/component tests use in-memory fixtures only. Public browser tests cover navigation, login-page rendering, and signed-out route protection. Authenticated learning verification requires an existing admitted account, current consent, and genuinely approved content.
+Unit/component tests use in-memory fixtures only. Public browser tests cover navigation, login-page rendering, and signed-out route protection. Student accounts created with email and password must verify their email via the Firebase verification link (`/verify-email`) before accessing protected learning routes or `/api/learning`; Google OAuth accounts are verified by Google. Authenticated learning verification requires an existing admitted account, a verified email, current consent, and genuinely approved content.
 
 ## Source layout
 
@@ -44,13 +44,30 @@ server/
   firebase.ts                  Reused Firebase Admin app
   firestore.ts                 Atomic, version-checked Firestore adapter
   gemini.ts                    Existing prompts, Tutor and Zod output schemas
+  learning-policy.ts           Multi-dimensional adaptive difficulty & misconception tracking
+  mathematical-diagnosis.ts    Deterministic arithmetic and bare-answer diagnostics
   platform.ts                  Service contracts and errors
+  scorecard-rubric.ts          Evidence-based, assistance-aware scorecard calibration
+  tutor-dialogue.ts            Condition-based justification, equivalence & stage hints
   services/LearningService.ts  Existing learning workflow
 src/                          Existing interface and browser Firebase services
 packages/contracts/           Shared types and workflow ordering
 ```
 
 All nine learning mutations, activity checks and verified-problem previews remain available. Backend membership, consent, content approval, ownership, quota, idempotency and progress checks remain authoritative. Historical records retain their original workflow/scoring versions.
+
+## Core Pedagogical Architecture (Workflow v6)
+
+1. **Step-by-Step Socratic Solver**: Guides learners through four stages (`problem_understanding`, `method_selection`, `computation`, `interpretation`) with problem-specific acceptance criteria (`STAGE_ACCEPTANCE_CRITERIA`), alternative valid method recognition, and selective checkpoint regression that reopens only affected checkpoints while preserving prior accepted evidence.
+2. **Formula and Theorem Justification Module**: Combines deterministic and semantic equivalence recognition (`evaluateConditionEquivalence`) with negation/contradiction guards and subject-specific validation for Quantitative Methods and Discrete Mathematics (`validateJustificationBySubject`, `conditionPromptForMethod`).
+3. **Error Diagnosis and Misconception Detector**: Classifies errors across 7 primary categories (`DIAGNOSIS_CATEGORY_LABELS`), cites non-fabricated learner evidence, recognizes independent self-correction (`selfCorrected` — allowing neutral Socratic prompts), and tracks persistent misconceptions across distinct sessions (`tentative` vs. `confirmed` vs. `resolved` in `learning_progress/{uid}.misconceptionProfile`).
+4. **Adaptive Difficulty Engine**: Evaluates 6 learner dimensions (`accuracy`, `logicalValidity`, `methodSelection`, `explanationQuality`, active unresolved recurring misconceptions, and independence), assigns topic-level mastery (`Mastered`, `Developing`, `Needs remediation`) and stability-controlled decisions (`Advance`, `Maintain`, `Remediate`), and preserves `instructionalLevel` vs. `promptAdjustment`.
+5. **Progressive Solution Unlock System**: Enforces sequential hint progression across Level 1–3 hints (`highestHintLevel: 0..3`) separated from complete solution release (`solutionUnlocked: boolean`), applies stage-specific disclosure guards (`leaksFutureCheckpoint` + `exposesAnswer`), provides controlled recovery (`recoveryMode`) after repeated checkpoint difficulty, and records `supportSummary`.
+6. **Critical Thinking Scorecard**: Preserves the distinction between mathematical `accuracy` and reasoning quality (`logicalValidity`, `methodSelection`, `explanationQuality`), applies assistance adjustments only to the specific criteria that required stage support, and generates deterministic `nextPracticeRecommendation` guidance.
+
+See [MINDGUIDE v6 Data Dictionary](docs/MINDGUIDE_V6_DATA_DICTIONARY.md) for the complete schema specification.
+
+See [UI Notification Guidelines](docs/UI_NOTIFICATIONS.md) for when to use toasts, inline alerts, banners and confirmation dialogs.
 
 ## Deployment
 

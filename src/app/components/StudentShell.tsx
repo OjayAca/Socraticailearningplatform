@@ -16,6 +16,7 @@ import {
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/stores/auth-store";
 import { MindGuideLogo } from "./MindGuideLogo";
+import { NotificationDrawer } from "./NotificationDrawer";
 import {
   Sheet,
   SheetClose,
@@ -110,6 +111,8 @@ export function StudentShell({ active, children }: { active: string; children: R
               Welcome, {displayName}
             </h1>
           </div>
+
+          <NotificationDrawer notificationsHref="/student/notifications" />
 
           <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
             type="button"

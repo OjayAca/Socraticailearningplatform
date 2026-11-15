@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { SecureSession } from "@/app/components/SecureSession";
@@ -33,7 +33,6 @@ vi.mock("@/lib/secure-api", () => ({
   finalizeScorecard: mocks.finalizeScorecard,
   requestSessionSupport: mocks.requestSessionSupport,
   resumeTutorOpening: mocks.resumeTutorOpening,
-  saveSessionDraft: vi.fn(),
   submitLearningSession: mocks.submitLearningSession,
 }));
 
@@ -128,6 +127,24 @@ describe("SecureSession AI workflow v6 workflow", () => {
   });
 
   afterEach(cleanup);
+
+  it("confirms abandonment in an accessible dialog instead of window.confirm", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm");
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session"));
+    mocks.abandonLearningSession.mockResolvedValue({ session: projectedSession({ status: "abandoned" }) });
+    renderSession();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Abandon and preserve this session" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Abandon this session?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep working" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(mocks.abandonLearningSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Abandon and preserve this session" }));
+    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Abandon session" }));
+    await waitFor(() => expect(mocks.abandonLearningSession).toHaveBeenCalledWith("new-session"));
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
 
   it.each(["expired","abandoned","returned","submitted","reviewed"])("does not invent a saved scorecard for %s", async status => {
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session",{status,scorecard:null}));
@@ -439,5 +456,84 @@ describe("SecureSession AI workflow v6 workflow", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Session submitted" })).toBeVisible();
     });
+  });
+
+  it("renders tentative phrasing when lastDiagnosis has medium confidence and confident feedback for high confidence", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
+      currentPhase: "method_selection",
+      lastDiagnosis: {
+        category: "weak_justification",
+        evidence: ["Only named mean."],
+        confidence: "medium",
+        severity: "moderate",
+        targetPhase: "method_selection",
+        correctivePrompt: "Why does the arithmetic mean apply here?",
+        resolutionStatus: "open",
+        source: "ai",
+        incorrectStep: "mean",
+        explanation: "Naming a formula alone does not establish its conditions.",
+        recommendedAction: "Link equal observation weights to the givens.",
+      },
+    }));
+    const firstRender = renderSession();
+    const callout = await screen.findByRole("region", { name: "Reasoning diagnosis" });
+    expect(callout).toHaveTextContent("Possible misconception detected: Justification Needed");
+    expect(callout).toHaveTextContent("Reviewed step: mean");
+    expect(callout).toHaveTextContent("Naming a formula alone does not establish its conditions.");
+    expect(callout).toHaveTextContent("Link equal observation weights to the givens.");
+    firstRender.unmount();
+
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session-high", {
+      currentPhase: "method_selection",
+      lastDiagnosis: {
+        category: "weak_justification",
+        evidence: ["Only named mean."],
+        confidence: "high",
+        severity: "moderate",
+        targetPhase: "method_selection",
+        correctivePrompt: "Why does the arithmetic mean apply here?",
+        resolutionStatus: "open",
+        source: "ai",
+        incorrectStep: "mean",
+        explanation: "Naming a formula alone does not establish its conditions.",
+        recommendedAction: "Link equal observation weights to the givens.",
+      },
+    }));
+    renderSession("new-session-high");
+    const highCallout = await screen.findByRole("region", { name: "Reasoning diagnosis" });
+    expect(highCallout).toHaveTextContent("Diagnostic Feedback: Justification Needed");
+  });
+
+  it("progresses hints sequentially through allowedSupport and renders supportSummary and nextPracticeRecommendation on the scorecard", async () => {
+    const session = projectedSession({
+      allowedSupport: ["socratic_prompt", "targeted_hint", "stronger_hint", "partial_step"],
+      supportHistory: [],
+    });
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
+      allowedSupport: session.allowedSupport,
+      supportHistory: [],
+    }));
+    mocks.requestSessionSupport.mockResolvedValueOnce({
+      session: {
+        ...session,
+        revision: 1,
+        supportHistory: [{ phase: "problem_understanding", level: "targeted_hint", title: "Reasoning support", content: ["Hint 1"], requestedAt: 1 }],
+      },
+      level: "targeted_hint",
+      title: "Reasoning support",
+      content: ["Hint 1"],
+    });
+    const view = renderSession();
+    await screen.findByLabelText("Message your tutor");
+    expect(screen.getByText(/Level 1 · Conceptual hint unlocked/i)).toBeVisible();
+    mocks.getDocs.mockResolvedValue(messageSnapshot("Hint 1"));
+    fireEvent.click(screen.getByRole("button", { name: "I need a hint" }));
+    await waitFor(() =>
+      expect(mocks.requestSessionSupport).toHaveBeenCalledWith(
+        expect.objectContaining({ requestedLevel: "targeted_hint" }),
+      ),
+    );
+    expect(await screen.findByText(/Level 2 · Strategic hint unlocked/i)).toBeVisible();
+    view.unmount();
   });
 });

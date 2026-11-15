@@ -18,6 +18,7 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   email: string;
+  emailVerified?: boolean;
   role: UserRole | null;
   createdAt: Timestamp;
   stats: UserStats;

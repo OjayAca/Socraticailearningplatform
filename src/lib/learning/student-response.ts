@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { REASONING_PHASES, RESPONSE_OUTCOMES, SOLVER_STAGES } from "../../../packages/contracts/src/index";
 
-const str = z.string(), num = z.number(), strings = str.array();
+const str = z.string(), num = z.number(), bool = z.boolean(), strings = str.array();
 const evaluation = z.object({
   outcome:z.enum(RESPONSE_OUTCOMES),
+  selfCorrected:bool, demonstrated:strings, missingCriterion:str.nullable(),
   phase:str, status:str, attemptCount:num, correctiveCycleCount:num, evidenceSummary:str,
   confidence:str, source:str, evaluatedAt:num, acceptedAt:num.nullable(),
 }).partial();
@@ -11,12 +12,17 @@ const diagnosis = z.object({
   category:str, evidence:strings, confidence:str, severity:str, targetPhase:str, correctivePrompt:str,
   resolutionStatus:str, source:str, incorrectStep:str.nullable(), explanation:str, recommendedAction:str,
 }).partial();
-const support = z.object({phase:str, level:str, title:str, content:strings, requestedAt:num}).partial();
+const support = z.object({phase:str, level:str, hintLevel:num, title:str, content:strings, requestedAt:num}).partial();
+const supportSummary = z.object({
+  hintsRequested:num, highestHintLevel:num, solutionUnlocked:bool,
+  correctiveAttempts:num, selfCorrections:num, completedIndependentlyAfterSupport:bool,
+}).partial();
 const stage = z.object({stage:str, status:str, acceptedGates:num, totalGates:num});
 const criterion = z.object({category:str, score:num, evidence:strings, evidenceIds:strings,
   reason:str, improvementAdvice:str, confidence:str, source:str}).partial();
 const score = z.object({criteria:z.object({accuracy:criterion, logicalValidity:criterion,
   methodSelection:criterion, explanationQuality:criterion}).partial(), total:num, feedback:str,
+  nextPracticeRecommendation:str.nullable(), supportSummary:supportSummary.nullable(),
   rubricVersion:str, calibrationStatus:str, assistanceCount:num, generatedAt:num}).partial();
 const solution = z.object({method:str, justification:str, steps:strings, answer:str, verification:str,
   interpretation:str, releasedAt:num}).partial();
@@ -35,8 +41,8 @@ const session = z.object({
   originalProblemText:str, originalProblemLatex:str, needsOpening:z.boolean(), scoringSource:str,
   status:str, currentPhase:str, currentStage:str, currentInternalGate:str.nullable(), currentPrompt:str,
   stageProgress:progress, gates, responseCount:num, diagnosisSummary:strings, lastDiagnosis:diagnosis.nullable(),
-  supportHistory:support.array(), allowedSupport:strings, draft:draft.nullable(), scorecard:score.nullable(), releasedSolution:solution.nullable(),
-  adaptiveRecommendation:z.object({recommendedDifficulty:str, reason:str, confidence:str}).partial().nullable(),
+  supportHistory:support.array(), supportSummary:supportSummary.nullable(), recoveryMode:bool.nullable(), allowedSupport:strings, draft:draft.nullable(), scorecard:score.nullable(), releasedSolution:solution.nullable(),
+  adaptiveRecommendation:z.object({recommendedDifficulty:str, reason:str, confidence:str, decision:str, decisionLabel:str, masteryStatus:str, cooldownSessionsRemaining:num}).partial().nullable(),
   configurationVersions:versions.nullable(), promptAdjustment:str, createdAt:num.nullable(), updatedAt:num.nullable(),
   learningCompletedAt:num.nullable(),
 }).partial();

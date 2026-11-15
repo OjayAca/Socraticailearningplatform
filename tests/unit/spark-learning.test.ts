@@ -55,6 +55,20 @@ function seed() {
 beforeEach(() => { memory.records.clear(); memory.uid = "alice"; memory.failCommit = false; memory.queue = Promise.resolve(); seed(); });
 
 describe("Spark assignment and persistence", () => {
+  it("bootstraps a new student profile without writing to pilot_roster", async () => {
+    memory.uid = "newstudent";
+    const result = await learningOperation("bootstrapProfile", { displayName: "New Student", consentVersion: "notice" });
+    expect(result.profile).toMatchObject({
+      displayName: "New Student",
+      email: "newstudent@test.invalid",
+      role: "student",
+      status: "active",
+      academicProfile: null,
+      academicProfileComplete: false,
+    });
+    expect(memory.records.has("pilot_roster/newstudent")).toBe(false);
+    expect(memory.records.get("users/newstudent/consents/notice")).toMatchObject({ version: "notice", source: "web" });
+  });
   it("reads approved topics without requiring three variants or pilot admission", async () => {
     memory.records.set("topics/draft", { status: "draft" });
     const catalog = await learningOperation("getLearningCatalog", {});

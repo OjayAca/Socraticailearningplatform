@@ -16,9 +16,30 @@ describe("server authentication", () => {
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
   it("uses the verified UID", async () => {
-    verifyIdToken.mockResolvedValue({ uid: "alice", aud: "existing-project", iss: "https://securetoken.google.com/existing-project" });
+    verifyIdToken.mockResolvedValue({ uid: "alice", aud: "existing-project", iss: "https://securetoken.google.com/existing-project", email_verified: true });
     expect(await authenticate(request("id-token"), env)).toBe("alice");
     expect(verifyIdToken).toHaveBeenCalledWith("id-token");
+  });
+  it("rejects unverified student email tokens while allowing verified or operator/admin accounts", async () => {
+    verifyIdToken.mockResolvedValueOnce({
+      uid: "unverified-student",
+      aud: "existing-project",
+      iss: "https://securetoken.google.com/existing-project",
+      email_verified: false,
+    });
+    await expect(authenticate(request("unverified-token"), env)).rejects.toMatchObject({
+      status: 403,
+      code: "email-unverified",
+    });
+
+    verifyIdToken.mockResolvedValueOnce({
+      uid: "admin-uid",
+      aud: "existing-project",
+      iss: "https://securetoken.google.com/existing-project",
+      email_verified: false,
+      role: "admin",
+    });
+    expect(await authenticate(request("admin-token"), env)).toBe("admin-uid");
   });
   it.each(["auth/id-token-expired", "auth/invalid-id-token", "auth/argument-error"])("rejects %s", async code => {
     verifyIdToken.mockRejectedValue({ code });

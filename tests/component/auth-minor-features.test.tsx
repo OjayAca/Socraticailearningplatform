@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { Login } from "@/app/components/auth/Login";
 import { SignUp } from "@/app/components/auth/SignUp";
+import { VerifyEmail } from "@/app/components/auth/VerifyEmail";
 import { ProtectedRoute } from "@/app/components/ProtectedRoute";
 
 const mocks = vi.hoisted(() => ({
@@ -10,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   signUp: vi.fn(),
   signInWithGoogle: vi.fn(),
   resetPassword: vi.fn(),
+  sendVerification: vi.fn(),
+  refreshVerification: vi.fn(),
   clearError: vi.fn(),
   reloadProfile: vi.fn(),
   signOut: vi.fn(),
@@ -33,6 +36,7 @@ function renderAt(element: React.ReactNode, initialPath: string, destination = "
       <Routes>
         <Route path={initialPath} element={element} />
         <Route path={destination} element={<p>Destination screen</p>} />
+        <Route path="/verify-email" element={initialPath === "/verify-email" ? element : <p>Verify email destination</p>} />
         <Route path="/login" element={initialPath === "/login" ? element : <p>Login destination</p>} />
       </Routes>
     </MemoryRouter>,
@@ -41,11 +45,14 @@ function renderAt(element: React.ReactNode, initialPath: string, destination = "
 
 describe("authentication supporting flows", () => {
   beforeEach(() => {
+    localStorage.clear();
     for (const mock of [
       mocks.signIn,
       mocks.signUp,
       mocks.signInWithGoogle,
       mocks.resetPassword,
+      mocks.sendVerification,
+      mocks.refreshVerification,
       mocks.clearError,
       mocks.reloadProfile,
       mocks.signOut,
@@ -57,6 +64,8 @@ describe("authentication supporting flows", () => {
       signUp: mocks.signUp,
       signInWithGoogle: mocks.signInWithGoogle,
       resetPassword: mocks.resetPassword,
+      sendVerification: mocks.sendVerification,
+      refreshVerification: mocks.refreshVerification,
       clearError: mocks.clearError,
       reloadProfile: mocks.reloadProfile,
       signOut: mocks.signOut,
@@ -77,8 +86,51 @@ describe("authentication supporting flows", () => {
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: /^log in$/i }));
 
-    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith("student@example.com", "secret123"));
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith("student@example.com", "secret123", false));
     expect(await screen.findByText("Destination screen")).toBeVisible();
+  });
+
+  it("toggles password visibility on login and sign-up screens", () => {
+    const loginView = renderAt(<Login />, "/login");
+    const loginPasswordInput = screen.getByLabelText("Password");
+    expect(loginPasswordInput).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(loginPasswordInput).toHaveAttribute("type", "text");
+    fireEvent.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(loginPasswordInput).toHaveAttribute("type", "password");
+
+    loginView.unmount();
+    renderAt(<SignUp />, "/signup");
+    const signupPasswordInput = screen.getByLabelText("Password");
+    const confirmPasswordInput = screen.getByLabelText("Confirm Password");
+    expect(signupPasswordInput).toHaveAttribute("type", "password");
+    expect(confirmPasswordInput).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show password" }));
+    expect(signupPasswordInput).toHaveAttribute("type", "text");
+    expect(confirmPasswordInput).toHaveAttribute("type", "password");
+
+    fireEvent.click(screen.getByRole("button", { name: "Show confirm password" }));
+    expect(confirmPasswordInput).toHaveAttribute("type", "text");
+  });
+
+  it("persists and restores remembered email when Remember me is checked", async () => {
+    mocks.signIn.mockResolvedValue({ role: "student" });
+    const firstView = renderAt(<Login />, "/login");
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: " remembered@example.com " } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByLabelText("Remember me"));
+    fireEvent.click(screen.getByRole("button", { name: /^log in$/i }));
+
+    await waitFor(() => expect(mocks.signIn).toHaveBeenCalledWith("remembered@example.com", "secret123", true));
+    expect(localStorage.getItem("mindguide.rememberedEmail")).toBe("remembered@example.com");
+
+    firstView.unmount();
+    renderAt(<Login />, "/login");
+    expect(screen.getByLabelText("Email")).toHaveValue("remembered@example.com");
+    expect(screen.getByLabelText("Remember me")).toBeChecked();
   });
 
   it("sends a privacy-preserving password recovery response", async () => {
@@ -105,6 +157,55 @@ describe("authentication supporting flows", () => {
     expect(screen.getByText(/passwords do not match/i)).toBeVisible();
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
+
+  it("routes unverified email/password sign-ups and logins to the email verification gate", async () => {
+    mocks.signUp.mockResolvedValue({ role: "student", emailVerified: false });
+    const signupView = renderAt(<SignUp />, "/signup");
+
+    fireEvent.change(screen.getByLabelText("Full Name"), { target: { value: "New Learner" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
+    fireEvent.change(screen.getByLabelText("Confirm Password"), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: /^sign up$/i }));
+
+    await waitFor(() => expect(mocks.signUp).toHaveBeenCalledWith("New Learner", "new@example.com", "secret123"));
+    expect(await screen.findByText("Verify email destination")).toBeVisible();
+
+    signupView.unmount();
+    mocks.signIn.mockResolvedValue({ role: "student", emailVerified: false });
+    renderAt(<Login />, "/login");
+
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "new@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret123" } });
+    fireEvent.click(screen.getByRole("button", { name: /^log in$/i }));
+
+    expect(await screen.findByText("Verify email destination")).toBeVisible();
+  });
+
+  it("handles resending verification, checking status, and advancing once verified", async () => {
+    mocks.sendVerification.mockResolvedValue(undefined);
+    mocks.refreshVerification
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true);
+    mocks.state = {
+      ...mocks.state,
+      firebaseUser: { uid: "student-1", email: "student@example.com", emailVerified: false },
+      userProfile: { uid: "student-1", email: "student@example.com", role: "student", emailVerified: false },
+    };
+
+    renderAt(<VerifyEmail />, "/verify-email");
+    expect(screen.getByText("student@example.com")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /resend verification email/i }));
+    expect(await screen.findByText(/verification email sent/i)).toBeVisible();
+    expect(mocks.sendVerification).toHaveBeenCalledOnce();
+
+    fireEvent.click(screen.getByRole("button", { name: /i've verified my email/i }));
+    expect(await screen.findByText(/your email is still unverified/i)).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: /i've verified my email/i }));
+    expect(await screen.findByText("Destination screen")).toBeVisible();
+  });
 });
 
 describe("protected route recovery and role enforcement", () => {
@@ -125,12 +226,23 @@ describe("protected route recovery and role enforcement", () => {
             <Route path="/protected" element={<p>Protected content</p>} />
           </Route>
           <Route path="/login" element={<p>Login destination</p>} />
+          <Route path="/verify-email" element={<p>Verify email destination</p>} />
           <Route path="/student/dashboard" element={<p>Student dashboard</p>} />
           <Route path="/admin/dashboard" element={<p>Admin dashboard</p>} />
         </Routes>
       </MemoryRouter>,
     );
   }
+
+  it("redirects an unverified student account to /verify-email", () => {
+    mocks.state = {
+      isLoading: false,
+      firebaseUser: { uid: "student-unverified", emailVerified: false },
+      userProfile: { role: "student", emailVerified: false },
+    };
+    renderGuard("student");
+    expect(screen.getByText("Verify email destination")).toBeVisible();
+  });
 
   it("shows loading and redirects a signed-out visitor", () => {
     mocks.state = { isLoading: true };

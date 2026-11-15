@@ -10,6 +10,11 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
       <p className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{scorecard.total}/100</p>
       <p className="text-xs text-slate-600 dark:text-slate-300">Total = Accuracy + Logical validity + Method selection + Explanation quality. Each criterion is worth 25 points. Assistance is reported separately.</p>
       <p className="text-sm">Rubric: {scorecard.rubricVersion ?? "legacy"} · {scorecard.calibrationStatus ?? "uncalibrated"} · Assistance: {scorecard.assistanceCount ?? "not recorded"}</p>
+      {!compact && presentation.supportSummary && (
+        <p className="text-xs text-slate-600 dark:text-slate-300">
+          Support history: {presentation.supportSummary.hintsRequested} {presentation.supportSummary.hintsRequested === 1 ? "hint" : "hints"} (highest level {presentation.supportSummary.highestHintLevel}/3) · {presentation.supportSummary.correctiveAttempts} corrective {presentation.supportSummary.correctiveAttempts === 1 ? "attempt" : "attempts"} · {presentation.supportSummary.selfCorrections} independent {presentation.supportSummary.selfCorrections === 1 ? "self-correction" : "self-corrections"} · {presentation.supportSummary.completedIndependentlyAfterSupport ? "Completed independently" : "Required guided support"}
+        </p>
+      )}
       <div className="grid gap-2 sm:grid-cols-2">
         {presentation.criteria.map((criterion) => (
           <div key={criterion.category} className="rounded-lg bg-indigo-50 p-3 text-sm text-slate-900 dark:bg-indigo-950/40 dark:text-indigo-100">
@@ -27,6 +32,9 @@ export function ScorecardDetails({ scorecard, compact = false }: { scorecard: Sc
           <Insight title="Strength" text={presentation.strength ? `${SCORECARD_CATEGORY_LABELS[presentation.strength.category]}: ${presentation.strength.reason}` : "All four criteria have the same score; no single relative strength is identified."} />
           <Insight title="Area for growth" text={presentation.weakness ? `${SCORECARD_CATEGORY_LABELS[presentation.weakness.category]}: ${presentation.weakness.improvementAdvice}` : presentation.tied ? "All four criteria have the same score. Review the criterion feedback for any shared areas to develop." : "No specific area for growth was identified in the saved feedback."} />
           <Insight title="Session summary" text={presentation.sessionSummary} />
+          {presentation.nextPracticeRecommendation && (
+            <Insight title="Recommended next practice" text={presentation.nextPracticeRecommendation} />
+          )}
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
             <h3 className="text-sm font-bold text-slate-950 dark:text-white">Improvement plan</h3>
             {!presentation.improvements.length && <p className="mt-2 text-sm">No specific improvement was identified in the saved feedback.</p>}
