@@ -181,4 +181,56 @@ describe("student history and review supporting flows", () => {
     await waitFor(() => expect(mocks.createFollowUpSession).toHaveBeenCalledWith("returned-session"));
     expect(await screen.findByText("Follow-up learner screen")).toBeVisible();
   });
+
+  it("renders saved Socratic conversation with AI tutor on the left and student on the right", async () => {
+    mocks.getDoc.mockResolvedValue({
+      id: "v6-session",
+      exists: () => true,
+      data: () => ({
+        workflowVersion: 6,
+        subject: "Discrete Mathematics",
+        topic: "Set Operations",
+        status: "completed",
+        originalQuestion: "Find the union of A = {1, 2} and B = {2, 3}.",
+      }),
+    });
+    mocks.getDocs
+      .mockResolvedValueOnce(docs([]))
+      .mockResolvedValueOnce(
+        docs([
+          {
+            id: "msg-1",
+            role: "assistant",
+            text: "Let's begin by understanding the problem.",
+          },
+          {
+            id: "msg-2",
+            role: "student",
+            text: "I need to find the union of the two sets.",
+          },
+        ]),
+      );
+
+    render(
+      <MemoryRouter initialEntries={["/student/review/v6-session"]}>
+        <Routes>
+          <Route path="/student/review/:sessionId" element={<SecureStudentReview />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const section = await screen.findByRole("region", { name: "Saved tutor conversation" });
+    expect(section).toBeVisible();
+    expect(screen.getByText("Socratic conversation")).toBeVisible();
+
+    const tutorArticle = screen.getByRole("article", { name: "AI tutor" });
+    const studentArticle = screen.getByRole("article", { name: "You" });
+
+    expect(tutorArticle).toHaveTextContent("Let's begin by understanding the problem.");
+    expect(tutorArticle).not.toHaveClass("flex-row-reverse");
+
+    expect(studentArticle).toHaveTextContent("I need to find the union of the two sets.");
+    expect(studentArticle).toHaveClass("flex-row-reverse");
+    expect(studentArticle.querySelector(".bg-violet-600")).not.toBeNull();
+  });
 });
