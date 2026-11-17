@@ -128,29 +128,12 @@ describe("SecureSession AI workflow v6 workflow", () => {
 
   afterEach(cleanup);
 
-  it("confirms abandonment in an accessible dialog instead of window.confirm", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm");
-    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session"));
-    mocks.abandonLearningSession.mockResolvedValue({ session: projectedSession({ status: "abandoned" }) });
-    renderSession();
-
-    fireEvent.click(await screen.findByRole("button", { name: "Abandon and preserve this session" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Abandon this session?" });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Keep working" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-    expect(mocks.abandonLearningSession).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "Abandon and preserve this session" }));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Abandon session" }));
-    await waitFor(() => expect(mocks.abandonLearningSession).toHaveBeenCalledWith("new-session"));
-    expect(confirmSpy).not.toHaveBeenCalled();
-  });
-
   it.each(["expired","abandoned","returned","submitted","reviewed"])("does not invent a saved scorecard for %s", async status => {
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session",{status,scorecard:null}));
     renderSession();
     expect(await screen.findByText(/No saved scorecard is available/)).toBeVisible();
     expect(screen.queryByText(/Your saved scorecard is available/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Critical Thinking Scorecard" })).not.toBeInTheDocument();
   });
 
   it("reports the scorecard persisted with an expired session", async () => {
@@ -217,7 +200,6 @@ describe("SecureSession AI workflow v6 workflow", () => {
       renderSession(sessionId);
 
       await screen.findByRole("heading", { name: "Socratic Session: Quantitative Methods" });
-      fireEvent.click(screen.getByText("Session details"));
       expect(screen.getByText("What is the probability of rolling an even number?")).toBeVisible();
       expect(screen.getByText("Restate the probability problem in your own words.")).toBeVisible();
       expect(screen.getByRole("button", { name: /send message/i })).toBeDisabled();
@@ -346,10 +328,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
     }));
     renderSession();
     expect(await screen.findByRole("progressbar", { name: "Learning progress" })).toHaveAttribute("aria-valuenow", "25");
-    expect(screen.getByText("Session details").parentElement).not.toHaveAttribute("open");
-    fireEvent.click(screen.getByText("Session details"));
-    expect(screen.getByText("Completed")).toBeVisible();
-    expect(screen.getByText("In progress")).toBeVisible();
+    expect(screen.queryByText("Session details")).not.toBeInTheDocument();
     expect(screen.queryByText(/reasoning checks/)).not.toBeInTheDocument();
   });
 
@@ -456,6 +435,10 @@ describe("SecureSession AI workflow v6 workflow", () => {
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Session submitted" })).toBeVisible();
     });
+    const scorecardRegion = screen.getByRole("region", { name: "Critical Thinking Scorecard" });
+    expect(scorecardRegion).toBeVisible();
+    expect(within(scorecardRegion).getByText("84/100")).toBeVisible();
+    expect(within(scorecardRegion).getByText("Your reasoning is strong and your verification can be clearer.")).toBeVisible();
   });
 
   it("keeps internal lastDiagnosis metadata out of the student conversation UI", async () => {
@@ -638,11 +621,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
     fireEvent.click(problemToggle);
     expect(problemToggle).toHaveAttribute("aria-expanded", "false");
 
-    fireEvent.click(screen.getByText("Session details"));
-    expect(screen.getByText("Previous reasoning & checkpoints")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: /review submitted turns \(2\)/i }));
-    expect(screen.getByText(/Your submitted work ·/)).toBeVisible();
-    expect(screen.getByText(/Tutor feedback ·/)).toBeVisible();
+    expect(screen.queryByText("Session details")).not.toBeInTheDocument();
     expect(screen.queryByText(/SECRET_DIAGNOSIS_EVIDENCE/)).not.toBeInTheDocument();
     expect(screen.queryByText(/HIDDEN_AI_REASONING_NOTE/)).not.toBeInTheDocument();
   });

@@ -17,14 +17,11 @@ import { Link, Navigate, useParams } from "react-router";
 import {
   AlertCircle,
   ArrowRight,
-  Ban,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
-  History,
   Lightbulb,
   Loader2,
-  LockKeyhole,
   RefreshCw,
   Send,
   X,
@@ -47,7 +44,6 @@ import {
 import { db } from "@/lib/firebase";
 import { isCurrentLearningSession } from "@/lib/session-compatibility";
 import {
-  abandonLearningSession,
   checkLearningSessionActivity,
   evaluatePhaseResponse,
   finalizeScorecard,
@@ -62,7 +58,6 @@ import { ScorecardDetails } from "./ScorecardDetails";
 import { TutorMessageBubble } from "./TutorMessageBubble";
 import { SessionViewport } from "./SessionViewport";
 import { Alert } from "./ui/alert";
-import { ConfirmDialog } from "./ui/confirm-dialog";
 
 const EMPTY_RESPONSE: MathResponse = { plainText: "", latex: "" };
 
@@ -73,7 +68,6 @@ type BusyAction =
   | "opening"
   | "solution"
   | "finish"
-  | "abandon"
   | null;
 
 type DraftSaveState = "idle" | "saving" | "saved_tab" | "error";
@@ -96,10 +90,7 @@ export function SecureSession() {
     return () => window.clearTimeout(timer);
   }, [loading]);
   const [error, setError] = useState<string | null>(null);
-  const [isAbandonDialogOpen, setIsAbandonDialogOpen] = useState(false);
   const [isProblemOpen, setIsProblemOpen] = useState(true);
-  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [isPreviousReasoningOpen, setIsPreviousReasoningOpen] = useState(false);
   const [draftSaveState, setDraftSaveState] = useState<DraftSaveState>("idle");
   const [accountSaveState, setAccountSaveState] =
     useState<AccountSaveState>("idle");
@@ -482,30 +473,6 @@ export function SecureSession() {
     }
   }
 
-  async function abandonSession() {
-    if (!session || busy.current || loading) return;
-    busy.current = true;
-    setBusyAction("abandon");
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await abandonLearningSession(session.id);
-      setSession(result.session);
-    } catch (cause) {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : "The session could not be abandoned.",
-      );
-    } finally {
-      busy.current = false;
-      setPendingText(null);
-      setLoading(false);
-      setBusyAction(null);
-      setIsAbandonDialogOpen(false);
-    }
-  }
-
   if (!sessionId) return <Navigate to="/student/history" replace />;
   if (loading && !session) {
     return (
@@ -560,8 +527,12 @@ export function SecureSession() {
     )
   ) {
     return (
-      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
-        <div className="max-w-xl rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex flex-1 justify-center overflow-y-auto bg-slate-50 p-6 dark:bg-slate-950">
+        <div
+          className={`my-auto w-full ${
+            session.scorecard ? "max-w-3xl" : "max-w-xl"
+          } rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900`}
+        >
           <CheckCircle2
             aria-hidden="true"
             className="mx-auto h-12 w-12 text-emerald-600 dark:text-emerald-400"
@@ -575,6 +546,14 @@ export function SecureSession() {
           <p className="mt-3 text-slate-600 dark:text-slate-300">
             {closedSessionMessage(session.status, session.scorecard)}
           </p>
+          {session.scorecard && (
+            <div className="mt-6 text-left">
+              <h2 className="text-xl font-bold text-slate-950 dark:text-white">
+                Critical Thinking Scorecard
+              </h2>
+              <ScorecardDetails scorecard={session.scorecard} />
+            </div>
+          )}
           <Link
             to="/student/history"
             className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
@@ -705,147 +684,6 @@ export function SecureSession() {
           </div>
         )}
       </section>
-
-      <details
-        open={isDetailsOpen}
-        className="shrink-0 border-b border-slate-100 bg-white px-4 text-sm sm:px-6 dark:border-slate-800 dark:bg-slate-900"
-      >
-        <summary
-          onClick={(event) => {
-            event.preventDefault();
-            setIsDetailsOpen((prev) => {
-              if (prev) setIsPreviousReasoningOpen(false);
-              return !prev;
-            });
-          }}
-          className="cursor-pointer py-2.5 text-xs font-medium text-slate-500 focus-visible:outline-violet-600 dark:text-slate-400"
-        >
-          Session details
-        </summary>
-        <div className="max-h-[35dvh] space-y-4 overflow-y-auto pb-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {displayStages.map((stage) => (
-              <div
-                key={stage.stage}
-                className={`rounded-lg border p-3 text-xs ${
-                  stage.status === "completed"
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                    : stage.status === "active"
-                      ? "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300"
-                      : "text-slate-500 dark:text-slate-400"
-                }`}
-              >
-                {stage.status === "completed" ? (
-                  <CheckCircle2 aria-hidden="true" className="mr-1 inline h-3 w-3" />
-                ) : (
-                  <LockKeyhole aria-hidden="true" className="mr-1 inline h-3 w-3" />
-                )}
-                {stage.label}
-                <span className="mt-1 block">
-                  {stage.status === "completed"
-                    ? "Completed"
-                    : stage.status === "active"
-                      ? "In progress"
-                      : "Upcoming"}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {session.adaptiveRecommendation && (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Adaptive difficulty: {session.adaptiveRecommendation.reason}
-            </p>
-          )}
-
-          {isDetailsOpen && (
-            <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-950/50">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-                  <History aria-hidden="true" className="h-3.5 w-3.5 text-violet-600 dark:text-violet-400" />
-                  Previous reasoning &amp; checkpoints
-                </span>
-                <button
-                  type="button"
-                  aria-expanded={isPreviousReasoningOpen}
-                  onClick={() => setIsPreviousReasoningOpen((prev) => !prev)}
-                  className="min-h-11 rounded-lg px-2.5 text-xs font-semibold text-violet-700 transition hover:bg-violet-100/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:text-violet-300 dark:hover:bg-violet-950/60"
-                >
-                  {isPreviousReasoningOpen
-                    ? "Hide reasoning log"
-                    : `Review submitted turns (${messages.length})`}
-                </button>
-              </div>
-              {isPreviousReasoningOpen && (
-                <div className="space-y-2 pt-1">
-                  {messages.length === 0 ? (
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      No submitted turns recorded yet.
-                    </p>
-                  ) : (
-                    messages.map((item) => (
-                      <div
-                        key={`prev_${item.id}`}
-                        className="rounded-lg border border-slate-200 bg-white p-2.5 text-xs dark:border-slate-800 dark:bg-slate-900"
-                      >
-                        <p className="font-bold text-slate-700 dark:text-slate-200">
-                          {item.role === "student" ? "Your submitted work" : "Tutor feedback"}{" "}
-                          · {displayPhaseLabel(item.phase)}
-                        </p>
-                        <div className="mt-1 text-slate-600 dark:text-slate-300">
-                          <MathText text={item.text} />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {!!session.supportHistory?.length && (
-            <section>
-              <h2 className="font-semibold text-slate-900 dark:text-slate-100">
-                Support history
-              </h2>
-              {session.supportHistory.map((entry, index) => (
-                <div
-                  key={index}
-                  className="mt-2 rounded-lg bg-slate-50 p-3 dark:bg-slate-950"
-                >
-                  <p className="mb-1 text-xs text-slate-500 dark:text-slate-400">
-                    {displayPhaseLabel(entry.phase)} · {entry.title}
-                  </p>
-                  {entry.content.map((line, i) => (
-                    <MathText key={i} text={line} />
-                  ))}
-                </div>
-              ))}
-            </section>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setIsAbandonDialogOpen(true)}
-            disabled={loading}
-            className="flex min-h-11 items-center gap-2 rounded-lg px-2 py-2 text-xs text-slate-500 transition hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 disabled:opacity-50 dark:text-slate-400 dark:hover:text-red-300"
-          >
-            <Ban aria-hidden="true" className="h-4 w-4" />
-            Abandon and preserve this session
-          </button>
-          <ConfirmDialog
-            open={isAbandonDialogOpen}
-            onOpenChange={setIsAbandonDialogOpen}
-            variant="destructive"
-            title="Abandon this session?"
-            description="Your reasoning record will be preserved as read-only history, but you won't be able to continue this session."
-            confirmLabel="Abandon session"
-            cancelLabel="Keep working"
-            isLoading={busyAction === "abandon"}
-            onConfirm={() => void abandonSession()}
-          />
-        </div>
-      </details>
 
       <div
         ref={scrollRef}
