@@ -6,6 +6,9 @@ const publicKeys = [
 ];
 
 export default {
+  experimental: {
+    agentUpgrade: "security",
+  },
   webpack(config) {
     // Existing shared TypeScript modules use ESM .js import specifiers.
     config.resolve.extensionAlias = { ...config.resolve.extensionAlias, ".js": [".ts", ".tsx", ".js"] };
