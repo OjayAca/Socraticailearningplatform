@@ -15,7 +15,8 @@ const mocks = vi.hoisted(() => ({
     retryNotifications: vi.fn<() => void>(),
     clearError: vi.fn<() => void>(),
   },
-  userProfile: { role: "student" } as { role: string } | null,
+  userProfile: { role: "student" } as { uid?: string; role: string } | null,
+  firebaseUser: null as { uid: string } | null,
 }));
 
 vi.mock("@/stores/notification-store", async () => {
@@ -29,14 +30,23 @@ vi.mock("@/stores/notification-store", async () => {
 });
 
 vi.mock("@/stores/auth-store", () => ({
-  useAuthStore: (selector: (state: { userProfile: typeof mocks.userProfile }) => unknown) =>
-    selector({ userProfile: mocks.userProfile }),
+  useAuthStore: (
+    selector: (state: {
+      userProfile: typeof mocks.userProfile;
+      firebaseUser: typeof mocks.firebaseUser;
+    }) => unknown,
+  ) =>
+    selector({
+      userProfile: mocks.userProfile,
+      firebaseUser: mocks.firebaseUser,
+    }),
 }));
 
 afterEach(cleanup);
 
 beforeEach(() => {
   mocks.userProfile = { role: "student" };
+  mocks.firebaseUser = null;
   mocks.notificationState = {
     notifications: [],
     unreadCount: 0,
@@ -152,5 +162,55 @@ describe("NotificationDrawer", () => {
 
     fireEvent.click(within(dialog).getByRole("link", { name: "View all notifications" }));
     expect(await screen.findByText("All notifications page")).toBeVisible();
+  });
+
+  it("displays title, message, timestamp, read/unread status, Mark as read button, and filters to authenticated user", async () => {
+    mocks.firebaseUser = { uid: "admin-1" };
+    mocks.userProfile = { uid: "admin-1", role: "admin" };
+    mocks.notificationState.unreadCount = 2;
+    mocks.notificationState.notifications = [
+      {
+        id: "n-own-unread",
+        recipientId: "admin-1",
+        title: "New submission",
+        message: "Learner A submitted a session.",
+        read: false,
+        createdAt: { toDate: () => new Date("2026-11-17T08:30:00Z") },
+      },
+      {
+        id: "n-own-read",
+        recipientId: "admin-1",
+        title: "System notice",
+        message: "Backup completed.",
+        read: true,
+        createdAt: { toDate: () => new Date("2026-11-16T10:00:00Z") },
+      },
+      {
+        id: "n-other-user",
+        recipientId: "student-99",
+        title: "Foreign notification",
+        message: "Should not appear for admin-1.",
+        read: false,
+        createdAt: { toDate: () => new Date("2026-11-17T09:00:00Z") },
+      },
+    ];
+
+    renderDrawer();
+
+    const trigger = screen.getByRole("button", { name: "Open notifications (1 unread)" });
+    fireEvent.click(trigger);
+
+    const dialog = await screen.findByRole("dialog", { name: "Notifications" });
+    expect(within(dialog).getByText("New submission")).toBeVisible();
+    expect(within(dialog).getByText("Learner A submitted a session.")).toBeVisible();
+    expect(within(dialog).getByText("Unread")).toBeVisible();
+    expect(within(dialog).getByText("Read")).toBeVisible();
+    expect(within(dialog).getAllByText(/2026/)).toHaveLength(2);
+    expect(within(dialog).queryByText("Foreign notification")).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: 'Mark "New submission" as read' }));
+    await waitFor(() =>
+      expect(mocks.notificationState.markAsRead).toHaveBeenCalledWith("n-own-unread"),
+    );
   });
 });

@@ -118,4 +118,18 @@ describe("StudentShell", () => {
     await waitFor(() => expect(mocks.signOut).toHaveBeenCalledOnce());
     expect(await screen.findByText("Login screen")).toBeVisible();
   });
+
+  it("opens student help with the four standardized Socratic stages and 44px touch targets", async () => {
+    renderShell();
+
+    const helpTrigger = screen.getByRole("button", { name: "Open student help" });
+    expect(helpTrigger).toHaveClass("h-11", "w-11");
+    expect(screen.getByRole("link", { name: /open profile for ojay acabal/i })).toHaveClass("min-h-11", "min-w-11");
+
+    fireEvent.click(helpTrigger);
+    const dialog = await screen.findByRole("dialog", { name: "How MINDGUIDE Works" });
+    expect(dialog).toBeVisible();
+    expect(dialog).toHaveTextContent("Understand the Problem");
+    expect(dialog).toHaveTextContent("Check and Interpret");
+  });
 });

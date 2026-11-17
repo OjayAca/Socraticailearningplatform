@@ -184,7 +184,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
     mocks.finalizeScorecard.mockImplementation(()=>new Promise((_resolve, fail)=>{reject=fail;}));
     renderSession();
     fireEvent.click(await screen.findByRole("button", {name:"View step-by-step solution"}));
-    const pending = screen.getByRole("button", {name:"Preparing solution and scorecard…"});
+    const pending = screen.getByRole("button", {name:"Preparing solution..."});
     expect(pending).toBeDisabled();
     fireEvent.click(pending);
     expect(mocks.finalizeScorecard).toHaveBeenCalledTimes(1);
@@ -458,7 +458,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
     });
   });
 
-  it("renders tentative phrasing when lastDiagnosis has medium confidence and confident feedback for high confidence", async () => {
+  it("keeps internal lastDiagnosis metadata out of the student conversation UI", async () => {
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
       currentPhase: "method_selection",
       lastDiagnosis: {
@@ -476,11 +476,10 @@ describe("SecureSession AI workflow v6 workflow", () => {
       },
     }));
     const firstRender = renderSession();
-    const callout = await screen.findByRole("region", { name: "Reasoning diagnosis" });
-    expect(callout).toHaveTextContent("Possible misconception detected: Justification Needed");
-    expect(callout).toHaveTextContent("Reviewed step: mean");
-    expect(callout).toHaveTextContent("Naming a formula alone does not establish its conditions.");
-    expect(callout).toHaveTextContent("Link equal observation weights to the givens.");
+    await screen.findByLabelText("Message your tutor");
+    expect(screen.queryByRole("region", { name: "Reasoning diagnosis" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Possible misconception detected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reviewed step:/i)).not.toBeInTheDocument();
     firstRender.unmount();
 
     mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session-high", {
@@ -500,8 +499,10 @@ describe("SecureSession AI workflow v6 workflow", () => {
       },
     }));
     renderSession("new-session-high");
-    const highCallout = await screen.findByRole("region", { name: "Reasoning diagnosis" });
-    expect(highCallout).toHaveTextContent("Diagnostic Feedback: Justification Needed");
+    await screen.findByLabelText("Message your tutor");
+    expect(screen.queryByRole("region", { name: "Reasoning diagnosis" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Diagnostic Feedback/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Next step:/i)).not.toBeInTheDocument();
   });
 
   it("progresses hints sequentially through allowedSupport and renders supportSummary and nextPracticeRecommendation on the scorecard", async () => {
@@ -535,5 +536,114 @@ describe("SecureSession AI workflow v6 workflow", () => {
     );
     expect(await screen.findByText(/Level 2 · Strategic hint unlocked/i)).toBeVisible();
     view.unmount();
+  });
+
+  it("separates local tab draft feedback from confirmed account saving and keeps requestId on Retry sending", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session"));
+    mocks.evaluatePhaseResponse
+      .mockRejectedValueOnce(new Error("Temporary network issue."))
+      .mockResolvedValueOnce({
+        session: projectedSession({ revision: 1 }),
+        nextPrompt: "Explain your chosen method.",
+        tutorMessage: {
+          id: "tutor-1",
+          role: "assistant",
+          text: "Explain your chosen method.",
+          phase: "problem_understanding",
+          createdAt: 2,
+        },
+      });
+
+    renderSession();
+    const composer = await screen.findByLabelText("Message your tutor");
+    fireEvent.change(composer, { target: { value: "Given: a fair six-sided die." } });
+    expect(screen.getByText("Draft saved in this tab.")).toBeVisible();
+    expect(screen.queryByText("Saved to your account.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText("Unable to save. Try again.")).toBeVisible();
+    expect(composer).toHaveValue("Given: a fair six-sided die.");
+
+    const retryButton = screen.getByRole("button", { name: "Retry sending" });
+    fireEvent.click(retryButton);
+    await waitFor(() => expect(mocks.evaluatePhaseResponse).toHaveBeenCalledTimes(2));
+    expect(mocks.evaluatePhaseResponse.mock.calls[1][0].requestId).toBe(
+      mocks.evaluatePhaseResponse.mock.calls[0][0].requestId,
+    );
+    expect(await screen.findByText("Saved to your account.")).toBeVisible();
+  });
+
+  it("maps verification_and_checking to Stage 4 Check and Interpret at 75% progress", async () => {
+    mocks.getDoc.mockResolvedValue(
+      sessionSnapshot("new-session", {
+        currentPhase: "verification_and_checking",
+        gateStates: {
+          problem_understanding: { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 },
+          relevant_information_identification: { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 },
+          method_selection: { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 },
+          formula_theorem_justification: { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 },
+          guided_computation_or_proof: { status: "accepted", attemptCount: 1, correctiveCycleCount: 0 },
+          verification_and_checking: { status: "pending", attemptCount: 0, correctiveCycleCount: 0 },
+          result_interpretation: { status: "locked", attemptCount: 0, correctiveCycleCount: 0 },
+        },
+      }),
+    );
+
+    renderSession();
+    await screen.findByLabelText("Message your tutor");
+    expect(screen.getByRole("progressbar", { name: "Learning progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "75",
+    );
+    expect(screen.getByText("Stage 4 · Check and Interpret")).toBeVisible();
+  });
+
+  it("toggles Current problem and shows submitted turns without leaking lastDiagnosis in Previous reasoning", async () => {
+    mocks.getDoc.mockResolvedValue(
+      sessionSnapshot("new-session", {
+        currentPhase: "method_selection",
+        lastDiagnosis: {
+          category: "weak_justification",
+          evidence: ["SECRET_DIAGNOSIS_EVIDENCE"],
+          confidence: "high",
+          severity: "moderate",
+          targetPhase: "method_selection",
+          correctivePrompt: "Why does it apply?",
+          resolutionStatus: "open",
+          source: "ai",
+          explanation: "HIDDEN_AI_REASONING_NOTE",
+        },
+      }),
+    );
+    mocks.getDocs.mockResolvedValue({
+      docs: [
+        {
+          id: "t1",
+          data: () => ({ role: "student", phase: "problem_understanding", text: "Even sides are 2, 4, 6." }),
+          get: () => ({ toMillis: () => 1 }),
+        },
+        {
+          id: "t2",
+          data: () => ({ role: "assistant", phase: "method_selection", text: "Which formula counts favourable outcomes?" }),
+          get: () => ({ toMillis: () => 2 }),
+        },
+      ],
+    });
+
+    renderSession();
+    await screen.findByLabelText("Message your tutor");
+
+    const problemToggle = screen.getByRole("button", { name: /current problem/i });
+    expect(problemToggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(problemToggle);
+    expect(problemToggle).toHaveAttribute("aria-expanded", "false");
+
+    fireEvent.click(screen.getByText("Session details"));
+    expect(screen.getByText("Previous reasoning & checkpoints")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /review submitted turns \(2\)/i }));
+    expect(screen.getByText(/Your submitted work ·/)).toBeVisible();
+    expect(screen.getByText(/Tutor feedback ·/)).toBeVisible();
+    expect(screen.queryByText(/SECRET_DIAGNOSIS_EVIDENCE/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/HIDDEN_AI_REASONING_NOTE/)).not.toBeInTheDocument();
   });
 });

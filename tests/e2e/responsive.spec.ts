@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 
 const sizes = [
   { width: 320, height: 568 },
-  { width: 390, height: 844 },
-  { width: 430, height: 932 },
+  { width: 375, height: 812 },
   { width: 768, height: 1024 },
-  { width: 1280, height: 720 },
+  { width: 1024, height: 768 },
+  { width: 1440, height: 900 },
   { width: 667, height: 375 },
 ];
 
@@ -40,7 +40,7 @@ for (const size of sizes) {
             .map(animation => animation.finished.catch(() => {})));
         });
         await expectContained(page);
-        if (route === "/" && [320, 390, 1280].includes(size.width)) {
+        if (route === "/" && [320, 375, 1440].includes(size.width)) {
           await page.screenshot({ path: test.info().outputPath("responsive-landing.png") });
         }
         if (route === "/login" || route === "/signup") {

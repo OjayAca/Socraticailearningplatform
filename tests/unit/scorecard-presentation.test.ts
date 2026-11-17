@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { presentScorecard } from "@/lib/scorecard-presentation";
+import {
+  SCORECARD_CATEGORY_DESCRIPTIONS,
+  SCORECARD_CATEGORY_LABELS,
+  presentScorecard,
+} from "@/lib/scorecard-presentation";
 import { buildNextPracticeRecommendation, buildSupportSummary, hintLevelNumberFor } from "../../server/scorecard-rubric";
 import type { ScorecardCategory, ScorecardResult } from "@mindguide/contracts";
 
@@ -93,5 +97,88 @@ describe("scorecard presentation", () => {
     expect(recommendation).toContain("Your mathematical accuracy is strong (25/25)");
     expect(recommendation).toContain("formula and theorem selection (15/25)");
     expect(recommendation).toContain("Descriptive Statistics");
+  });
+
+  it("handles legacy scorecards with missing or partial criteria without inventing scores or evidence", () => {
+    const legacyNoCriteria = presentScorecard({
+      total: 82,
+      feedback: "Historical total score summary.",
+      generatedAt: 1,
+    });
+    expect(legacyNoCriteria.criteria).toEqual([]);
+    expect(legacyNoCriteria.hasCriteria).toBe(false);
+    expect(legacyNoCriteria.isLegacyPartial).toBe(true);
+    expect(legacyNoCriteria.strength).toBeNull();
+    expect(legacyNoCriteria.weakness).toBeNull();
+    expect(legacyNoCriteria.tied).toBe(false);
+    expect(legacyNoCriteria.improvements).toEqual([]);
+    expect(legacyNoCriteria.calibrationDisclosure).toBeNull();
+    expect(legacyNoCriteria.assistanceCount).toBeNull();
+    expect(legacyNoCriteria.sessionSummary).toBe("Historical total score summary.");
+
+    const partial = presentScorecard({
+      total: 40,
+      feedback: "Partial legacy breakdown",
+      criteria: {
+        accuracy: {
+          category: "accuracy",
+          score: 20,
+          evidence: [],
+          reason: "Partial accuracy note",
+          improvementAdvice: "Double check final rounding",
+          confidence: "medium",
+          source: "deterministic",
+        },
+      },
+    });
+    expect(partial.hasCriteria).toBe(true);
+    expect(partial.isLegacyPartial).toBe(true);
+    expect(partial.criteria).toHaveLength(1);
+    expect(partial.strength).toBeNull();
+    expect(partial.weakness).toBeNull();
+    expect(partial.improvements).toEqual(["Double check final rounding"]);
+  });
+
+  it("exposes calibration disclosure and assistanceCount strictly when fields exist on the record", () => {
+    expect(
+      presentScorecard({ total: 75, calibrationStatus: undefined }).calibrationDisclosure,
+    ).toBeNull();
+
+    const pending = presentScorecard({
+      total: 75,
+      calibrationStatus: "pending",
+      assistanceCount: 0,
+    });
+    expect(pending.calibrationDisclosure).toEqual({
+      status: "pending",
+      isCalibrated: false,
+      message: "Uncalibrated formative indicator — formal rubric calibration is pending.",
+    });
+    expect(pending.assistanceCount).toBe(0);
+
+    const calibrated = presentScorecard({
+      total: 90,
+      calibrationStatus: "calibrated",
+      assistanceCount: 2,
+    });
+    expect(calibrated.calibrationDisclosure).toEqual({
+      status: "calibrated",
+      isCalibrated: true,
+      message: "Calibrated formative rubric indicator.",
+    });
+    expect(calibrated.assistanceCount).toBe(2);
+
+    expect(Object.keys(SCORECARD_CATEGORY_LABELS)).toEqual([
+      "accuracy",
+      "logicalValidity",
+      "methodSelection",
+      "explanationQuality",
+    ]);
+    expect(Object.keys(SCORECARD_CATEGORY_DESCRIPTIONS)).toEqual([
+      "accuracy",
+      "logicalValidity",
+      "methodSelection",
+      "explanationQuality",
+    ]);
   });
 });

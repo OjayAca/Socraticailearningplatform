@@ -98,6 +98,15 @@ scenario("inactive learner cannot list tutor conversation", "DENY", "sessions/se
 const aiDraftSession={...session,workflowVersion:6,currentPhase:"controlled_solution_release"};
 scenario("save final draft only", "ALLOW", "sessions/session", "update", aiDraftSession, {request:{time,resource:{data:{...aiDraftSession,revision:1,draft:{answer:{plainText:"8"},methodology:"Explanation",reflection:"Interpretation"}}}},mocks:[getMock("sessions/session",aiDraftSession)]});
 scenario("cannot smuggle gate change with draft", "DENY", "sessions/session", "update", aiDraftSession, {request:{time,resource:{data:{...aiDraftSession,revision:1,gateStates:{accepted:true},draft:{answer:{plainText:"8"},methodology:"Explanation",reflection:"Interpretation"}}}},mocks:[getMock("sessions/session",aiDraftSession)]});
+const adminProfile = { role: "admin", status: "active", displayName: "Levi Acasio" };
+scenario("admin updates own displayName without preferences", "ALLOW", "users/rules-admin", "update", adminProfile, {
+  ...adminOptions,
+  request: { ...adminOptions.request, time, resource: { data: { ...adminProfile, displayName: "Admin", updatedAt: time } } },
+});
+scenario("owner cannot set empty displayName", "DENY", "users/rules-admin", "update", adminProfile, {
+  ...adminOptions,
+  request: { ...adminOptions.request, time, resource: { data: { ...adminProfile, displayName: "", updatedAt: time } } },
+});
 
 const token = await applicationDefault().getAccessToken();
 const option = (name: string) => process.argv.find(arg => arg.startsWith(`--${name}=`))?.slice(name.length + 3);

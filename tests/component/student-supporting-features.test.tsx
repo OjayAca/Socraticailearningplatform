@@ -415,5 +415,77 @@ describe("scorecard details", () => {
     render(<ScorecardDetails scorecard={scorecard} compact />);
     expect(screen.queryByText("Improvement plan")).not.toBeInTheDocument();
     expect(screen.queryByText(/^Improve:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/How to improve:/)).not.toBeInTheDocument();
+  });
+
+  it("handles legacy scorecards without criteria or calibration fields safely and never invents data", () => {
+    render(
+      <ScorecardDetails
+        scorecard={{
+          total: 82,
+          feedback: "Good overall reasoning from earlier session.",
+          generatedAt: 1,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("82/100")).toBeVisible();
+    expect(
+      screen.getByText(/Detailed four-criterion breakdowns were not recorded on this legacy scorecard/i),
+    ).toBeVisible();
+    expect(screen.getByText("Good overall reasoning from earlier session.")).toBeVisible();
+    expect(screen.queryByText(/\/25$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Uncalibrated formative indicator/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Calibrated formative rubric/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Assistance requests/i)).not.toBeInTheDocument();
+  });
+
+  it("renders calibration disclosure, assistance count, progressbars, and evidence only when present", () => {
+    const scores: Record<ScorecardCategory, number> = {
+      accuracy: 25,
+      logicalValidity: 20,
+      methodSelection: 22,
+      explanationQuality: 18,
+    };
+    const criterion = (category: ScorecardCategory) => ({
+      category,
+      score: scores[category],
+      evidence: category === "accuracy" ? ["Showed correct substitution step."] : [],
+      reason: `${category} evaluation reason`,
+      improvementAdvice: scores[category] === 25 ? "None" : `${category} actionable advice`,
+      confidence: "high" as const,
+      source: "ai" as const,
+    });
+
+    render(
+      <ScorecardDetails
+        scorecard={{
+          total: 85,
+          feedback: "Solid structure overall.",
+          rubricVersion: "ai-formative-v2",
+          calibrationStatus: "pending",
+          assistanceCount: 2,
+          generatedAt: 1,
+          criteria: {
+            accuracy: criterion("accuracy"),
+            logicalValidity: criterion("logicalValidity"),
+            methodSelection: criterion("methodSelection"),
+            explanationQuality: criterion("explanationQuality"),
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText("Uncalibrated formative indicator — formal rubric calibration is pending."),
+    ).toBeVisible();
+    expect(screen.getByText("Assistance requests: 2")).toBeVisible();
+    expect(screen.getByText("Rubric: ai-formative-v2")).toBeVisible();
+    expect(screen.getByRole("progressbar", { name: "Accuracy score" })).toHaveAttribute(
+      "aria-valuenow",
+      "25",
+    );
+    expect(screen.getByText("Showed correct substitution step.")).toBeVisible();
+    expect(screen.getByText(/How to improve: explanationQuality actionable advice/)).toBeVisible();
   });
 });

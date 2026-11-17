@@ -55,7 +55,7 @@ export function Alert({ tone, title, children, action, onDismiss, className }: A
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss"
-          className="-m-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
+          className="-m-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
         >
           <X aria-hidden="true" className="h-4 w-4" />
         </button>

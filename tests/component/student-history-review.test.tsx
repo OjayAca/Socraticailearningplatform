@@ -233,4 +233,144 @@ describe("student history and review supporting flows", () => {
     expect(studentArticle).toHaveClass("flex-row-reverse");
     expect(studentArticle.querySelector(".bg-violet-600")).not.toBeNull();
   });
+
+  it("distinguishes loading, error with Retry, genuinely empty, and filtered-empty history states", async () => {
+    // 1. Loading state
+    mocks.onSnapshot.mockImplementation(() => mocks.unsubscribe);
+    const loadingView = render(
+      <MemoryRouter>
+        <SecureStudentHistory />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("status", { name: "Loading learning records" })).toBeVisible();
+    expect(screen.queryByText(/Your learning journey starts here/i)).not.toBeInTheDocument();
+    loadingView.unmount();
+    clearViews();
+
+    // 2. Error state hides empty copy and retries on click
+    mocks.onSnapshot
+      .mockImplementationOnce((_query, _next, onError) => {
+        onError(new Error("permission-denied"));
+        return mocks.unsubscribe;
+      })
+      .mockImplementationOnce((_query, next) => {
+        next(docs([]));
+        return mocks.unsubscribe;
+      });
+    const errorView = render(
+      <MemoryRouter>
+        <SecureStudentHistory />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Learning progress could not be loaded");
+    expect(screen.queryByText(/Your learning journey starts here/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    // 3. Genuinely empty state after retry
+    expect(
+      await screen.findByText(
+        "Your learning journey starts here. Start your first MINDGUIDE session to practice mathematical reasoning.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: /start your first session/i })).toHaveAttribute(
+      "href",
+      "/student/task",
+    );
+    expect(screen.queryByRole("searchbox", { name: "Search sessions" })).not.toBeInTheDocument();
+    errorView.unmount();
+    clearViews();
+
+    // 4. Search & filters + filtered-empty Clear filters reset
+    mocks.onSnapshot.mockImplementation((_query, next) => {
+      next(
+        docs([
+          {
+            id: "s1",
+            schemaVersion: 5,
+            workflowVersion: 6,
+            status: "submitted",
+            subject: "Quantitative Methods",
+            topic: "Bayes Theorem",
+            scorecard: { total: 91 },
+            submittedAt: Date.UTC(2026, 9, 15),
+          },
+          {
+            id: "s2",
+            schemaVersion: 5,
+            workflowVersion: 6,
+            status: "returned",
+            subject: "Discrete Mathematics",
+            topic: "Induction Proof",
+            scorecard: { total: 74 },
+          },
+        ]),
+      );
+      return mocks.unsubscribe;
+    });
+    render(
+      <MemoryRouter>
+        <SecureStudentHistory />
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Bayes Theorem");
+    expect(screen.getByText("Submitted for review")).toBeVisible();
+    expect(screen.getByText("Returned for follow-up")).toBeVisible();
+    expect(screen.getByText("91/100")).toBeVisible();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search sessions" }), {
+      target: { value: "nonexistent-topic" },
+    });
+    expect(screen.getByText("No sessions match your current search or filters.")).toBeVisible();
+    expect(screen.queryByText(/Your learning journey starts here/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Clear filters" })[0]);
+    expect(screen.getByText("Bayes Theorem")).toBeVisible();
+    expect(screen.getByText("Induction Proof")).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Returned" }));
+    expect(screen.queryByText("Bayes Theorem")).not.toBeInTheDocument();
+    expect(screen.getByText("Induction Proof")).toBeVisible();
+  });
+
+  it("displays Back to history navigation and standardized status/phase labels on SecureStudentReview", async () => {
+    mocks.getDoc.mockResolvedValue({
+      id: "rev-session",
+      exists: () => true,
+      data: () => ({
+        workflowVersion: 6,
+        subject: "Quantitative Methods",
+        topic: "Probability",
+        status: "returned",
+        originalQuestion: "Find P(A).",
+      }),
+    });
+    mocks.getDocs
+      .mockResolvedValueOnce(
+        docs([
+          {
+            id: "resp-1",
+            phase: "verification_and_checking",
+            response: { plainText: "Checked sum of probabilities equals 1." },
+            evaluation: { evidenceSummary: "Verified probability axioms." },
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(docs([]));
+
+    render(
+      <MemoryRouter initialEntries={["/student/review/rev-session"]}>
+        <Routes>
+          <Route path="/student/review/:sessionId" element={<SecureStudentReview />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("link", { name: /back to history/i })).toHaveAttribute(
+      "href",
+      "/student/history",
+    );
+    expect(screen.getByText("Returned for follow-up")).toBeVisible();
+    expect(screen.getByText("Verify and Check")).toBeVisible();
+  });
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, Bell, RefreshCw } from "lucide-react";
+import { useAuthStore } from "@/stores/auth-store";
 import { useNotificationStore } from "@/stores/notification-store";
 import { NotificationList } from "./NotificationList";
 import { Alert } from "./ui/alert";
@@ -35,18 +36,35 @@ const MAX_DRAWER_ITEMS = 15;
 export function NotificationDrawer({ notificationsHref }: NotificationDrawerProps) {
   const [open, setOpen] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+  const firebaseUser = useAuthStore((state) => state.firebaseUser);
+  const userProfile = useAuthStore((state) => state.userProfile);
   const {
+    notifications = [],
     unreadCount = 0,
     error = null,
     markAllAsRead,
     retryNotifications,
   } = useNotificationStore();
 
+  const currentUserId = firebaseUser?.uid ?? userProfile?.uid;
+  const hasMismatchedRecipient =
+    Boolean(currentUserId) &&
+    notifications.some((item) => {
+      const recipient = item.recipientId ?? item.userId;
+      return Boolean(recipient && recipient !== currentUserId);
+    });
+  const scopedUnreadCount = hasMismatchedRecipient
+    ? notifications.filter((item) => {
+        const recipient = item.recipientId ?? item.userId;
+        return (!recipient || recipient === currentUserId) && !item.read;
+      }).length
+    : unreadCount;
+
   const triggerLabel =
-    unreadCount > 0
-      ? `Open notifications (${unreadCount} unread)`
+    scopedUnreadCount > 0
+      ? `Open notifications (${scopedUnreadCount} unread)`
       : "Open notifications";
-  const badgeText = unreadCount > 99 ? "99+" : String(unreadCount);
+  const badgeText = scopedUnreadCount > 99 ? "99+" : String(scopedUnreadCount);
 
   async function handleMarkAllAsRead() {
     setIsMarkingAll(true);
@@ -69,7 +87,7 @@ export function NotificationDrawer({ notificationsHref }: NotificationDrawerProp
             className="relative mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <Bell aria-hidden="true" className="h-4.5 w-4.5" />
-            {unreadCount > 0 && (
+            {scopedUnreadCount > 0 && (
               <span
                 aria-hidden="true"
                 className="absolute -top-1 -right-1 inline-flex min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white ring-2 ring-white dark:ring-[#0b1120]"
@@ -90,7 +108,7 @@ export function NotificationDrawer({ notificationsHref }: NotificationDrawerProp
             <SheetTitle className="text-base font-bold text-slate-950 dark:text-white">
               Notifications
             </SheetTitle>
-            {unreadCount > 0 && (
+            {scopedUnreadCount > 0 && (
               <button
                 type="button"
                 onClick={() => void handleMarkAllAsRead()}
@@ -102,8 +120,8 @@ export function NotificationDrawer({ notificationsHref }: NotificationDrawerProp
             )}
           </div>
           <SheetDescription className="text-xs text-slate-500 dark:text-slate-400">
-            {unreadCount > 0
-              ? `${unreadCount} unread ${unreadCount === 1 ? "update" : "updates"}`
+            {scopedUnreadCount > 0
+              ? `${scopedUnreadCount} unread ${scopedUnreadCount === 1 ? "update" : "updates"}`
               : "All caught up"}
           </SheetDescription>
         </SheetHeader>

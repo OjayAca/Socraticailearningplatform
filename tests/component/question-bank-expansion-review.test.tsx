@@ -5,7 +5,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { ManagedContentEditor } from '@/app/components/ManagedContentEditor';
 import { prepareQuestionBank } from '../../scripts/question-bank-core';
 
-const reads = vi.hoisted(() => ({ list: vi.fn(), detail: vi.fn() }));
+const reads = vi.hoisted(() => ({
+  list: vi.fn(),
+  detail: vi.fn(),
+  archive: vi.fn(),
+}));
 vi.mock('@/lib/firebase', () => ({ db: {} }));
 vi.mock('firebase/firestore', () => ({
   collection: (_db: unknown, path: string) => path,
@@ -13,7 +17,10 @@ vi.mock('firebase/firestore', () => ({
   getDocs: reads.list,
   getDoc: reads.detail,
 }));
-vi.mock('@/lib/secure-api', () => ({ adminCatalogReadiness: async () => ({ approvedProblemCount: 0, cells: [] }) }));
+vi.mock('@/lib/secure-api', () => ({
+  adminCatalogReadiness: async () => ({ approvedProblemCount: 0, cells: [] }),
+  adminArchiveContent: reads.archive,
+}));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it('filters supplied drafts and opens their protected details with the correct review controls', async () => {
@@ -46,4 +53,52 @@ it('filters supplied drafts and opens their protected details with the correct r
   await waitFor(() => expect(screen.getByLabelText('Protected final answer')).toHaveValue(target.privateSolution.finalAnswer));
   expect(screen.getByLabelText('Protected worked steps')).toHaveValue(target.privateSolution.solutionSteps.join('\n'));
   expect(screen.getByText('Record external validation evidence')).toBeInTheDocument();
+});
+
+it('confirms before discarding unsaved edits and before archiving content records', async () => {
+  reads.archive.mockResolvedValue({});
+  reads.list.mockResolvedValue({
+    docs: [
+      {
+        id: 'draft-1',
+        data: () => ({
+          subjectId: 'quantitative-methods',
+          topicId: 'probability',
+          subject: 'Quantitative Methods',
+          topic: 'Probability',
+          difficulty: 'Basic',
+          variant: 1,
+          problemText: 'Original question',
+          status: 'draft',
+          version: 1,
+        }),
+      },
+    ],
+  });
+  reads.detail.mockResolvedValue({ exists: () => false, get: () => undefined });
+
+  const { container } = render(<ManagedContentEditor collectionName="problems" />);
+  await screen.findByText('Showing 1 of 1');
+
+  expect(screen.getByLabelText('Subject ID')).toHaveAttribute('list', 'mg-subject-ids');
+  expect(screen.getByLabelText('Topic ID')).toHaveAttribute('list', 'mg-topic-ids');
+  expect(container.querySelectorAll('#mg-topic-ids option').length).toBeGreaterThan(0);
+
+  fireEvent.change(screen.getByLabelText('Stable record ID'), {
+    target: { value: 'edited-id' },
+  });
+  expect(screen.getByText('Unsaved changes in editor')).toBeVisible();
+
+  fireEvent.click(screen.getByRole('button', { name: /new \/ clear form/i }));
+  expect(await screen.findByText('Discard unsaved edits?')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }));
+  expect(screen.getByLabelText('Stable record ID')).toHaveValue('edited-id');
+
+  fireEvent.click(screen.getByRole('button', { name: 'Archive draft-1' }));
+  expect(await screen.findByText('Archive this record?')).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Archive record' }));
+  await waitFor(() =>
+    expect(reads.archive).toHaveBeenCalledWith({ collection: 'problems', id: 'draft-1' }),
+  );
+  expect(await screen.findByText(/Archived draft-1/)).toBeVisible();
 });

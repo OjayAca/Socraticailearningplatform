@@ -121,7 +121,8 @@ describe("administrator account safeguards", () => {
   it("edits the approved academic fields and sends a mandatory audit reason", async () => {
     mocks.getDocs.mockResolvedValue(snapshot([{id:"student",displayName:"Test learner",role:"student",status:"active",academicProfile:{studentNumber:"KEEP",course:"IT",yearLevel:"1",section:"A"}}]));
     renderRoute(<SecureAdminUsers />);
-    fireEvent.click(await screen.findByText("Edit academic profile"));
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for Test learner" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit Academic Information" }));
     fireEvent.change(screen.getByLabelText("Course"),{target:{value:"Computer Science"}});
     fireEvent.change(screen.getByLabelText("Profile edit reason"),{target:{value:"Reviewed learner course"}});
     fireEvent.click(screen.getByRole("button",{name:"Save academic profile"}));
@@ -140,7 +141,8 @@ describe("administrator account safeguards", () => {
     fireEvent.change(screen.getByPlaceholderText(/search name/i), { target: { value: "Second" } });
     expect(screen.queryByText("Student One")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "activate" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Second Learner" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Reactivate Account" }));
     await waitFor(() =>
       expect(mocks.adminManageUser).toHaveBeenCalledWith({
         userId: "student-2",
@@ -154,7 +156,10 @@ describe("administrator account safeguards", () => {
     mocks.getDocs.mockResolvedValue(snapshot([{ id: "student-3", displayName: "Deleted Learner", email: "deleted@example.com", role: "student", status: "deactivated" }]));
     renderRoute(<SecureAdminUsers />);
     await screen.findByText("Deleted Learner");
-    fireEvent.click(screen.getByRole("button", {name:"activate"}));
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Deleted Learner" }));
+    expect(screen.queryByRole("menuitem", { name: "Suspend Account" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /delete/i })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Reactivate Account" }));
     await waitFor(()=>expect(mocks.adminManageUser).toHaveBeenCalledWith(expect.objectContaining({userId:"student-3",action:"activate"})));
     expect(screen.queryByRole("button", {name:"suspend"})).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "delete" })).not.toBeInTheDocument();
@@ -359,5 +364,87 @@ describe("administrator review safeguards", () => {
       }),
     );
     expect(await screen.findByText("Administrator dashboard destination")).toBeVisible();
+  });
+
+  it("renders Back to dashboard navigation, admin help dialog, Return confirmation dialog, and separated override notice", async () => {
+    renderRoute(<SecureAdminReview />, "/admin/review/session-1", "/admin/review/:sessionId");
+
+    await screen.findByText("Find the probability.");
+    expect(screen.getByRole("link", { name: /back to dashboard/i })).toHaveAttribute(
+      "href",
+      "/admin/dashboard",
+    );
+    expect(screen.getByRole("button", { name: "Open administrator help" })).toBeVisible();
+    expect(screen.getByText(/Submitted for review/)).toBeVisible();
+    expect(screen.getByText(/Minimum 8 characters required for audit log/)).toBeVisible();
+
+    fireEvent.change(screen.getByRole("textbox", { name: /administrator formative comment/i }), {
+      target: { value: "Clarify your proof." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Return for follow-up" }));
+    expect(await screen.findByText("Return session for follow-up?")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.adminReviewSession).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Return for follow-up" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm return" }));
+    await waitFor(() =>
+      expect(mocks.adminReviewSession).toHaveBeenCalledWith({
+        sessionId: "session-1",
+        outcome: "returned",
+        comment: "Clarify your proof.",
+      }),
+    );
+  });
+
+  it("requires confirmation before suspending or deactivating a user account and displays 4-char audit helper", async () => {
+    mocks.getDocs.mockResolvedValue(
+      snapshot([
+        {
+          id: "student-1",
+          displayName: "Student One",
+          email: "one@example.com",
+          role: "student",
+          status: "active",
+        },
+      ]),
+    );
+    mocks.adminManageUser.mockResolvedValue({});
+
+    renderRoute(<SecureAdminUsers />);
+    await screen.findByText("Student One");
+    expect(screen.getByText(/Minimum 4 characters required for account actions/)).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Student One" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Suspend Account" }));
+    expect(await screen.findByText("Suspend user account?")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.adminManageUser).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Actions for Student One" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Suspend Account" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Suspend account" }));
+    await waitFor(() =>
+      expect(mocks.adminManageUser).toHaveBeenCalledWith({
+        userId: "student-1",
+        action: "suspend",
+        reason: "Authorized capstone account administration",
+      }),
+    );
+  });
+
+  it("enforces date min/max bounds and attaches topic autocomplete datalist on SecureAdminReports", () => {
+    const { container } = renderRoute(<SecureAdminReports />);
+    const fromInput = screen.getByLabelText(/From \(Manila\)/);
+    const toInput = screen.getByLabelText(/Through \(Manila\)/);
+    const topicInput = screen.getByLabelText(/Exact topic/);
+
+    fireEvent.change(fromInput, { target: { value: "2026-10-01" } });
+    fireEvent.change(toInput, { target: { value: "2026-10-31" } });
+
+    expect(fromInput).toHaveAttribute("max", "2026-10-31");
+    expect(toInput).toHaveAttribute("min", "2026-10-01");
+    expect(topicInput).toHaveAttribute("list", "admin-report-topics");
+    expect(container.querySelectorAll("#admin-report-topics option").length).toBeGreaterThan(0);
   });
 });

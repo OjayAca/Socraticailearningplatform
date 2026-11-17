@@ -146,8 +146,41 @@ describe("SecureStudentDashboard", () => {
     mocks.getDocs.mockResolvedValue(snapshot([]));
     renderDashboard();
 
-    expect(await screen.findByText("No learning records yet.")).toBeVisible();
-    expect(screen.getByText("Start your first guided session when you are ready.")).toBeVisible();
+    expect(
+      await screen.findByText(
+        "Your learning journey starts here. Start your first MINDGUIDE session to practice mathematical reasoning.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: /start your first session/i })).toHaveAttribute(
+      "href",
+      "/student/task",
+    );
+  });
+
+  it("shows a Continue Session shortcut alongside Start session when a resumable v6 session exists", async () => {
+    mocks.getDocs.mockResolvedValue(
+      snapshot([
+        {
+          id: "active-session",
+          subject: "Quantitative Methods",
+          topic: "Probability",
+          status: "in_progress",
+          schemaVersion: 5,
+          workflowVersion: 6,
+        },
+      ]),
+    );
+    renderDashboard();
+
+    await screen.findByText("Probability");
+    expect(screen.getByRole("link", { name: /continue session/i })).toHaveAttribute(
+      "href",
+      "/session/active-session/learn",
+    );
+    expect(screen.getByRole("link", { name: /start session/i })).toHaveAttribute(
+      "href",
+      "/student/task",
+    );
   });
 
   it("shows a recoverable records error", async () => {
@@ -183,10 +216,10 @@ describe("SecureStudentDashboard", () => {
     renderDashboard();
     await screen.findByRole("alert");
     expect(within(screen.getByText("Completed").parentElement!).getByText("—")).toBeVisible();
-    expect(screen.queryByText("No learning records yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Your learning journey starts here/i)).not.toBeInTheDocument();
     mocks.getDocs.mockResolvedValue(snapshot([{ id: "legacy", status: "completed", ctScore: 92 }]));
     fireEvent.click(screen.getByRole("button", { name: "Retry learning progress" }));
-    await waitFor(() => expect(within(screen.getByText("Completed").parentElement!).getByText("1")).toBeVisible());
+    await waitFor(() => expect(within(screen.getAllByText("Completed")[0].parentElement!).getByText("1")).toBeVisible());
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 

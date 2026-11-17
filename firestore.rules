@@ -47,8 +47,11 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
       allow update: if (owner(uid) && active()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','preferences','updatedAt'])
-        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
-        && preferences(request.resource.data.preferences) && request.resource.data.updatedAt == request.time)
+        && (!('displayName' in request.resource.data.diff(resource.data).affectedKeys())
+          || (request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120))
+        && (!('preferences' in request.resource.data.diff(resource.data).affectedKeys())
+          || preferences(request.resource.data.preferences))
+        && request.resource.data.updatedAt == request.time)
         || (admin() && resource.data.role == 'student'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
           && ((resource.data.status == 'active' && request.resource.data.status in ['suspended','deactivated'])

@@ -84,5 +84,10 @@ export function studentHistory(id:string,data:Record<string,any>) {
 }
 export const historyResponse = z.object({id:str,phase:str.optional(),response:z.object({plainText:str.optional(),latex:str.optional()}).nullish(),
   evaluation:z.object({evidenceSummary:str.optional()}).nullish()});
-export const historyMessage = z.object({ id: str, role: z.enum(["student", "assistant"]), text: str });
+export const historyMessage = z.object({
+  id: str,
+  role: z.enum(["student", "assistant"]),
+  phase: str.optional(),
+  text: str,
+});
 export type HistoryMessage = z.infer<typeof historyMessage>;

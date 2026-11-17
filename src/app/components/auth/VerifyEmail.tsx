@@ -8,12 +8,10 @@
  * @module components/auth/VerifyEmail
  */
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import {
   Mail,
-  CheckCircle2,
-  AlertCircle,
   Loader2,
   RefreshCw,
   LogOut,
@@ -26,6 +24,7 @@ import {
   useAuthStore,
 } from "@/stores/auth-store";
 import { MindGuideLogo } from "../MindGuideLogo";
+import { Alert } from "../ui/alert";
 
 /**
  * Renders the email verification screen with actions to check verification
@@ -54,13 +53,18 @@ export function VerifyEmail() {
   const [verificationErrorMessage, setVerificationErrorMessage] = useState<
     string | null
   >(null);
+  const actionPendingRef = useRef(false);
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center h-full bg-slate-50">
+      <div
+        role="status"
+        aria-label="Loading verification status"
+        className="flex h-full flex-1 items-center justify-center bg-slate-50"
+      >
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-          <p className="text-slate-500 text-sm font-medium">Loading...</p>
+          <Loader2 aria-hidden="true" className="h-8 w-8 animate-spin text-indigo-600" />
+          <p className="text-sm font-medium text-slate-500">Loading...</p>
         </div>
       </div>
     );
@@ -91,6 +95,8 @@ export function VerifyEmail() {
    * verification link has been clicked.
    */
   async function handleCheckVerification() {
+    if (isActionBusy || actionPendingRef.current) return;
+    actionPendingRef.current = true;
     clearError();
     setVerificationStatusMessage(null);
     setVerificationErrorMessage(null);
@@ -115,6 +121,7 @@ export function VerifyEmail() {
       );
     } finally {
       setIsCheckingStatus(false);
+      actionPendingRef.current = false;
     }
   }
 
@@ -122,6 +129,8 @@ export function VerifyEmail() {
    * Sends a fresh verification link to the signed-in user's email address.
    */
   async function handleResendVerification() {
+    if (isActionBusy || actionPendingRef.current) return;
+    actionPendingRef.current = true;
     clearError();
     setVerificationStatusMessage(null);
     setVerificationErrorMessage(null);
@@ -140,6 +149,7 @@ export function VerifyEmail() {
       );
     } finally {
       setIsResendingEmail(false);
+      actionPendingRef.current = false;
     }
   }
 
@@ -147,6 +157,8 @@ export function VerifyEmail() {
    * Signs out the current unverified account and returns to the login screen.
    */
   async function handleSignOut() {
+    if (isActionBusy || actionPendingRef.current) return;
+    actionPendingRef.current = true;
     clearError();
     setVerificationStatusMessage(null);
     setVerificationErrorMessage(null);
@@ -155,26 +167,33 @@ export function VerifyEmail() {
       navigate("/login", { replace: true });
     } catch {
       // Error is handled by the store
+    } finally {
+      actionPendingRef.current = false;
     }
   }
+
+  const prefersReducedMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const displayedError = verificationErrorMessage || error;
 
   return (
     <div className="auth-page flex min-h-full flex-1 flex-col items-center bg-slate-50 p-4 sm:p-6">
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="my-auto w-full max-w-md shrink-0 space-y-6 rounded-3xl bg-white p-5 sm:p-8 shadow-xl shadow-slate-200/50"
+        initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+        animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0 }}
+        className="my-auto w-full max-w-md shrink-0 space-y-6 rounded-3xl bg-white p-5 shadow-xl shadow-slate-200/50 sm:p-8"
       >
         <div className="space-y-2 text-center">
           <MindGuideLogo className="mx-auto mb-4 h-24 w-28 rounded-2xl bg-white" />
           <h2 className="text-2xl font-bold text-slate-900">
             Verify Your Email
           </h2>
-          <p className="text-slate-500 text-sm">
+          <p className="text-sm text-slate-500">
             We sent a verification link to{" "}
-            <span className="font-semibold text-slate-800 break-all">
+            <span className="break-all font-semibold text-slate-800">
               {targetEmailAddress}
             </span>
             . Click the link in your inbox to activate your account.
@@ -182,7 +201,7 @@ export function VerifyEmail() {
         </div>
 
         <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4 text-xs leading-5 text-indigo-950">
-          <Mail className="h-5 w-5 shrink-0 text-indigo-600 mt-0.5" />
+          <Mail aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
           <div>
             <p className="font-semibold">Why is this required?</p>
             <p className="mt-1 text-indigo-900/80">
@@ -194,23 +213,15 @@ export function VerifyEmail() {
         </div>
 
         {displayedError && (
-          <div
-            role="alert"
-            className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm"
-          >
-            <AlertCircle className="w-4 h-4 shrink-0" />
+          <Alert tone="error">
             <span>{displayedError}</span>
-          </div>
+          </Alert>
         )}
 
         {verificationStatusMessage && (
-          <div
-            role="status"
-            className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-700 text-sm"
-          >
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          <Alert tone="success">
             <span>{verificationStatusMessage}</span>
-          </div>
+          </Alert>
         )}
 
         <div className="space-y-3">
@@ -218,13 +229,16 @@ export function VerifyEmail() {
             type="button"
             onClick={() => void handleCheckVerification()}
             disabled={isActionBusy}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 py-3.5 font-semibold text-white shadow-md transition-all hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isCheckingStatus ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <>
+                <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
+                <span>Checking verification…</span>
+              </>
             ) : (
               <>
-                <RefreshCw className="w-4 h-4" />
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
                 I&apos;ve Verified My Email
               </>
             )}
@@ -234,27 +248,30 @@ export function VerifyEmail() {
             type="button"
             onClick={() => void handleResendVerification()}
             disabled={isActionBusy}
-            className="w-full bg-white hover:bg-slate-50 text-slate-700 font-semibold py-3.5 rounded-xl transition-all border border-slate-200 shadow-sm flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3.5 font-semibold text-slate-700 shadow-sm transition-all hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isResendingEmail ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <>
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                <span>Sending verification email…</span>
+              </>
             ) : (
               <>
-                <Send className="w-4 h-4" />
+                <Send aria-hidden="true" className="h-4 w-4" />
                 Resend Verification Email
               </>
             )}
           </button>
         </div>
 
-        <div className="pt-2 border-t border-slate-100 text-center">
+        <div className="border-t border-slate-100 pt-2 text-center">
           <button
             type="button"
             onClick={() => void handleSignOut()}
             disabled={isActionBusy}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors disabled:opacity-50"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-500 transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut aria-hidden="true" className="h-4 w-4" />
             Sign out or use a different email
           </button>
         </div>

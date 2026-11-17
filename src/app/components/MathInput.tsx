@@ -25,6 +25,7 @@ export interface MathInputProps {
   explanationPlaceholder?: string;
   notationHint?: string;
   notationHeaderActions?: React.ReactNode;
+  onSyntaxError?: (error: string | null) => void;
 }
 
 const SYMBOLS = [
@@ -59,10 +60,12 @@ export function MathInput({
   explanationPlaceholder = "Explain your reasoning in words...",
   notationHint,
   notationHeaderActions,
+  onSyntaxError,
 }: MathInputProps) {
   const fieldRef = useRef<MathFieldElement | null>(null);
   const explanationId = useId();
   const notationPanelId = useId();
+  const syntaxErrorId = useId();
   const [isNotationOpen, setIsNotationOpen] = useState(false);
 
   const hasNotationValue = Boolean(value.latex?.trim());
@@ -94,6 +97,10 @@ export function MathInput({
       return { html: "", error: "Check the mathematical notation before submitting." };
     }
   }, [value.latex]);
+
+  useEffect(() => {
+    onSyntaxError?.(preview.error);
+  }, [preview.error, onSyntaxError]);
 
   const handleInsertPlaceholder = () => {
     if (hasMathPlaceholder) return;
@@ -196,12 +203,14 @@ export function MathInput({
             }}
             value={value.latex ?? ""}
             aria-label="Mathematical expression editor"
+            aria-invalid={preview.error ? "true" : undefined}
+            aria-describedby={preview.error ? syntaxErrorId : undefined}
             virtual-keyboard-mode="onfocus"
             className="block min-h-11 min-w-0 max-w-full w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 text-lg focus-within:ring-2 focus-within:ring-indigo-600"
           />
 
           {preview.error ? (
-            <p className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">
+            <p id={syntaxErrorId} className="text-xs font-medium text-red-600 dark:text-red-400" role="alert">
               {preview.error}
             </p>
           ) : preview.html ? (

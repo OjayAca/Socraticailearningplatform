@@ -19,6 +19,7 @@ import {
 import { motion, useReducedMotion } from "motion/react";
 import { useTheme } from "next-themes";
 import { Link, Navigate } from "react-router";
+import { STANDARD_SOLVER_STAGES } from "@/lib/learning/display-labels";
 import { getDashboardPath, useAuthStore } from "@/stores/auth-store";
 import { MindGuideLogo } from "./MindGuideLogo";
 
@@ -54,28 +55,11 @@ const benefits: {
     },
   ];
 
-const stages = [
-  {
-    number: "01",
-    title: "Problem Understanding",
-    description: "Identify the relevant facts, unknowns, and constraints.",
-  },
-  {
-    number: "02",
-    title: "Method Selection",
-    description: "Choose and justify the formula, theorem, or strategy.",
-  },
-  {
-    number: "03",
-    title: "Computation",
-    description: "Carry out the method and verify each important step.",
-  },
-  {
-    number: "04",
-    title: "Interpretation",
-    description: "Explain what the result means in the problem context.",
-  },
-];
+const stages = STANDARD_SOLVER_STAGES.map((stage) => ({
+  number: stage.number,
+  title: stage.label,
+  description: stage.description,
+}));
 
 export function LandingPage() {
   const {
@@ -115,7 +99,7 @@ export function LandingPage() {
           <a
             href="#top"
             aria-label="MINDGUIDE home"
-            className="flex shrink-0 items-center gap-2 rounded-lg font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+            className="flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-1 font-extrabold tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             <MindGuideLogo decorative className="h-10 w-11 rounded-xl bg-white" />
             <span className="hidden sm:inline">MINDGUIDE</span>
@@ -127,19 +111,19 @@ export function LandingPage() {
           >
             <a
               href="#benefits"
-              className="rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
+              className="inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
             >
               Why MINDGUIDE
             </a>
             <a
               href="#how-it-works"
-              className="rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
+              className="inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
             >
               How it works
             </a>
             <a
               href="#learning-trust"
-              className="rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
+              className="inline-flex min-h-11 items-center rounded-md text-sm font-semibold text-slate-600 transition hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-300 dark:hover:text-indigo-300"
             >
               Learning trust
             </a>
@@ -150,7 +134,7 @@ export function LandingPage() {
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
               aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
             >
               {isDark ? (
                 <Sun className="h-4.5 w-4.5" />
@@ -160,13 +144,13 @@ export function LandingPage() {
             </button></Tooltip>
             <Link
               to="/login"
-              className="inline-flex min-h-10 items-center justify-center rounded-xl px-3 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl px-3.5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:text-slate-200 dark:hover:bg-slate-800 sm:px-4"
             >
               Log in
             </Link>
             <Link
               to="/signup"
-              className="hidden min-h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0b1120] sm:inline-flex"
+              className="hidden min-h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-bold text-white shadow-md shadow-indigo-600/20 transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#0b1120] sm:inline-flex"
             >
               Start learning
             </Link>
@@ -273,7 +257,7 @@ export function LandingPage() {
                   </div>
 
                   <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400">
-                    Problem Understanding
+                    {STANDARD_SOLVER_STAGES[0].label}
                   </p>
                   <h2 className="mt-2 text-lg font-bold leading-7 text-slate-950 dark:text-white">
                     Which facts are relevant, and what does the problem ask you

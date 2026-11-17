@@ -206,6 +206,56 @@ describe("authentication supporting flows", () => {
     fireEvent.click(screen.getByRole("button", { name: /i've verified my email/i }));
     expect(await screen.findByText("Destination screen")).toBeVisible();
   });
+
+  it("shows Back to home navigation and inline field validation on Login without pre-disabling submit", () => {
+    renderAt(<Login />, "/login");
+
+    expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
+    const submit = screen.getByRole("button", { name: /^log in$/i });
+    expect(submit).toBeEnabled();
+
+    fireEvent.click(submit);
+
+    const emailInput = screen.getByLabelText("Email");
+    const passwordInput = screen.getByLabelText("Password");
+    expect(emailInput).toHaveAttribute("aria-invalid", "true");
+    expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Please enter your email address.")).toBeVisible();
+    expect(screen.getByText("Please enter your password.")).toBeVisible();
+    expect(mocks.signIn).not.toHaveBeenCalled();
+
+    fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+    fireEvent.blur(emailInput);
+    expect(screen.getByText("Please enter a valid email address with an @ symbol.")).toBeVisible();
+  });
+
+  it("shows Back to home link and inline accessible validation on SignUp", () => {
+    renderAt(<SignUp />, "/signup");
+
+    expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
+    const submit = screen.getByRole("button", { name: /^sign up$/i });
+    expect(submit).toBeEnabled();
+
+    fireEvent.click(submit);
+
+    expect(screen.getByLabelText("Full Name")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Confirm Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText("Please enter your full name.")).toBeVisible();
+    expect(screen.getByText("Please create a password.")).toBeVisible();
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
+
+  it("disables Login submit only while an authentication request is in flight", () => {
+    mocks.state = {
+      ...mocks.state,
+      isLoading: true,
+    };
+    renderAt(<Login />, "/login");
+
+    expect(screen.getByRole("button", { name: /signing in/i })).toBeDisabled();
+  });
 });
 
 describe("protected route recovery and role enforcement", () => {

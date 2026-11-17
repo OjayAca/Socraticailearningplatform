@@ -1,7 +1,13 @@
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** Keep the learning workspace within the keyboard's visible viewport. */
-export function SessionViewport({ children }: { children: ReactNode }) {
+export function SessionViewport({
+  children,
+  onCompactChange,
+}: {
+  children: ReactNode;
+  onCompactChange?: (compact: boolean) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -18,9 +24,11 @@ export function SessionViewport({ children }: { children: ReactNode }) {
       const visibleBottom = keyboardBounds && keyboardBounds.height > 0
         ? Math.min(bottom, keyboardBounds.top) : bottom;
       const height = Math.max(0, visibleBottom - top);
+      const compact = height < 480;
       ref.current?.style.setProperty("--session-height", `${height}px`);
       ref.current?.style.setProperty("--session-top", `${top}px`);
-      if (ref.current) ref.current.dataset.compact = String(height < 480);
+      if (ref.current) ref.current.dataset.compact = String(compact);
+      onCompactChange?.(compact);
     };
     resize();
     viewport?.addEventListener("resize", resize);
@@ -33,7 +41,7 @@ export function SessionViewport({ children }: { children: ReactNode }) {
       keyboard?.removeEventListener("geometrychange", resize);
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [onCompactChange]);
 
   return <div ref={ref} className="session-viewport flex min-h-0 min-w-0 flex-none flex-col overflow-hidden bg-slate-50 text-slate-800 dark:bg-slate-950 dark:text-slate-100">{children}</div>;
 }

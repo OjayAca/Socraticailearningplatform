@@ -152,3 +152,44 @@ test("renders a useful catch-all page", async ({ page }) => {
     "/"
   );
 });
+
+test("enforces accessible touch targets, keyboard focus, inline form errors, and reduced-motion safety", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+
+  // Header controls meet 44px touch target height and are keyboard reachable.
+  const themeButton = page.getByRole("button", { name: /switch to (dark|light) theme/i });
+  const headerLinks = await page.locator("header a, header button").all();
+  for (const control of headerLinks) {
+    if (await control.isVisible()) {
+      const box = await control.boundingBox();
+      expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  }
+  const firstHeaderControl = page.locator("header a, header button").first();
+  await firstHeaderControl.focus();
+  await expect(firstHeaderControl).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.locator("a:focus, button:focus").first()).toBeVisible();
+  await themeButton.focus();
+  await expect(themeButton).toBeFocused();
+
+  // Login allows submission for inline accessible field validation without pre-disabling.
+  await page.goto("/login");
+  const backHome = page.getByRole("link", { name: /back to home/i });
+  expect((await backHome.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+
+  const submitButton = page.getByRole("button", { name: /^log in$/i });
+  await expect(submitButton).toBeEnabled();
+  expect((await submitButton.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+  await submitButton.click();
+
+  const emailInput = page.getByLabel("Email");
+  const passwordInput = page.getByRole("textbox", { name: "Password" });
+  await expect(emailInput).toHaveAttribute("aria-invalid", "true");
+  await expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+  const describedBy = await emailInput.getAttribute("aria-describedby");
+  expect(describedBy).toBeTruthy();
+  await expect(page.locator(`#${describedBy}`)).toHaveText("Please enter your email address.");
+});

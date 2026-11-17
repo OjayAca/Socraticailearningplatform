@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useAuthStore } from "@/stores/auth-store";
+import { HelpDialog } from "./HelpDialog";
 import { MindGuideLogo } from "./MindGuideLogo";
 import { NotificationDrawer } from "./NotificationDrawer";
 import {
@@ -112,13 +113,15 @@ export function StudentShell({ active, children }: { active: string; children: R
             </h1>
           </div>
 
+          <HelpDialog variant="student" triggerClassName="mr-1.5 sm:mr-2" />
+
           <NotificationDrawer notificationsHref="/student/notifications" />
 
           <Tooltip label={isDark ? "Switch to light theme" : "Switch to dark theme"}><button
             type="button"
             onClick={() => setTheme(isDark ? "light" : "dark")}
             aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-            className="mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
+            className="mr-1.5 sm:mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             {isDark ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
           </button></Tooltip>
@@ -126,7 +129,7 @@ export function StudentShell({ active, children }: { active: string; children: R
           <Tooltip label={`Open profile for ${displayName}`}><Link
             to="/student/profile"
             aria-label={`Open profile for ${displayName}`}
-            className="flex shrink-0 items-center gap-3 rounded-xl p-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-slate-800"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-3 rounded-xl p-1 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:bg-slate-800"
           >
             <span className="hidden max-w-48 text-right sm:block">
               <span className="block truncate text-sm font-bold text-slate-800 dark:text-slate-100">

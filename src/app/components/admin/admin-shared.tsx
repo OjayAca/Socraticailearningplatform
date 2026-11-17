@@ -1,0 +1,802 @@
+"use client";
+
+import type { ReactNode } from "react";
+import {
+  Activity,
+  AlertCircle,
+  BookOpen,
+  BrainCircuit,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
+import { Link } from "react-router";
+import { Skeleton } from "../ui/skeleton";
+
+/** Supported timestamp input shapes from Firestore or JavaScript runtimes. */
+export type TimestampLike =
+  | number
+  | string
+  | Date
+  | { toDate: () => Date }
+  | { toMillis: () => number }
+  | null
+  | undefined;
+
+/** Optional academic profile fields indexed by administrator user search. */
+export interface SearchableAcademicProfile {
+  studentNumber?: string;
+  course?: string;
+  yearLevel?: string;
+  section?: string;
+}
+
+/** Minimal user record shape accepted by {@link searchableUser}. */
+export interface SearchableUserRecord {
+  displayName?: unknown;
+  email?: unknown;
+  role?: unknown;
+  status?: unknown;
+  academicProfile?: SearchableAcademicProfile | null;
+}
+
+/** Props for {@link PageTitle}. */
+export interface PageTitleProps {
+  /** Primary page heading text. */
+  title: string;
+  /** Supporting subtitle explaining the page scope. */
+  description: string;
+  /** Optional right-aligned header actions or controls. */
+  actions?: ReactNode;
+  /** Optional additional wrapper classes. */
+  className?: string;
+}
+
+/**
+ * Renders a consistent administrator page heading and description.
+ *
+ * @param props - See {@link PageTitleProps}.
+ * @returns The rendered page header block.
+ */
+export function PageTitle({
+  title,
+  description,
+  actions,
+  className = "",
+}: PageTitleProps) {
+  return (
+    <div
+      className={`mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between ${className}`.trim()}
+    >
+      <div className="min-w-0">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+          {title}
+        </h1>
+        <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-400">
+          {description}
+        </p>
+      </div>
+      {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+    </div>
+  );
+}
+
+/** Props for {@link AdminStat}. */
+export interface AdminStatProps {
+  /** Uppercase metric label displayed below the icon badge. */
+  label: string;
+  /** Metric value node (numeric count, formatted string, or fallback). */
+  value: ReactNode;
+  /** Shows a skeleton placeholder when data is loading. */
+  loading?: boolean;
+  /** Lucide icon component displayed in the metric badge. */
+  Icon: LucideIcon;
+  /** Tailwind background and text classes for the icon badge. */
+  iconClassName: string;
+  /** Optional supporting caption below the value. */
+  helperText?: string;
+}
+
+/**
+ * Renders an administrator overview statistic card with loading skeleton support.
+ *
+ * @param props - See {@link AdminStatProps}.
+ * @returns Rendered metric card.
+ */
+export function AdminStat({
+  label,
+  value,
+  loading = false,
+  Icon,
+  iconClassName,
+  helperText,
+}: AdminStatProps) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+      <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClassName}`}>
+        <Icon aria-hidden="true" className="h-5 w-5" />
+      </span>
+      <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+        {label}
+      </p>
+      <div className="mt-1 text-2xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-3xl">
+        {loading ? (
+          <>
+            <span className="sr-only">Loading…</span>
+            <Skeleton className="mt-1 h-8 w-16" />
+          </>
+        ) : (
+          value
+        )}
+      </div>
+      {helperText && (
+        <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">{helperText}</p>
+      )}
+    </div>
+  );
+}
+
+/** Props for {@link Stat}. */
+export interface StatProps {
+  /** Descriptive label of the statistic. */
+  label: string;
+  /** Numeric count or quantity. */
+  value: number;
+}
+
+/**
+ * Renders an administrator platform statistic card with automatic icon mapping.
+ *
+ * @param props - See {@link StatProps}.
+ * @returns Rendered metric card with icon badge.
+ */
+export function Stat({ label, value }: StatProps) {
+  const normalized = label.toLowerCase();
+  const Icon = normalized.includes("user")
+    ? Users
+    : normalized.includes("session")
+      ? BrainCircuit
+      : normalized.includes("problem")
+        ? BookOpen
+        : normalized.includes("audit")
+          ? Activity
+          : AlertCircle;
+
+  return (
+    <AdminStat
+      label={label}
+      value={value}
+      Icon={Icon}
+      iconClassName="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
+    />
+  );
+}
+
+/**
+ * Maps a session, account, or content status string to Tailwind badge classes.
+ *
+ * @param status - Domain status string (for example `active`, `submitted`, `deactivated`).
+ * @returns Tailwind class string for pill styling.
+ */
+export function statusBadgeClass(status?: string): string {
+  switch (status) {
+    case "completed":
+    case "reviewed":
+    case "approved":
+    case "active":
+      return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30";
+    case "submitted":
+    case "pending_validation":
+    case "suspended":
+      return "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30";
+    case "deactivated":
+    case "rejected":
+      return "bg-rose-50 text-rose-700 ring-1 ring-rose-600/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30";
+    default:
+      return "bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700";
+  }
+}
+
+/** Props for {@link Action}. */
+export interface ActionProps {
+  /** Click handler invoked when the action button is pressed. */
+  onClick: () => void;
+  /** Visible label or content of the action button. */
+  children: ReactNode;
+  /** Disables interaction while another request is running or prerequisites are unmet. */
+  disabled?: boolean;
+  /** Displays an inline spinner when the action is currently executing. */
+  busy?: boolean;
+  /** Optional explicit accessible label overriding the text content. */
+  ariaLabel?: string;
+  /** Optional additional utility classes. */
+  className?: string;
+}
+
+/**
+ * Renders a compact, 44px-minimum-height administrator table/row action button.
+ *
+ * @param props - See {@link ActionProps}.
+ * @returns The rendered button element.
+ */
+export function Action({
+  onClick,
+  children,
+  disabled = false,
+  busy = false,
+  ariaLabel,
+  className = "",
+}: ActionProps) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold capitalize text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-white ${className}`.trim()}
+    >
+      {busy && <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" />}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+/** Props for {@link JsonTable}. */
+export interface JsonTableProps {
+  /** Tabular row records whose keys define the rendered column headers. */
+  rows: ReadonlyArray<Record<string, unknown>>;
+  /** Empty-state message displayed when `rows` is empty. */
+  emptyMessage?: string;
+  /** Accessible region label for horizontal table scrolling. */
+  ariaLabel?: string;
+}
+
+/**
+ * Renders an accessible, horizontally scrollable table from homogeneous record rows.
+ *
+ * @param props - See {@link JsonTableProps}.
+ * @returns The rendered table card or empty-state notice.
+ */
+export function JsonTable({
+  rows,
+  emptyMessage = "Generate a report to view results.",
+  ariaLabel = "Report results table (scroll horizontally)",
+}: JsonTableProps) {
+  if (!rows.length) {
+    return (
+      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm font-semibold text-slate-500 shadow-sm dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-400">
+        {emptyMessage}
+      </div>
+    );
+  }
+
+  const headers = Object.keys(rows[0]);
+
+  return (
+    <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+      <div
+        role="region"
+        aria-label={ariaLabel}
+        tabIndex={0}
+        className="table-scroll max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-indigo-500"
+      >
+        <table className="min-w-full text-left text-xs">
+          <thead className="border-b border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60">
+            <tr>
+              {headers.map((header) => (
+                <th
+                  key={header}
+                  className="p-3.5 font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                >
+                  {header}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+            {rows.map((row, index) => (
+              <tr key={index} className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                {headers.map((header) => (
+                  <td
+                    key={header}
+                    className="max-w-xs whitespace-normal break-words p-3.5 text-slate-800 dark:text-slate-200"
+                  >
+                    {String(row[header] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Structured log entry rendered inside {@link LogPanel}. */
+export interface LogEntry {
+  id: string;
+  action?: string;
+  operation?: string;
+  reason?: string;
+  target?: string;
+  sessionId?: string;
+  correlationId?: string;
+  createdAt?: TimestampLike;
+  [key: string]: unknown;
+}
+
+/** Props for {@link LogPanel}. */
+export interface LogPanelProps {
+  /** Panel heading text. */
+  title: string;
+  /** Leading icon element for the panel heading. */
+  icon: ReactNode;
+  /** Log records to display in chronological or query order. */
+  rows: ReadonlyArray<LogEntry>;
+  /** Empty-state text shown when no log records exist. */
+  emptyMessage?: string;
+}
+
+/**
+ * Renders a scrollable audit or legacy AI failure log feed panel.
+ *
+ * @param props - See {@link LogPanelProps}.
+ * @returns The rendered log feed card.
+ */
+export function LogPanel({
+  title,
+  icon,
+  rows,
+  emptyMessage = "No log entries found.",
+}: LogPanelProps) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
+      <h2 className="flex items-center gap-2 text-base font-bold text-slate-950 dark:text-white">
+        <span className="text-indigo-600 dark:text-indigo-400">{icon}</span>
+        {title}
+      </h2>
+      <div className="mt-4 max-h-[40rem] divide-y divide-slate-200 overflow-auto dark:divide-slate-800">
+        {rows.length === 0 ? (
+          <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+            {emptyMessage}
+          </p>
+        ) : (
+          rows.map((row) => (
+            <div key={row.id} className="py-3 text-xs">
+              <p className="font-bold text-slate-900 dark:text-slate-100">
+                {row.action ?? row.operation ?? row.reason ?? "event"}
+              </p>
+              <p className="mt-1 break-all text-slate-500 dark:text-slate-400">
+                {row.target ?? row.sessionId ?? row.correlationId ?? row.id}
+              </p>
+              {row.createdAt !== undefined && row.createdAt !== null && (
+                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                  {formatTimestamp(row.createdAt)}
+                </p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Shape of a released worked solution displayed during session review. */
+interface ReleasedSolution {
+  method?: string;
+  steps?: ReadonlyArray<string>;
+  answer?: string;
+  [key: string]: unknown;
+}
+
+/** Props for {@link SolutionDetails}. */
+export interface SolutionDetailsProps {
+  /** Solution payload stored on a reviewed or completed session. */
+  solution: ReleasedSolution;
+}
+
+/**
+ * Renders the released worked solution summary inside administrator session review.
+ *
+ * @param props - See {@link SolutionDetailsProps}.
+ * @returns The rendered solution card.
+ */
+export function SolutionDetails({ solution }: SolutionDetailsProps) {
+  return (
+    <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-100">
+      <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">
+        Released solution
+      </p>
+      <p className="mt-2 text-sm">
+        <strong>Method:</strong> {solution.method ?? "—"}
+      </p>
+      <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm">
+        {(solution.steps ?? []).map((step, index) => (
+          <li key={`${index}-${step}`}>{step}</li>
+        ))}
+      </ol>
+      <p className="mt-3 text-sm">
+        <strong>Answer:</strong> {solution.answer ?? "—"}
+      </p>
+    </div>
+  );
+}
+
+/** Props for {@link AdminSearchInput}. */
+export interface AdminSearchInputProps {
+  /** Controlled search query value. */
+  value: string;
+  /** Change handler invoked with the updated query string. */
+  onChange: (value: string) => void;
+  /** Placeholder text shown when empty. */
+  placeholder: string;
+  /** Accessible label for the search input. */
+  ariaLabel: string;
+  /** Accessible label for the inline clear button. */
+  clearAriaLabel?: string;
+  /** Optional wrapper classes. */
+  className?: string;
+}
+
+/**
+ * Renders a shared search bar with leading search icon and inline clear button.
+ *
+ * @param props - See {@link AdminSearchInputProps}.
+ * @returns The rendered search input container.
+ */
+export function AdminSearchInput({
+  value,
+  onChange,
+  placeholder,
+  ariaLabel,
+  clearAriaLabel = "Clear search",
+  className = "",
+}: AdminSearchInputProps) {
+  return (
+    <div className={`relative ${className}`.trim()}>
+      <Search
+        aria-hidden="true"
+        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+      />
+      <input
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        className="min-h-11 w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-base text-slate-950 shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:text-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {value && (
+        <button
+          type="button"
+          aria-label={clearAriaLabel}
+          onClick={() => onChange("")}
+          className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 transition hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:text-slate-200"
+        >
+          <X aria-hidden="true" className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Props for {@link AdminFilterPill}. */
+export interface AdminFilterPillProps {
+  /** Whether the filter option is currently selected. */
+  active: boolean;
+  /** Click handler to activate or toggle this filter. */
+  onClick: () => void;
+  /** Filter pill label. */
+  children: ReactNode;
+  /** Visual inactive background variant. */
+  variant?: "surface" | "muted";
+}
+
+/**
+ * Renders a filter toggle pill button with `aria-pressed` state.
+ *
+ * @param props - See {@link AdminFilterPillProps}.
+ * @returns The rendered filter button.
+ */
+export function AdminFilterPill({
+  active,
+  onClick,
+  children,
+  variant = "surface",
+}: AdminFilterPillProps) {
+  const inactiveClass =
+    variant === "muted"
+      ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300";
+
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`min-h-11 rounded-xl border px-3 py-1.5 text-xs font-semibold capitalize transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+        active
+          ? "border-indigo-600 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-950/50 dark:text-indigo-200"
+          : inactiveClass
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Tab item definition for {@link AdminTabs}. */
+export interface AdminTabItem {
+  /** Unique identifier of the tab. */
+  id: string;
+  /** Visible tab label. */
+  label: string;
+  /** Optional route path when tabs navigate across URLs. */
+  href?: string;
+  /** Optional trailing badge node (for example a count). */
+  badge?: ReactNode;
+}
+
+/** Props for {@link AdminTabs}. */
+export interface AdminTabsProps {
+  /** Tab definitions to render. */
+  items: ReadonlyArray<AdminTabItem>;
+  /** Currently active tab identifier. */
+  activeId: string;
+  /** Selection callback invoked for button-mode tabs without `href`. */
+  onSelect?: (id: string) => void;
+  /** Accessible label for the tab strip container. */
+  ariaLabel?: string;
+  /** Optional additional wrapper classes. */
+  className?: string;
+}
+
+/**
+ * Renders a shared pill-style tab bar supporting both router links and controlled tab buttons.
+ *
+ * @param props - See {@link AdminTabsProps}.
+ * @returns The rendered tab navigation strip.
+ */
+export function AdminTabs({
+  items,
+  activeId,
+  onSelect,
+  ariaLabel = "Section tabs",
+  className = "",
+}: AdminTabsProps) {
+  return (
+    <div
+      role="navigation"
+      aria-label={ariaLabel}
+      className={`flex flex-wrap gap-2 ${className}`.trim()}
+    >
+      {items.map((item) => {
+        const isActive = item.id === activeId;
+        const tabClass = `inline-flex min-h-11 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
+          isActive
+            ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/20"
+            : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+        }`;
+
+        if (item.href) {
+          return (
+            <Link
+              key={item.id}
+              to={item.href}
+              aria-current={isActive ? "page" : undefined}
+              className={tabClass}
+            >
+              <span>{item.label}</span>
+              {item.badge}
+            </Link>
+          );
+        }
+
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={isActive}
+            onClick={() => onSelect?.(item.id)}
+            className={tabClass}
+          >
+            <span>{item.label}</span>
+            {item.badge}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Result returned by {@link paginateSlice}. */
+export interface PaginationResult<T> {
+  /** Items belonging to the clamped current page. */
+  items: ReadonlyArray<T>;
+  /** 1-based clamped page index. */
+  page: number;
+  /** Total number of pages (at least 1). */
+  totalPages: number;
+  /** Total number of input items. */
+  totalItems: number;
+  /** 1-based index of the first item on the current page (0 when empty). */
+  startIndex: number;
+  /** 1-based index of the last item on the current page (0 when empty). */
+  endIndex: number;
+}
+
+/**
+ * Computes a safe 1-based page slice from an array of items.
+ *
+ * @param items - Full filtered item list.
+ * @param page - Requested 1-based page number.
+ * @param pageSize - Maximum items per page (must be >= 1).
+ * @returns Clamped page metadata and sliced items.
+ */
+export function paginateSlice<T>(
+  items: ReadonlyArray<T>,
+  page: number,
+  pageSize: number,
+): PaginationResult<T> {
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize));
+  const clampedPage = Math.min(Math.max(1, Math.floor(page)), totalPages);
+  const offset = (clampedPage - 1) * safePageSize;
+  const sliced = items.slice(offset, offset + safePageSize);
+
+  return {
+    items: sliced,
+    page: clampedPage,
+    totalPages,
+    totalItems,
+    startIndex: totalItems === 0 ? 0 : offset + 1,
+    endIndex: totalItems === 0 ? 0 : offset + sliced.length,
+  };
+}
+
+/** Props for {@link AdminPagination}. */
+export interface AdminPaginationProps {
+  /** Current 1-based page number. */
+  page: number;
+  /** Number of records per page. */
+  pageSize: number;
+  /** Total count of matching records across all pages. */
+  totalItems: number;
+  /** Invoked with the requested 1-based page index. */
+  onPageChange: (nextPage: number) => void;
+  /** Singular/plural noun describing the paginated items. */
+  itemLabel?: string;
+  /** Optional wrapper classes. */
+  className?: string;
+}
+
+/**
+ * Renders accessible previous/next pagination controls with range summary.
+ *
+ * @param props - See {@link AdminPaginationProps}.
+ * @returns The rendered pagination bar, or `null` when there are no items.
+ */
+export function AdminPagination({
+  page,
+  pageSize,
+  totalItems,
+  onPageChange,
+  itemLabel = "records",
+  className = "",
+}: AdminPaginationProps) {
+  if (totalItems <= 0) return null;
+
+  const safePageSize = Math.max(1, Math.floor(pageSize));
+  const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize));
+  const currentPage = Math.min(Math.max(1, Math.floor(page)), totalPages);
+  const start = (currentPage - 1) * safePageSize + 1;
+  const end = Math.min(totalItems, currentPage * safePageSize);
+
+  return (
+    <nav
+      aria-label="Pagination"
+      className={`mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs shadow-sm sm:flex-row sm:items-center sm:justify-between dark:border-slate-800 dark:bg-slate-900/80 ${className}`.trim()}
+    >
+      <p className="font-medium text-slate-600 dark:text-slate-400">
+        Showing <span className="font-bold text-slate-900 dark:text-slate-100">{start}–{end}</span>{" "}
+        of <span className="font-bold text-slate-900 dark:text-slate-100">{totalItems}</span>{" "}
+        {itemLabel}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          aria-label="Previous page"
+          className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          <ChevronLeft aria-hidden="true" className="h-4 w-4" />
+          Previous
+        </button>
+        <span className="px-2 font-semibold text-slate-700 dark:text-slate-300">
+          Page {currentPage} of {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          aria-label="Next page"
+          className="inline-flex min-h-11 items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          Next
+          <ChevronRight aria-hidden="true" className="h-4 w-4" />
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+/**
+ * Builds a lowercased searchable string from user identity, role, status, and academic profile fields.
+ *
+ * @param user - User profile record to index.
+ * @returns Lowercased text suitable for substring search matching.
+ */
+export function searchableUser(user: SearchableUserRecord): string {
+  const fields: unknown[] = [
+    user.displayName,
+    user.email,
+    user.role,
+    user.status,
+    user.academicProfile?.studentNumber,
+    user.academicProfile?.course,
+    user.academicProfile?.yearLevel,
+    user.academicProfile?.section,
+  ];
+  return fields
+    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
+    .map((value) => String(value))
+    .join(" ")
+    .toLowerCase();
+}
+
+/**
+ * Extracts a human-readable error message from an unknown thrown value.
+ *
+ * @param cause - Caught error or rejection value.
+ * @param fallback - Message returned when `cause` is not an `Error` instance.
+ * @returns Resolved error message string.
+ */
+export function errorMessage(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback;
+}
+
+/**
+ * Formats a Firestore `Timestamp`, epoch millisecond number, ISO string, or `Date` into a locale string.
+ *
+ * @param value - Timestamp-like value to format.
+ * @returns Formatted locale timestamp string, or `"—"` when unavailable or invalid.
+ */
+export function formatTimestamp(value: TimestampLike): string {
+  if (value === null || value === undefined || value === "") return "—";
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? new Date(value).toLocaleString() : "—";
+  }
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? "—" : value.toLocaleString();
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? "—" : new Date(parsed).toLocaleString();
+  }
+  if (typeof value === "object") {
+    if ("toDate" in value && typeof value.toDate === "function") {
+      return value.toDate().toLocaleString();
+    }
+    if ("toMillis" in value && typeof value.toMillis === "function") {
+      return new Date(value.toMillis()).toLocaleString();
+    }
+  }
+  return "—";
+}
