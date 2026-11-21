@@ -4,6 +4,7 @@ import {
   presentScorecard,
   type PresentableScorecardInput,
 } from "@/lib/scorecard-presentation";
+import { FormattedMathText } from "./MathText";
 
 /**
  * Renders a student's Critical Thinking Scorecard in alignment with `SCORECARD_RUBRIC`.
@@ -131,7 +132,7 @@ export function ScorecardDetails({
                 {criterion.reason && (
                   <p className="mt-2.5 text-xs leading-5 text-slate-700 dark:text-slate-200">
                     <span className="font-semibold">Why you received this score:</span>{" "}
-                    {criterion.reason}
+                    <FormattedMathText text={criterion.reason} />
                   </p>
                 )}
 
@@ -142,7 +143,9 @@ export function ScorecardDetails({
                     </p>
                     <ul className="list-disc space-y-0.5 pl-4">
                       {criterion.evidence.map((evidence, index) => (
-                        <li key={index}>{evidence}</li>
+                        <li key={index} className="[overflow-wrap:anywhere]">
+                          <FormattedMathText text={evidence} />
+                        </li>
                       ))}
                     </ul>
                   </div>
@@ -150,7 +153,7 @@ export function ScorecardDetails({
 
                 {!compact && criterion.improvementAdvice && (
                   <p className="mt-2.5 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
-                    How to improve: {criterion.improvementAdvice}
+                    How to improve: <FormattedMathText text={criterion.improvementAdvice} />
                   </p>
                 )}
               </article>
@@ -211,7 +214,9 @@ export function ScorecardDetails({
               ) : (
                 <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
                   {presentation.improvements.map((item) => (
-                    <li key={item}>{item}</li>
+                    <li key={item}>
+                      <FormattedMathText text={item} />
+                    </li>
                   ))}
                 </ul>
               )}
@@ -227,7 +232,9 @@ function Insight({ title, text }: { title: string; text: string }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <h3 className="text-sm font-bold text-slate-950 dark:text-white">{title}</h3>
-      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{text}</p>
+      <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        <FormattedMathText text={text} />
+      </p>
     </div>
   );
 }

@@ -475,7 +475,7 @@ export class LearningService {
           ensure(score[key].evidenceIds.every(id=>assessedResponses.some(r=>r.messageId===id))
             && score[key].evidenceIds.some(id=>assessedResponses.some(r=>r.messageId===id && r.evaluation?.status === "accepted" && (SCORECARD_RUBRIC[key].phases as readonly string[]).includes(r.phase))),
           "The scorecard needs assessed learner evidence from the relevant reasoning stage for each criterion. Your progress is preserved; retry scoring.", 503);
-          score[key].evidence = score[key].evidenceIds.map(id=>`${id}: ${evidence.get(id)!.slice(0,600)}`);
+          score[key].evidence = score[key].evidenceIds.map(id => evidence.get(id)!.trim().slice(0, 600));
         }
         ensure(Object.values({a:score.accuracy,l:score.logicalValidity,m:score.methodSelection,e:score.explanationQuality}).every(c=>c.confidence !== "low"), "The tutor could not reliably score the saved conversation. Your accepted stages are preserved; retry generating the solution and scorecard.", 422);
         const acceptedComputation = assessedResponses.filter(r=>["guided_computation_or_proof","verification_and_checking"].includes(r.phase) && r.evaluation?.status === "accepted" && evidence.has(r.messageId)).at(-1);

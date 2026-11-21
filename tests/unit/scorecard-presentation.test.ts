@@ -3,6 +3,7 @@ import {
   SCORECARD_CATEGORY_DESCRIPTIONS,
   SCORECARD_CATEGORY_LABELS,
   presentScorecard,
+  sanitizeScorecardEvidence,
 } from "@/lib/scorecard-presentation";
 import { buildNextPracticeRecommendation, buildSupportSummary, hintLevelNumberFor } from "../../server/scorecard-rubric";
 import type { ScorecardCategory, ScorecardResult } from "@mindguide/contracts";
@@ -179,6 +180,47 @@ describe("scorecard presentation", () => {
       "logicalValidity",
       "methodSelection",
       "explanationQuality",
+    ]);
+  });
+
+  it("strips internal message-ID prefixes from scorecard evidence while preserving plain system messages", () => {
+    expect(
+      sanitizeScorecardEvidence(
+        "51223c4e-9292-425b-ae40-304e6ebe798d_student: Evaluated f(A) = {2, 3, 4, 5, 6}.",
+      ),
+    ).toBe("Evaluated f(A) = {2, 3, 4, 5, 6}.");
+    expect(sanitizeScorecardEvidence("computation_student:   (4 + 8 + 12) / 3 = 8  ")).toBe(
+      "(4 + 8 + 12) / 3 = 8",
+    );
+    expect(
+      sanitizeScorecardEvidence("Final answer verified against the approved mathematical reference."),
+    ).toBe("Final answer verified against the approved mathematical reference.");
+
+    const presented = presentScorecard({
+      total: 92,
+      feedback: "Accurate work.",
+      criteria: {
+        accuracy: {
+          category: "accuracy",
+          score: 25,
+          evidence: [
+            "Final answer verified against the approved mathematical reference.",
+            "51223c4e-9292-425b-ae40-304e6ebe798d_student: The image is \\(f(A) = \\{2, 3, 4, 5, 6\\}\\).",
+            "method_student: Used substitution for each element of A.",
+            "51223c4e-9292-425b-ae40-304e6ebe798d_student:   ",
+          ],
+          reason: "All values are verified.",
+          improvementAdvice: "None",
+          confidence: "high",
+          source: "hybrid",
+        },
+      },
+    });
+
+    expect(presented.criteria[0].evidence).toEqual([
+      "Final answer verified against the approved mathematical reference.",
+      "The image is \\(f(A) = \\{2, 3, 4, 5, 6\\}\\).",
+      "Used substitution for each element of A.",
     ]);
   });
 });

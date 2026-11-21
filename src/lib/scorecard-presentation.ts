@@ -70,6 +70,20 @@ export type PresentableScorecardInput =
       criteria?: Partial<Record<ScorecardCategory, Partial<ScorecardCriterionResult>>>;
     });
 
+const INTERNAL_EVIDENCE_PREFIX_PATTERN =
+  /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_(?:student|tutor)|[a-z0-9_-]+_(?:student|tutor))\s*:\s*/i;
+
+/**
+ * Strips leading internal message-ID prefixes (e.g. `<uuid>_student: ` or `<name>_tutor: `)
+ * from stored scorecard evidence lines while preserving learner text and plain system messages.
+ *
+ * @param raw - Raw evidence string stored on a scorecard criterion.
+ * @returns Sanitized, trimmed evidence text suitable for student-facing display.
+ */
+export function sanitizeScorecardEvidence(raw: string): string {
+  return raw.trim().replace(INTERNAL_EVIDENCE_PREFIX_PATTERN, "").trim();
+}
+
 /**
  * Transforms a Critical Thinking Scorecard into a null-safe presentation model aligned
  * with `SCORECARD_RUBRIC`, preserving legacy records without synthesizing missing fields.
@@ -87,11 +101,17 @@ export function presentScorecard(scorecard: PresentableScorecardInput): Presente
     if (!entry || typeof entry.score !== "number" || !Number.isFinite(entry.score)) {
       return [];
     }
+    const sanitizedEvidence = Array.isArray(entry.evidence)
+      ? entry.evidence
+          .filter((item): item is string => typeof item === "string")
+          .map(sanitizeScorecardEvidence)
+          .filter((item) => item.length > 0)
+      : [];
     return [
       {
         category,
         score: entry.score,
-        evidence: Array.isArray(entry.evidence) ? entry.evidence : [],
+        evidence: sanitizedEvidence,
         reason: typeof entry.reason === "string" ? entry.reason : "",
         improvementAdvice:
           typeof entry.improvementAdvice === "string" ? entry.improvementAdvice : "",

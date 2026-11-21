@@ -488,4 +488,72 @@ describe("scorecard details", () => {
     expect(screen.getByText("Showed correct substitution step.")).toBeVisible();
     expect(screen.getByText(/How to improve: explanationQuality actionable advice/)).toBeVisible();
   });
+
+  it("strips legacy UUID evidence prefixes and renders delimited LaTeX via KaTeX in scorecard fields", () => {
+    const legacyUuid = "51223c4e-9292-425b-ae40-304e6ebe798d";
+    const { container } = render(
+      <ScorecardDetails
+        scorecard={{
+          total: 90,
+          feedback: "Verified codomain membership in \\(\\mathbb{Z}\\).",
+          nextPracticeRecommendation: "Practice set images such as \\(f(A) = \\{2, 3, 4, 5, 6\\}\\).",
+          generatedAt: 1,
+          criteria: {
+            accuracy: {
+              category: "accuracy",
+              score: 25,
+              evidence: [
+                "Final answer verified against the approved mathematical reference.",
+                `${legacyUuid}_student: Computed \\(f(A) = \\{2, 3, 4, 5, 6\\}\\) inside \\(\\mathbb{Z}\\).`,
+              ],
+              reason: "Correctly computed \\(f(A) = \\{2, 3, 4, 5, 6\\}\\).",
+              improvementAdvice: "None",
+              confidence: "high",
+              source: "hybrid",
+            },
+            logicalValidity: {
+              category: "logicalValidity",
+              score: 20,
+              evidence: ["method_student: Checked each element of the domain."],
+              reason: "Sound reasoning across \\(\\mathbb{Z}\\).",
+              improvementAdvice: "State why each output lies in \\(\\mathbb{Z}\\).",
+              confidence: "high",
+              source: "ai",
+            },
+            methodSelection: {
+              category: "methodSelection",
+              score: 23,
+              evidence: [],
+              reason: "Applied direct evaluation.",
+              improvementAdvice: "None",
+              confidence: "high",
+              source: "ai",
+            },
+            explanationQuality: {
+              category: "explanationQuality",
+              score: 22,
+              evidence: [],
+              reason: "Clear explanation.",
+              improvementAdvice: "None",
+              confidence: "high",
+              source: "ai",
+            },
+          },
+        }}
+      />,
+    );
+
+    expect(container.textContent).not.toContain(legacyUuid);
+    expect(container.textContent).not.toContain("_student:");
+    expect(container.textContent).not.toContain("\\(");
+    expect(container.textContent).not.toContain("\\)");
+    expect(container.querySelectorAll(".katex").length).toBeGreaterThanOrEqual(7);
+    expect(container.querySelectorAll("code")).toHaveLength(0);
+
+    const visibleClone = container.cloneNode(true) as HTMLElement;
+    visibleClone.querySelectorAll("annotation").forEach((node) => node.remove());
+    expect(visibleClone.textContent).not.toContain("\\mathbb{Z}");
+    expect(visibleClone.textContent).toContain("Final answer verified against the approved mathematical reference.");
+    expect(visibleClone.textContent).toContain("Checked each element of the domain.");
+  });
 });
