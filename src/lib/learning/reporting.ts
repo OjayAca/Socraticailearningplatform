@@ -54,7 +54,7 @@ export function reportHeaders(kind: ReportKind): string[] {
 export function toCsv(rows: Record<string, unknown>[], headers = rows.length ? Object.keys(rows[0]) : []): string {
   const escape = (value: unknown) => {
     const text = String(value ?? "");
-    const safe = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    const safe = /^(?:[\t\r\n]|\s*[=+\-@])/.test(text) ? `'${text}` : text;
     return `"${safe.replaceAll('"', '""')}"`;
   };
   return [headers.map(escape).join(","), ...rows.map((row) => headers.map((header) => escape(row[header])).join(","))].join("\r\n");

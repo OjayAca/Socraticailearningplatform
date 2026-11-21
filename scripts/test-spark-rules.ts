@@ -14,7 +14,7 @@ const getMock = (path: string, data: unknown, name = "get") => ({ function: name
 const cases: Array<{ name: string; test: any }> = [];
 function scenario(name: string, expectation: "ALLOW" | "DENY", path: string, method: string, data: any, options: any = {}) {
   cases.push({ name, test: {
-    expectation, request: { auth: { uid: "rules-alice", token: { role: "student", email: "rules-alice@test.invalid" } }, path: root + path, method, ...options.request },
+    expectation, request: { auth: { uid: "rules-alice", token: { role: "student", email: "rules-alice@test.invalid", email_verified: true } }, path: root + path, method, ...options.request },
     resource: { data }, functionMocks: [{ function: "exists", args: [{ anyValue: {} }], result: { value: true } }, getMock("users/rules-alice", profile), ...(options.mocks ?? [])], expressionReportLevel: "VISITED",
   } });
 }
@@ -73,7 +73,7 @@ for (const [from, to, expected] of [["deactivated","active","ALLOW"],["suspended
 scenario("learner cannot reactivate self", "DENY", "users/rules-alice", "update", {role:"student",status:"deactivated"}, {request:{time,resource:{data:{role:"student",status:"active",updatedAt:time}}}});
 scenario("admin lists users", "ALLOW", "users/student", "list", { role: "student" }, adminOptions);
 scenario("admin reads private solutions", "ALLOW", "problems/question/private/solution", "get", {}, adminOptions);
-scenario("admin creates audit records", "ALLOW", "audit_logs/event", "create", {}, { ...adminOptions, request: { ...adminOptions.request, resource: { data: { actorId: "rules-admin", action: "test" } } } });
+scenario("admin creates audit records", "ALLOW", "audit_logs/event", "create", {}, { ...adminOptions, request: { ...adminOptions.request, time, resource: { data: { actorId: "rules-admin", action: "test", createdAt: time } } } });
 scenario("admin cannot rewrite audit records", "DENY", "audit_logs/event", "update", {}, { ...adminOptions, request: { ...adminOptions.request, resource: { data: { action: "changed" } } } });
 scenario("admin cannot delete faculty evidence", "DENY", "content_validation_records/evidence", "delete", {}, adminOptions);
 scenario("student cannot read audit records", "DENY", "audit_logs/event", "get", {});
@@ -106,6 +106,57 @@ scenario("admin updates own displayName without preferences", "ALLOW", "users/ru
 scenario("owner cannot set empty displayName", "DENY", "users/rules-admin", "update", adminProfile, {
   ...adminOptions,
   request: { ...adminOptions.request, time, resource: { data: { ...adminProfile, displayName: "", updatedAt: time } } },
+});
+
+const unverifiedAuth = { uid: "rules-alice", token: { role: "student", email: "rules-alice@test.invalid", email_verified: false } };
+scenario("unverified student denied topics read", "DENY", "topics/topic", "get", { status: "approved" }, { request: { auth: unverifiedAuth } });
+scenario("unverified student denied problems read", "DENY", "problems/question", "get", { status: "approved" }, { request: { auth: unverifiedAuth } });
+scenario("unverified student denied session read", "DENY", "sessions/session", "get", { studentId: "rules-alice" }, { request: { auth: unverifiedAuth } });
+scenario("unverified student denied notification read", "DENY", "notifications/n1", "get", { recipientId: "rules-alice" }, { request: { auth: unverifiedAuth } });
+scenario("unverified student denied consent creation", "DENY", "users/rules-alice/consents/notice", "create", {}, {
+  request: { auth: unverifiedAuth, time, resource: { data: { version: "notice", acknowledgedAt: time, source: "web" } } },
+  mocks: [getMock("users/rules-alice", profile, "getAfter"), getMock("policy_documents/notice", { status: "active" }), getMock("system_settings/privacy", { currentConsentVersion: "notice" })],
+});
+scenario("unverified student can bootstrap own user doc", "ALLOW", "users/rules-alice", "create", {}, {
+  request: { auth: unverifiedAuth, time, resource: { data: newProfile } },
+});
+scenario("unverified student can read own user doc", "ALLOW", "users/rules-alice", "get", profile, {
+  request: { auth: unverifiedAuth },
+});
+scenario("verified student cannot fabricate notifications", "DENY", "notifications/fake", "create", {}, {
+  request: { time, resource: { data: { recipientId: "rules-alice", eventType: "achievement_awarded", read: false, createdAt: time } } },
+});
+scenario("verified student cannot create legacy operations", "DENY", "users/rules-alice/operations/op1", "create", {}, {
+  request: { time, resource: { data: { name: "op", sessionId: "session", result: {}, createdAt: time } } },
+  mocks: [getMock("sessions/session", session, "getAfter")],
+});
+scenario("verified student cannot exceed draft latex size limit", "DENY", "sessions/session", "update", aiDraftSession, {
+  request: { time, resource: { data: { ...aiDraftSession, revision: 1, draft: { answer: { plainText: "8", latex: "x".repeat(4001) }, methodology: "Explanation", reflection: "Interpretation" } } } },
+  mocks: [getMock("sessions/session", aiDraftSession)],
+});
+scenario("student cannot create profile with invalid schemaVersion", "DENY", "users/rules-alice", "create", {}, {
+  request: { time, resource: { data: { ...newProfile, schemaVersion: "bad" } } },
+});
+scenario("student cannot create profile with whitespace displayName", "DENY", "users/rules-alice", "create", {}, {
+  request: { time, resource: { data: { ...newProfile, displayName: "   " } } },
+});
+scenario("admin cannot spoof audit log actorId", "DENY", "audit_logs/event", "create", {}, {
+  ...adminOptions,
+  request: { ...adminOptions.request, time, resource: { data: { actorId: "other-admin", action: "test", createdAt: time } } },
+});
+scenario("admin cannot backdate audit log timestamp", "DENY", "audit_logs/event", "create", {}, {
+  ...adminOptions,
+  request: { ...adminOptions.request, time, resource: { data: { actorId: "rules-admin", action: "test", createdAt: "2020-01-01T00:00:00Z" } } },
+});
+cases.push({
+  name: "nonexistent session does not bypass ownership check",
+  test: {
+    expectation: "DENY",
+    request: { auth: { uid: "rules-alice", token: { role: "student", email: "rules-alice@test.invalid", email_verified: true } }, path: root + "sessions/missing", method: "get" },
+    resource: { data: {} },
+    functionMocks: [{ function: "exists", args: [{ exactValue: root + "sessions/missing" }], result: { value: false } }, getMock("users/rules-alice", profile)],
+    expressionReportLevel: "VISITED",
+  },
 });
 
 const token = await applicationDefault().getAccessToken();

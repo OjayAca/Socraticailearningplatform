@@ -1,11 +1,14 @@
 import { authenticate } from "../../../../server/auth";
+import { verifyAppCheckIfEnforced } from "../../../../server/app-check";
 import { getServerEnv } from "../../../../server/config";
 import { Firestore } from "../../../../server/firestore";
+import { API_SECURITY_HEADERS, readBoundedBuffer } from "../../../../server/http-security";
 import { ensure, ServiceError } from "../../../../server/platform";
 import {
   authorizeAndReserveExtraction,
   extractProblemFromMedia,
   MAX_EXTRACTION_FILE_BYTES,
+  releaseExtractionLock,
   validateUploadedProblemMedia,
 } from "../../../../server/problem-extractor";
 
@@ -13,31 +16,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const responseHeaders = { "Cache-Control": "no-store" };
 const MAX_REQUEST_BODY_BYTES = Math.ceil((MAX_EXTRACTION_FILE_BYTES * 4) / 3) + 64 * 1024;
 const ALLOWED_SUBJECT_IDS = new Set(["quantitative-methods", "discrete-mathematics"]);
-
-async function readBoundedBody(request: Request, maxBytes: number): Promise<Buffer> {
-  const reader = request.body?.getReader();
-  if (!reader) throw new ServiceError(400, "invalid-request", "A request body is required.");
-  const chunks: Uint8Array[] = [];
-  let totalBytes = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maxBytes) {
-        await reader.cancel();
-        throw new ServiceError(413, "too-large", "Uploaded file must be 4 MB or smaller.");
-      }
-      chunks.push(value);
-    }
-    return Buffer.concat(chunks);
-  } finally {
-    reader.releaseLock();
-  }
-}
+const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
 async function parseExtractionPayload(request: Request): Promise<{
   bytes: Uint8Array;
@@ -45,8 +26,13 @@ async function parseExtractionPayload(request: Request): Promise<{
   subjectId?: string;
 }> {
   const contentType = request.headers.get("content-type") ?? "";
+  const rawBuffer = await readBoundedBuffer(
+    request,
+    MAX_REQUEST_BODY_BYTES,
+    "Uploaded file must be 4 MB or smaller.",
+  );
+
   if (contentType.includes("application/json")) {
-    const rawBuffer = await readBoundedBody(request, MAX_REQUEST_BODY_BYTES);
     let parsed: unknown;
     try {
       parsed = JSON.parse(rawBuffer.toString("utf8"));
@@ -64,12 +50,20 @@ async function parseExtractionPayload(request: Request): Promise<{
       "A problem image or PDF file is required.",
       400,
     );
+    const cleanedBase64 = payload.dataBase64.replace(/\s+/g, "");
+    ensure(
+      cleanedBase64.length > 0 &&
+        cleanedBase64.length % 4 === 0 &&
+        BASE64_PATTERN.test(cleanedBase64),
+      "Invalid base64 image or PDF payload.",
+      400,
+    );
     ensure(
       typeof payload.mimeType === "string" && payload.mimeType.length > 0,
       "A valid file MIME type is required.",
       400,
     );
-    const bytes = new Uint8Array(Buffer.from(payload.dataBase64, "base64"));
+    const bytes = new Uint8Array(Buffer.from(cleanedBase64, "base64"));
     const subjectId =
       typeof payload.subjectId === "string" && ALLOWED_SUBJECT_IDS.has(payload.subjectId)
         ? payload.subjectId
@@ -79,7 +73,9 @@ async function parseExtractionPayload(request: Request): Promise<{
 
   let formData: FormData;
   try {
-    formData = await request.formData();
+    formData = await new Response(new Uint8Array(rawBuffer), {
+      headers: contentType ? { "content-type": contentType } : undefined,
+    }).formData();
   } catch {
     throw new ServiceError(400, "invalid-request", "Upload a valid image or PDF file.");
   }
@@ -109,28 +105,24 @@ export async function POST(request: Request): Promise<Response> {
   try {
     const env = getServerEnv();
     const uid = await authenticate(request, env);
-
-    const contentLengthHeader = request.headers.get("content-length");
-    if (contentLengthHeader) {
-      const declaredBytes = Number(contentLengthHeader);
-      if (Number.isFinite(declaredBytes) && declaredBytes > MAX_REQUEST_BODY_BYTES) {
-        throw new ServiceError(413, "too-large", "Uploaded file must be 4 MB or smaller.");
-      }
-    }
+    await verifyAppCheckIfEnforced(request, env);
 
     const { bytes, declaredMimeType, subjectId } = await parseExtractionPayload(request);
     const verifiedMimeType = validateUploadedProblemMedia(bytes, declaredMimeType);
 
     const store = new Firestore();
-    await authorizeAndReserveExtraction(store, env, uid);
+    const leaseId = await authorizeAndReserveExtraction(store, env, uid);
+    try {
+      const extracted = await extractProblemFromMedia(env, {
+        bytes,
+        mimeType: verifiedMimeType,
+        subjectId,
+      });
 
-    const extracted = await extractProblemFromMedia(env, {
-      bytes,
-      mimeType: verifiedMimeType,
-      subjectId,
-    });
-
-    return Response.json(extracted, { headers: responseHeaders });
+      return Response.json(extracted, { headers: API_SECURITY_HEADERS });
+    } finally {
+      await releaseExtractionLock(store, uid, leaseId);
+    }
   } catch (error) {
     const known = error instanceof ServiceError;
     const status = known ? error.status : 503;
@@ -152,7 +144,7 @@ export async function POST(request: Request): Promise<Response> {
           retryAfter: known ? error.retryAfter : 0,
         },
       },
-      { status, headers: responseHeaders },
+      { status, headers: API_SECURITY_HEADERS },
     );
   } finally {
     console.info(JSON.stringify({ event: "problem_extraction_timing", durationMs: Date.now() - started }));

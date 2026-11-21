@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  user: { uid: "admin-user", getIdTokenResult: vi.fn() },
+  user: { uid: "admin-user", emailVerified: false, getIdTokenResult: vi.fn() },
   getDoc: vi.fn(),
   signInWithEmailAndPassword: vi.fn(),
   setPersistence: vi.fn(),
   createUserWithEmailAndPassword: vi.fn(),
   updateProfile: vi.fn(),
   sendEmailVerification: vi.fn(),
+  reload: vi.fn(),
+  getIdToken: vi.fn(),
+  signOut: vi.fn(),
 }));
 vi.mock("@/lib/firebase", () => ({
   auth: { currentUser: mocks.user }, db: {}, isFirebaseConfigured: true,
@@ -20,6 +23,9 @@ vi.mock("firebase/auth", async (original) => ({
   createUserWithEmailAndPassword: mocks.createUserWithEmailAndPassword,
   updateProfile: mocks.updateProfile,
   sendEmailVerification: mocks.sendEmailVerification,
+  reload: mocks.reload,
+  getIdToken: mocks.getIdToken,
+  signOut: mocks.signOut,
 }));
 vi.mock("firebase/firestore", async (original) => ({
   ...await original<typeof import("firebase/firestore")>(),
@@ -92,5 +98,51 @@ describe("administrator profile loading", () => {
 
     await useAuthStore.getState().signIn("student@example.com", "secret123", true);
     expect(mocks.setPersistence).toHaveBeenLastCalledWith(expect.anything(), browserLocalPersistence);
+  });
+
+  it("forces reload followed by fresh ID token retrieval on email verification refresh and cleans OAuth storage on signOut", async () => {
+    const callOrder: string[] = [];
+    mocks.user.emailVerified = false;
+    mocks.reload.mockImplementation(async (target: { emailVerified: boolean }) => {
+      callOrder.push("reload");
+      target.emailVerified = true;
+    });
+    mocks.getIdToken.mockImplementation(async (_target: unknown, forceRefresh: boolean) => {
+      callOrder.push(`getIdToken:${String(forceRefresh)}`);
+      return "refreshed-jwt";
+    });
+
+    useAuthStore.setState({
+      firebaseUser: mocks.user as never,
+      userProfile: { uid: "admin-user", role: "student", emailVerified: false } as never,
+    });
+    const verified = await useAuthStore.getState().refreshVerification();
+    expect(verified).toBe(true);
+    expect(callOrder).toEqual(["reload", "getIdToken:true"]);
+    expect(useAuthStore.getState().userProfile?.emailVerified).toBe(true);
+
+    const storeData = new Map<string, string>([
+      ["mindguide.google.state", "state-1"],
+      ["mindguide.google.result", "jwt-1"],
+      ["mindguide.pending.req", "{}"],
+    ]);
+    vi.stubGlobal("sessionStorage", {
+      get length() {
+        return storeData.size;
+      },
+      key(index: number) {
+        return Array.from(storeData.keys())[index] ?? null;
+      },
+      removeItem(key: string) {
+        storeData.delete(key);
+      },
+    });
+    mocks.signOut.mockResolvedValue(undefined);
+    try {
+      await useAuthStore.getState().signOut();
+      expect(storeData.size).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

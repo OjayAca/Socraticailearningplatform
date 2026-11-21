@@ -140,6 +140,7 @@ export function educationalContext(context: TutorContext) {
   const { session, reference, messages } = context;
   const currentStage = solverStageForPhase(session.currentPhase);
   const nextStage = currentStage ? SOLVER_STAGES[SOLVER_STAGES.indexOf(currentStage) + 1] : undefined;
+  const isOpening = context.intent === "opening";
   return {
     curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [],
     subject: session.subject, topic: session.topic, difficulty: session.difficulty, question: session.originalQuestion,
@@ -156,7 +157,8 @@ export function educationalContext(context: TutorContext) {
     intent: context.intent, supportLevel: context.supportLevel, response: context.response ? { plainText: context.response.plainText, latex: context.response.latex ?? "" } : undefined,
     reference: {
       expectedConcepts: reference.expectedConcepts, requiredFormula: reference.requiredFormula, requiredTheorem: reference.requiredTheorem,
-      conditions: reference.formulaTheoremConditions, answerSpecification: reference.answerSpecification, solutionSteps: reference.solutionSteps, finalAnswer: reference.finalAnswer, interpretation: reference.interpretation,
+      conditions: reference.formulaTheoremConditions, answerSpecification: reference.answerSpecification,
+      ...(isOpening ? {} : { solutionSteps: reference.solutionSteps, finalAnswer: reference.finalAnswer, interpretation: reference.interpretation }),
       socraticPrompts: reference.socraticPrompts, methodReference: reference.methodReference,
       sourceGuidance: reference.sourceGuidance
     },
@@ -249,9 +251,22 @@ export function exposesAnswer(turn: Pick<Turn,"feedback"|"question"|"evidence"|"
   const answer = String(reference.finalAnswer ?? "").trim();
   if (!answer || response && checkMath(response, reference.answerSpecification) === "correct") return false;
   const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const text = [turn.feedback,turn.question,...turn.evidence,turn.incorrectStep,turn.explanation,turn.recommendedAction].filter(Boolean).join(" ");
-  return new RegExp(`(?:the (?:final |correct )?(?:answer|result|solution) is|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`, "i").test(text)
-    || (answer.length > 25 && text.toLowerCase().includes(answer.toLowerCase()));
+  const rawText = [turn.feedback,turn.question,...turn.evidence,turn.incorrectStep,turn.explanation,turn.recommendedAction].filter(Boolean).join(" ");
+  const cleanText = rawText.replace(/[*_`]+/g, "");
+  const cleanLower = cleanText.toLowerCase();
+  const explicitPattern = new RegExp(
+    `(?:the (?:final |correct )?(?:answer|result|solution) is|(?:final |correct )?(?:answer|result|solution)\\s*[:=]|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`,
+    "i",
+  );
+  if (explicitPattern.test(cleanText) || (answer.length > 25 && cleanLower.includes(answer.toLowerCase()))) {
+    return true;
+  }
+  const solutionSteps: unknown[] = Array.isArray(reference.solutionSteps) ? reference.solutionSteps : [];
+  const originalQuestionLower = String(reference.originalQuestion ?? "").toLowerCase();
+  return solutionSteps.some((step) => {
+    const normalizedStep = String(step).replace(/[*_`]+/g, "").trim().toLowerCase();
+    return normalizedStep.length >= 35 && !originalQuestionLower.includes(normalizedStep) && cleanLower.includes(normalizedStep);
+  });
 }
 export function allowedSupport(gates: any, history: any[] = []) {
   const phase = REASONING_PHASES.find(p => gates[p]?.status !== "accepted");

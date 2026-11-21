@@ -261,6 +261,7 @@ export function Login() {
                   <input
                     id="reset-email"
                     type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -328,6 +329,7 @@ export function Login() {
                   <input
                     id="login-email"
                     type="email"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => {
                       setEmail(e.target.value);
@@ -366,6 +368,7 @@ export function Login() {
                   <input
                     id="login-password"
                     type={isPasswordVisible ? "text" : "password"}
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => {
                       setPassword(e.target.value);

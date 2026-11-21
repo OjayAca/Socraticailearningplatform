@@ -15,7 +15,7 @@ npm run dev
 
 Open http://localhost:5173. Existing public VITE_FIREBASE_* values in .env remain supported through an explicit allowlist in next.config.mjs. New installations may use the equivalent NEXT_PUBLIC_FIREBASE_* identifiers. These must identify the same project as the server.
 
-Set private backend values in ignored .env.local using the empty placeholders in .env.example: GEMINI_API_KEY, GEMINI_MODEL, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY. The private key accepts quoted escaped newlines. Preserve existing AI_ENABLED, AI_FREE_TIER_CONFIRMED, GEMINI_RPM, GEMINI_TPM, GEMINI_RPD, and optional OPERATOR_UID settings. Missing enablement defaults to disabled. Never prefix secrets with NEXT_PUBLIC_ or VITE_.
+Set private backend values in ignored .env.local using the empty placeholders in .env.example: GEMINI_API_KEY, GEMINI_MODEL, FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY. The private key accepts quoted escaped newlines. Preserve existing AI_ENABLED, AI_FREE_TIER_CONFIRMED, GEMINI_RPM, GEMINI_TPM, GEMINI_RPD, and optional OPERATOR_UID settings. Optional security controls in `.env.local` include AUTH_CHECK_REVOKED (set `"true"` when `FIREBASE_CLIENT_EMAIL` has Firebase Auth Viewer `firebaseauth.users.get` permission for live ID token revocation checks), APP_CHECK_ENFORCED (set `"true"` in production once reCAPTCHA Enterprise App Check is active), USER_GEMINI_RPM, USER_GEMINI_RPD, USER_EXTRACTION_RPM, and USER_EXTRACTION_RPD. Missing enablement defaults to disabled. Never prefix secrets with NEXT_PUBLIC_ or VITE_.
 
 ## Verification
 
@@ -54,7 +54,7 @@ src/                          Existing interface and browser Firebase services
 packages/contracts/           Shared types and workflow ordering
 ```
 
-All nine learning mutations, activity checks and verified-problem previews remain available. Backend membership, consent, content approval, ownership, quota, idempotency and progress checks remain authoritative. Historical records retain their original workflow/scoring versions.
+All nine learning mutations, activity checks and verified-problem previews remain available. Backend membership, consent, content approval, ownership, quota, idempotency and progress checks remain authoritative. HTTP responses enforce defensive security headers (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy: same-origin-allow-popups`, and production HSTS) configured in `next.config.mjs` and `server/http-security.ts`. Historical records retain their original workflow/scoring versions.
 
 ## Core Pedagogical Architecture (Workflow v6)
 

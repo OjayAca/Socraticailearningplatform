@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { REASONING_PHASES, RESPONSE_OUTCOMES, SOLVER_STAGES } from "../../../packages/contracts/src/index";
 
+if (typeof window !== "undefined") {
+  z.config({ jitless: true });
+}
+
 const str = z.string(), num = z.number(), bool = z.boolean(), strings = str.array();
 const evaluation = z.object({
   outcome:z.enum(RESPONSE_OUTCOMES),

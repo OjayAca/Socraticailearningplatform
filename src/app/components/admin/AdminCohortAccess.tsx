@@ -1146,7 +1146,7 @@ function AdminCohortAccess() {
               <a
                 className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-indigo-600 underline hover:text-indigo-700 dark:text-indigo-400"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/authentication/users`}
               >
                 <span>Open Authentication users</span>
@@ -1155,7 +1155,7 @@ function AdminCohortAccess() {
               <a
                 className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-indigo-600 underline hover:text-indigo-700 dark:text-indigo-400"
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/firestore`}
               >
                 <span>Open Firestore data and rules</span>

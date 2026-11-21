@@ -38,7 +38,7 @@ export function diagnoseArithmetic(response: MathResponse, problem: string): Mat
     }
     // Boundaries prevent interpreting a fragment of x+2=3 or a function call as arithmetic.
     if (rounded) continue;
-    const equalities = clause.matchAll(/(?<![\w.(+*/^=-])([+-]?(?:\d|\()[\d.eE+*/()^%\s-]*\s*=\s*[+-]?(?:\d|\()[\d.eE+*/()^%\s=-]*)(?![\w.(])/g);
+    const equalities = clause.matchAll(/(?<![\w.(+*/^=-])([+-]?(?:\d|\()[\d.eE+*/()^%\s-]*=[+-]?(?:\d|\()[\d.eE+*/()^%\s=-]*)(?![\w.(])/g);
     for (const match of equalities) {
       const statement = match[1].trim();
       const parts = statement.split("=");

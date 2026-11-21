@@ -308,6 +308,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await reload(user);
     await getIdToken(user, true);
     if (auth?.currentUser?.uid !== user.uid) throw new Error("The signed-in account changed. Try again.");
+    if (user.emailVerified) {
+      clearViews();
+    }
     set((state) => ({
       firebaseUser: user,
       userProfile: state.userProfile
@@ -318,9 +321,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    for (let index = sessionStorage.length - 1; index >= 0; index--) {
-      const key = sessionStorage.key(index);
-      if (key?.startsWith("mindguide.pending.") || key?.startsWith("mindguide.draft.")) sessionStorage.removeItem(key);
+    clearViews();
+    try {
+      if (typeof sessionStorage !== "undefined") {
+        for (let index = sessionStorage.length - 1; index >= 0; index--) {
+          const key = sessionStorage.key(index);
+          if (key?.startsWith("mindguide.pending.") || key?.startsWith("mindguide.draft.")) {
+            sessionStorage.removeItem(key);
+          }
+        }
+        sessionStorage.removeItem("mindguide.google.state");
+        sessionStorage.removeItem("mindguide.google.result");
+      }
+    } catch {
+      // Ignore storage errors in restricted browsing modes.
     }
     set({ error: null });
     try {
@@ -410,9 +424,9 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   if (snapshot.exists()) {
     await verifyAdministratorAccess(user, snapshot.data());
     return normalizeUserProfile({
+      ...snapshot.data(),
       uid: user.uid,
       emailVerified: user.emailVerified,
-      ...snapshot.data(),
     });
   }
 
@@ -451,9 +465,9 @@ async function createUserProfile(
     );
   }
   return normalizeUserProfile({
+    ...snapshot.data(),
     uid: user.uid,
     emailVerified: user.emailVerified,
-    ...snapshot.data(),
   });
 }
 

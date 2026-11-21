@@ -10,7 +10,7 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
-const forbiddenMarkers = ["GEMINI_API_KEY", "FIREBASE_PRIVATE_KEY", "generativelanguage.googleapis.com", "You are a Socratic mathematics tutor", "VITE_AI_PROVIDER", "VITE_OLLAMA", "GoogleGenAI", "firebase-admin", "httpsCallable", "cloudfunctions.net", "BEGIN PRIVATE KEY", "PRIVATE_CANONICAL_ANSWER"];
+const forbiddenMarkers = ["GEMINI_API_KEY", "FIREBASE_PRIVATE_KEY", "FIREBASE_CLIENT_EMAIL", "MINDGUIDE_STAGING_VERIFICATION_ID", "APP_CHECK_ENFORCED", "generativelanguage.googleapis.com", "You are a Socratic mathematics tutor", "You are a mathematical problem transcription assistant", "VITE_AI_PROVIDER", "VITE_OLLAMA", "GoogleGenAI", "firebase-admin", "httpsCallable", "cloudfunctions.net", "BEGIN PRIVATE KEY", "PRIVATE_CANONICAL_ANSWER"];
 
 const knownPrivateStrings = existsSync(problemBank)
   ? extractPrivateStrings(readFileSync(problemBank, "utf8"))

@@ -1,4 +1,60 @@
 rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users/{uid}
+//   - schemaVersion: int (required on create, 1..100, immutable by client)
+//   - displayName: string (required, 1..120 chars, matches \S([^\r\n]*\S)?)
+//   - email: string (required on create, 1..320 chars, equals auth.token.email, immutable)
+//   - role: 'student' | 'admin' ('student' on create, immutable by client)
+//   - status: 'active' | 'suspended' | 'deactivated' | 'anonymized' ('active' on create)
+//   - preferences: map { liveAlertPopups?: bool, theme?: 'light'|'dark'|'system', reducedMotion?: bool }
+//   - academicProfile: null on create; map edited via audited adminEditAcademicProfile tx
+//   - academicProfileComplete: bool (false on create, immutable by client)
+//   - lastAcademicProfileEdit: string (audit_logs doc id on audited academic edit)
+//   - createdAt: timestamp (request.time on create, immutable)
+//   - updatedAt: timestamp (request.time on create and update)
+//
+// Subcollection: users/{uid}/consents/{version}
+//   - version: string (equals {version}, active policy_documents/{version}, and currentConsentVersion)
+//   - acknowledgedAt: timestamp (request.time)
+//   - source: 'web'
+//
+// Subcollection: users/{uid}/operations/{id}
+//   - Historical/server read-only for verified active owner; client writes disabled.
+//
+// Collections: subjects/{id}, topics/{id}, problems/{id}
+//   - status: string ('approved' required for verified active student reads)
+//   - problems/{id}/private/{key}, problem_scoring/{id}: admin read/write only
+//
+// Collection: sessions/{id}
+//   - studentId: string (owner uid)
+//   - workflowVersion: int, status: string, currentPhase: string, revision: int
+//   - draft: map { answer: { plainText, latex?, normalizedLatex?, mathJson? }, methodology, reflection }
+//   - adminReview, reviewedAt, updatedAt, lastActivityAt
+//   - Subcollections: private/{key}, practice_reference/{key} (admin read only);
+//     messages/{messageId}, responses/{responseId}, scorecards/{scorecardId} (verified owner or admin read)
+//
+// Collection: learning_progress/{uid} & subcollection assignment_state/{topicId}
+//   - Server-owned; read allowed for verified active owner or admin; client writes disabled.
+//
+// Collections: ai_operations/{id}, ai_locks/{id}, ai_usage/{id}
+//   - Server-owned; ai_operations & ai_locks locked; ai_usage admin read only.
+//
+// Collection: notifications/{id}
+//   - recipientId: string, read: bool (verified active recipient may read and mark read: true; create/delete admin only)
+//
+// Collections: policy_documents/{id}, system_settings/{id}, pilot_roster/{id},
+//   content_validation_records/{id}, audit_logs/{id}, and admin-managed collections
+//   - policy_documents: verified active users may read active docs; admin read/write.
+//   - system_settings: verified active users may get 'privacy'; admin get/list/write.
+//   - pilot_roster: owner or admin may get; admin list/write.
+//   - content_validation_records: admin read/create; immutable.
+//   - audit_logs: admin read; admin create with actorId == uid, bounded action (1..120), createdAt == request.time; immutable.
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -6,18 +62,93 @@ service cloud.firestore {
     function active() {
       return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == "active";
     }
+    function verifiedActive() {
+      return active() && request.auth.token.get('email_verified', false) == true;
+    }
     function admin() {
       return active() && request.auth.token.get('role', '') == "admin"
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
-    function ownSession(id) { return active() && get(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
-    function ownSessionAfter(id) { return active() && getAfter(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid; }
+    function ownSession(id) {
+      return verifiedActive() && get(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid;
+    }
+    function ownSessionAfter(id) {
+      return active() && getAfter(/databases/$(database)/documents/sessions/$(id)).data.studentId == request.auth.uid;
+    }
     function preferences(value) {
       return value is map && value.keys().hasOnly(['liveAlertPopups', 'theme', 'reducedMotion'])
         && (!('liveAlertPopups' in value) || value.liveAlertPopups is bool)
         && (!('theme' in value) || value.theme in ['light', 'dark', 'system'])
         && (!('reducedMotion' in value) || value.reducedMotion is bool);
     }
+    function validDisplayName(value) {
+      return value is string && value.size() > 0 && value.size() <= 120
+        && value.matches('\\S([^\\r\\n]*\\S)?');
+    }
+    function validUserCreate(data) {
+      return data.keys().hasOnly(['schemaVersion','displayName','email','role','status','preferences','academicProfile','academicProfileComplete','createdAt','updatedAt'])
+        && data.schemaVersion is int && data.schemaVersion >= 1 && data.schemaVersion <= 100
+        && data.role == 'student' && data.status == 'active'
+        && data.email is string && data.email.size() > 0 && data.email.size() <= 320
+        && data.email == request.auth.token.email
+        && validDisplayName(data.displayName)
+        && data.academicProfile == null && data.academicProfileComplete == false
+        && preferences(data.preferences)
+        && data.createdAt == request.time && data.updatedAt == request.time;
+    }
+    function validUserOwnerUpdate() {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return affected.hasOnly(['displayName','preferences','updatedAt'])
+        && (!('displayName' in affected) || validDisplayName(request.resource.data.displayName))
+        && (!('preferences' in affected) || preferences(request.resource.data.preferences))
+        && request.resource.data.updatedAt == request.time;
+    }
+    function validUserStatusTransition() {
+      return resource.data.role == 'student'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
+        && ((resource.data.status == 'active' && request.resource.data.status in ['suspended','deactivated'])
+          || (resource.data.status == 'suspended' && request.resource.data.status in ['active','deactivated'])
+          || (resource.data.status == 'deactivated' && request.resource.data.status == 'active'))
+        && request.resource.data.updatedAt == request.time;
+    }
+    function validConsent(data, version) {
+      return data.keys().hasOnly(['version','acknowledgedAt','source'])
+        && data.version == version && data.source == 'web'
+        && data.acknowledgedAt == request.time;
+    }
+    function validDraftAnswer(answer) {
+      return answer is map
+        && answer.keys().hasOnly(['plainText','latex','normalizedLatex','mathJson'])
+        && answer.plainText is string && answer.plainText.size() <= 4000
+        && (!('latex' in answer) || (answer.latex is string && answer.latex.size() <= 4000))
+        && (!('normalizedLatex' in answer) || (answer.normalizedLatex is string && answer.normalizedLatex.size() <= 4000))
+        && (!('mathJson' in answer)
+          || answer.mathJson == null
+          || (answer.mathJson is string && answer.mathJson.size() <= 4000)
+          || answer.mathJson is number
+          || answer.mathJson is bool
+          || (answer.mathJson is list && answer.mathJson.size() <= 50)
+          || (answer.mathJson is map && answer.mathJson.size() <= 50));
+    }
+    function validSessionDraftUpdate() {
+      let after = request.resource.data;
+      return resource.data.workflowVersion == 6 && resource.data.status == 'in_progress'
+        && resource.data.currentPhase == 'controlled_solution_release'
+        && after.diff(resource.data).affectedKeys().hasOnly(['draft','revision','updatedAt','lastActivityAt'])
+        && after.draft is map
+        && after.draft.keys().hasOnly(['answer','methodology','reflection'])
+        && validDraftAnswer(after.draft.answer)
+        && after.draft.methodology is string && after.draft.methodology.size() <= 4000
+        && after.draft.reflection is string && after.draft.reflection.size() <= 2000
+        && after.revision == resource.data.revision + 1
+        && after.updatedAt == request.time && after.lastActivityAt == request.time;
+    }
+    function validAuditLogCreate(data) {
+      return data.actorId == request.auth.uid
+        && data.action is string && data.action.size() > 0 && data.action.size() <= 120
+        && data.createdAt == request.time;
+    }
+
     match /users/{uid} {
       function academicField(value) {
         return value is string && value.size() > 0 && value.size() <= 100 && value.matches('\\S(.*\\S)?');
@@ -37,73 +168,39 @@ service cloud.firestore {
       }
       allow get: if owner(uid) || admin();
       allow list: if admin();
-      allow create: if owner(uid)
-        && request.resource.data.keys().hasOnly(['schemaVersion','displayName','email','role','status','preferences','academicProfile','academicProfileComplete','createdAt','updatedAt'])
-        && request.resource.data.role == 'student' && request.resource.data.status == 'active'
-        && request.resource.data.email == request.auth.token.email
-        && request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120
-        && request.resource.data.academicProfile == null && request.resource.data.academicProfileComplete == false
-        && preferences(request.resource.data.preferences)
-        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
-      allow update: if (owner(uid) && active()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','preferences','updatedAt'])
-        && (!('displayName' in request.resource.data.diff(resource.data).affectedKeys())
-          || (request.resource.data.displayName is string && request.resource.data.displayName.size() > 0 && request.resource.data.displayName.size() <= 120))
-        && (!('preferences' in request.resource.data.diff(resource.data).affectedKeys())
-          || preferences(request.resource.data.preferences))
-        && request.resource.data.updatedAt == request.time)
-        || (admin() && resource.data.role == 'student'
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','updatedAt'])
-          && ((resource.data.status == 'active' && request.resource.data.status in ['suspended','deactivated'])
-            || (resource.data.status == 'suspended' && request.resource.data.status in ['active','deactivated'])
-            || (resource.data.status == 'deactivated' && request.resource.data.status == 'active'))
-          && request.resource.data.updatedAt == request.time)
+      allow create: if owner(uid) && validUserCreate(request.resource.data);
+      allow update: if (owner(uid) && (verifiedActive() || admin()) && validUserOwnerUpdate())
+        || (admin() && validUserStatusTransition())
         || (admin() && request.resource.data.lastAcademicProfileEdit is string && academicEdit());
       allow delete: if false;
       match /consents/{version} {
-        allow read: if (owner(uid) && active()) || admin();
+        allow read: if (owner(uid) && verifiedActive()) || admin();
         allow create, update: if owner(uid)
+          && request.auth.token.get('email_verified', false) == true
           && getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'active'
-          && request.resource.data.keys().hasOnly(['version','acknowledgedAt','source'])
-          && request.resource.data.version == version && request.resource.data.source == 'web'
-          && request.resource.data.acknowledgedAt == request.time
+          && validConsent(request.resource.data, version)
           && get(/databases/$(database)/documents/policy_documents/$(version)).data.status == 'active'
           && version == get(/databases/$(database)/documents/system_settings/privacy).data.currentConsentVersion;
       }
       match /operations/{id} {
-        allow read: if owner(uid) && active();
-        allow create: if owner(uid) && active()
-          && request.resource.data.keys().hasOnly(['name','sessionId','result','createdAt'])
-          && request.resource.data.name is string && ownSessionAfter(request.resource.data.sessionId)
-          && request.resource.data.result is map && request.resource.data.createdAt == request.time;
-        allow update, delete: if false;
+        allow read: if owner(uid) && verifiedActive();
+        allow create, update, delete: if false;
       }
     }
-    match /subjects/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
-    match /topics/{id} { allow read: if admin() || (active() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /subjects/{id} { allow read: if admin() || (verifiedActive() && resource.data.status == 'approved'); allow write: if admin(); }
+    match /topics/{id} { allow read: if admin() || (verifiedActive() && resource.data.status == 'approved'); allow write: if admin(); }
     match /problems/{id} {
-      allow read: if admin() || (active() && resource.data.status == 'approved');
+      allow read: if admin() || (verifiedActive() && resource.data.status == 'approved');
       allow write: if admin();
       match /private/{key} { allow read, write: if admin(); }
     }
     // Answer references and AI decisions are server-owned. History remains owner-readable.
     match /problem_scoring/{id} { allow read, write: if admin(); }
     match /sessions/{id} {
-      allow get: if active() && (!exists(/databases/$(database)/documents/sessions/$(id)) || resource.data.studentId == request.auth.uid || admin());
-      allow list: if active() && (resource.data.studentId == request.auth.uid || admin());
+      allow get: if admin() || (verifiedActive() && resource.data.studentId == request.auth.uid);
+      allow list: if admin() || (verifiedActive() && resource.data.studentId == request.auth.uid);
       allow create, delete: if false;
-      allow update: if (ownSession(id)
-        && resource.data.workflowVersion == 6 && resource.data.status == 'in_progress'
-        && resource.data.currentPhase == 'controlled_solution_release'
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['draft','revision','updatedAt','lastActivityAt'])
-        && request.resource.data.draft.keys().hasOnly(['answer','methodology','reflection'])
-        && request.resource.data.draft.answer is map
-        && request.resource.data.draft.answer.keys().hasOnly(['plainText','latex','normalizedLatex','mathJson'])
-        && request.resource.data.draft.answer.plainText is string && request.resource.data.draft.answer.plainText.size() <= 4000
-        && request.resource.data.draft.methodology is string && request.resource.data.draft.methodology.size() <= 4000
-        && request.resource.data.draft.reflection is string && request.resource.data.draft.reflection.size() <= 2000
-        && request.resource.data.revision == resource.data.revision + 1
-        && request.resource.data.updatedAt == request.time && request.resource.data.lastActivityAt == request.time)
+      allow update: if (ownSession(id) && validSessionDraftUpdate())
         || (admin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','adminReview','reviewedAt','updatedAt','revision'])
           && resource.data.status in ['submitted','reviewed','returned']
           && request.resource.data.status in ['reviewed','returned']
@@ -115,27 +212,29 @@ service cloud.firestore {
       match /scorecards/{scorecardId} { allow read: if ownSession(id) || admin(); allow write: if false; }
     }
     match /learning_progress/{uid} {
-      allow read: if (owner(uid) && active()) || admin();
+      allow read: if (owner(uid) && verifiedActive()) || admin();
       allow write: if false;
-      match /assignment_state/{topicId} { allow read: if (owner(uid) && active()) || admin(); allow write: if false; }
+      match /assignment_state/{topicId} { allow read: if (owner(uid) && verifiedActive()) || admin(); allow write: if false; }
     }
     match /ai_operations/{id} { allow read, write: if false; }
     match /ai_locks/{id} { allow read, write: if false; }
     match /ai_usage/{id} { allow read: if admin(); allow write: if false; }
     match /notifications/{id} {
-      allow read: if active() && resource.data.recipientId == request.auth.uid;
-      allow create: if admin() || (active() && request.resource.data.recipientId == request.auth.uid
-        && request.resource.data.eventType == 'achievement_awarded' && request.resource.data.read == false
-        && request.resource.data.createdAt == request.time);
-      allow update: if admin() || (active() && resource.data.recipientId == request.auth.uid
+      allow read: if verifiedActive() && resource.data.recipientId == request.auth.uid;
+      allow create: if admin();
+      allow update: if admin() || (verifiedActive() && resource.data.recipientId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']) && request.resource.data.read == true);
       allow delete: if admin();
     }
-    match /policy_documents/{id} { allow read: if admin() || (active() && resource.data.status == 'active'); allow write: if admin(); }
-    match /system_settings/{id} { allow get: if admin() || (active() && id == 'privacy'); allow list, write: if admin(); }
+    match /policy_documents/{id} { allow read: if admin() || (verifiedActive() && resource.data.status == 'active'); allow write: if admin(); }
+    match /system_settings/{id} { allow get: if admin() || (verifiedActive() && id == 'privacy'); allow list, write: if admin(); }
     match /pilot_roster/{id} { allow get: if owner(id) || admin(); allow list, write: if admin(); }
     match /content_validation_records/{id} { allow read, create: if admin(); allow update, delete: if false; }
-    match /audit_logs/{id} { allow read, create: if admin(); allow update, delete: if false; }
+    match /audit_logs/{id} {
+      allow read: if admin();
+      allow create: if admin() && validAuditLogCreate(request.resource.data);
+      allow update, delete: if false;
+    }
     match /{name}/{id} {
       allow read, write: if admin() && name in ['formula_theorem_references','socratic_prompt_bank','misconception_categories','difficulty_policies','rubrics','announcements'];
       allow read: if admin() && name == 'ai_failure_logs';

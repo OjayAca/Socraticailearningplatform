@@ -2,6 +2,42 @@ import { z } from "zod";
 import { REASONING_PHASES } from "@mindguide/contracts";
 import { callableError } from "./errors.js";
 
+if (typeof window !== "undefined") {
+  z.config({ jitless: true });
+}
+
+function isBoundedJsonValue(value: unknown, maxDepth = 8, maxBytes = 8_000): boolean {
+  if (value === undefined) return true;
+  const checkDepth = (node: unknown, depth: number): boolean => {
+    if (depth > maxDepth) return false;
+    if (
+      node === null ||
+      typeof node === "string" ||
+      typeof node === "number" ||
+      typeof node === "boolean"
+    ) {
+      return typeof node !== "number" || Number.isFinite(node);
+    }
+    if (Array.isArray(node)) {
+      if (node.length > 200) return false;
+      return node.every((item) => checkDepth(item, depth + 1));
+    }
+    if (typeof node === "object") {
+      const entries = Object.entries(node as Record<string, unknown>);
+      if (entries.length > 100) return false;
+      return entries.every(([, nested]) => checkDepth(nested, depth + 1));
+    }
+    return false;
+  };
+  if (!checkDepth(value, 0)) return false;
+  try {
+    const serialized = JSON.stringify(value);
+    return typeof serialized === "string" && serialized.length <= maxBytes;
+  } catch {
+    return false;
+  }
+}
+
 const requestId = z.string().uuid();
 const subject = z.enum(["Quantitative Methods", "Discrete Mathematics"]);
 const difficulty = z.enum(["Basic", "Intermediate", "Advanced"]);
@@ -9,7 +45,7 @@ const mathResponse = z.object({
   plainText: z.string().max(4_000),
   latex: z.string().max(4_000).optional(),
   normalizedLatex: z.string().max(4_000).optional(),
-  mathJson: z.unknown().optional(),
+  mathJson: z.unknown().refine((value) => isBoundedJsonValue(value), "Mathematical structure exceeds size or nesting limits.").optional(),
 });
 
 const bootstrapProfileSchema = z.object({
@@ -385,6 +421,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+const checkLearningSessionActivitySchema = z.object({
+  sessionId: z.string().trim().min(1).max(160),
+});
+
+const adminSetPilotSchema = z.object({
+  state: z.enum(["closed", "open", "drain", "write-freeze"]),
+  enabledTopicIds: z
+    .array(z.string().min(1).max(160).regex(/^[A-Za-z0-9_-]+$/))
+    .max(100),
+  releaseArtifactId: z.string().max(240).optional(),
+});
+
+const adminPilotRosterSchema = z.object({
+  uid: z.string().trim().min(1).max(160).regex(/^[^/]+$/),
+  status: z.enum(["admitted", "revoked"]),
+});
+
+const emptyOperationSchema = z.object({}).optional();
+
 // Allocated once per isolate to avoid re-creating the schema map on every request.
 const operationSchemas: Record<string, z.ZodType> = {
   getPreparedTopicIds: z.object({ subjectId }),
@@ -399,6 +454,13 @@ const operationSchemas: Record<string, z.ZodType> = {
   abandonLearningSession: sessionMutationSchema,
   createFollowUpSession: sessionMutationSchema,
   resumeTutorOpening: revisionedSessionMutationSchema,
+  checkLearningSessionActivity: checkLearningSessionActivitySchema,
+  getLearningCatalog: emptyOperationSchema,
+  getCurrentConsentNotice: emptyOperationSchema,
+  getPilotStatus: emptyOperationSchema,
+  adminCatalogReadiness: emptyOperationSchema,
+  adminSetPilot: adminSetPilotSchema,
+  adminPilotRoster: adminPilotRosterSchema,
   adminOverrideSessionSupport: adminSupportOverrideSchema,
   adminReviewSession: adminReviewSchema,
   adminUpsertContent: contentMutationSchema,

@@ -24,6 +24,7 @@ import type {
   OwnProblemInput,
 } from "@mindguide/contracts";
 import { auth } from "./firebase";
+import { getOptionalAppCheckToken } from "./app-check-client";
 import { AI_OPERATIONS, aiOperation } from "./ai-client";
 import { secureErrorMessage } from "./secure-error";
 
@@ -276,6 +277,15 @@ export async function extractProblemFromMedia(
     );
   }
 
+  const appCheckToken = await getOptionalAppCheckToken();
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+  if (appCheckToken) {
+    requestHeaders["X-Firebase-AppCheck"] = appCheckToken;
+  }
+
   const dataBase64 = await readFileAsBase64(input.file);
   const requestPayload = JSON.stringify({
     dataBase64,
@@ -287,10 +297,7 @@ export async function extractProblemFromMedia(
   try {
     response = await fetch("/api/learning/extract-problem", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: requestHeaders,
       body: requestPayload,
       signal: AbortSignal.timeout(120000),
     });

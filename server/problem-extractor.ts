@@ -1,7 +1,8 @@
 import "server-only";
 import { z } from "zod";
+import { DANGEROUS_LATEX_RE, stripControlCharacters } from "../src/lib/learning/latex-security";
 import { ensure, ServiceError, type Env, type Store } from "./platform";
-import { reserveTutorQuota } from "./tutor-quota";
+import { currentQuotaWindow, positiveIntOrDefault, reserveTutorQuota } from "./tutor-quota";
 
 const SUPPORTED_EXTRACTION_MIME_TYPES = [
   "image/jpeg",
@@ -13,6 +14,9 @@ const SUPPORTED_EXTRACTION_MIME_TYPES = [
 export type SupportedExtractionMimeType = (typeof SUPPORTED_EXTRACTION_MIME_TYPES)[number];
 
 export const MAX_EXTRACTION_FILE_BYTES = 4 * 1024 * 1024;
+export const EXTRACTION_LOCK_TTL_MS = 90_000;
+const DEFAULT_USER_EXTRACTION_RPM = 3;
+const DEFAULT_USER_EXTRACTION_RPD = 20;
 
 const extractedProblemSchema = z.object({
   detected: z.boolean(),
@@ -135,18 +139,22 @@ export function validateUploadedProblemMedia(
 }
 
 /**
- * Verifies learner membership, consent, pilot state, AI availability, and reserves Gemini quota.
+ * Verifies learner membership, consent, pilot state, AI availability, per-user extraction lock/quota,
+ * and reserves shared Gemini quota.
  *
  * @param db - Server Firestore store adapter.
  * @param env - Verified server environment configuration.
  * @param uid - Authenticated learner UID.
+ * @returns Lease identifier for releasing the per-user extraction lock once completed.
  */
-export async function authorizeAndReserveExtraction(db: Store, env: Env, uid: string): Promise<void> {
-  const [profile, privacy, pilot, roster] = await Promise.all([
+export async function authorizeAndReserveExtraction(db: Store, env: Env, uid: string): Promise<string> {
+  const [profile, privacy, pilot, roster, lock, userUsage] = await Promise.all([
     db.get(`users/${uid}`),
     db.get("system_settings/privacy"),
     db.get("system_settings/pilot"),
     db.get(`pilot_roster/${uid}`),
+    db.get(`ai_locks/${uid}_extract`),
+    db.get(`ai_usage/extract_${uid}`),
   ]);
   ensure(profile.data?.status === "active", "Your account is not active.", 403);
 
@@ -189,8 +197,62 @@ export async function authorizeAndReserveExtraction(db: Store, env: Env, uid: st
     );
   }
 
+  const now = Date.now();
+  const existingExpiresAt = Number(lock.data?.expiresAt ?? 0);
+  ensure(
+    !lock.data || existingExpiresAt < now,
+    "Another problem image is still being read. Wait a moment and retry.",
+    409,
+  );
+  const leaseId = crypto.randomUUID();
+  const nextExpiresAt = now + EXTRACTION_LOCK_TTL_MS;
+
+  const userRpm = positiveIntOrDefault(env.USER_EXTRACTION_RPM, DEFAULT_USER_EXTRACTION_RPM);
+  const userRpd = positiveIntOrDefault(env.USER_EXTRACTION_RPD, DEFAULT_USER_EXTRACTION_RPD);
+  const { minute, day } = currentQuotaWindow(now);
+  const userRequests = userUsage.data?.minute === minute ? Number(userUsage.data.requests ?? 0) : 0;
+  const userDaily = userUsage.data?.day === day ? Number(userUsage.data.daily ?? 0) : 0;
+  if (userRequests + 1 > userRpm || userDaily + 1 > userRpd) {
+    throw new ServiceError(
+      429,
+      "ai-quota",
+      "Your image extraction allowance has reached its limit. Wait a minute or type your problem below.",
+      60,
+    );
+  }
+
   const quotaWrites = await reserveTutorQuota(db, env);
-  await db.commit(quotaWrites);
+  await db.commit([
+    ...quotaWrites,
+    {
+      doc: userUsage,
+      data: { minute, day, requests: userRequests + 1, daily: userDaily + 1 },
+    },
+    {
+      doc: lock,
+      data: { leaseId, expiresAt: nextExpiresAt },
+    },
+  ]);
+  return leaseId;
+}
+
+/**
+ * Releases a previously acquired per-user extraction lock if the caller still owns the active lease.
+ *
+ * @param db - Server Firestore store adapter.
+ * @param uid - Authenticated learner UID.
+ * @param leaseId - Lease identifier returned by {@link authorizeAndReserveExtraction}.
+ * @returns Resolves after clearing or safely ignoring transient lock release errors.
+ */
+export async function releaseExtractionLock(db: Store, uid: string, leaseId: string): Promise<void> {
+  try {
+    const lock = await db.get(`ai_locks/${uid}_extract`);
+    if (lock.data?.leaseId === leaseId) {
+      await db.commit([{ doc: lock, data: { leaseId, expiresAt: 0 } }]);
+    }
+  } catch {
+    // TTL expiration cleans up stale locks automatically if release fails transiently.
+  }
 }
 
 /**
@@ -254,15 +316,23 @@ export async function extractProblemFromMedia(
       .map((part) => part.text)
       .join("");
     const parsed = extractedProblemSchema.parse(JSON.parse(textContent));
-    const normalizedText = parsed.problemText.trim();
-    const normalizedLatex = parsed.problemLatex?.trim() ?? "";
+    const normalizedText = stripControlCharacters(parsed.problemText).trim();
+    const rawLatex = stripControlCharacters(parsed.problemLatex ?? "").trim();
+    const hasUnsafeLatex = rawLatex.length > 0 && DANGEROUS_LATEX_RE.test(rawLatex);
+    const normalizedLatex = hasUnsafeLatex ? "" : rawLatex;
     const hasSingleMathPlaceholder = normalizedText.split("[math]").length === 2;
+    const baseWarning = stripControlCharacters(parsed.warning ?? "").trim();
+    const sanitizedWarning = hasUnsafeLatex
+      ? baseWarning
+        ? `${baseWarning} Unsupported LaTeX formatting commands were removed.`
+        : "Unsupported LaTeX formatting commands were removed. Review the problem text below."
+      : baseWarning;
     return {
       detected: parsed.detected && normalizedText.length > 0,
       problemText: normalizedText,
       ...(normalizedLatex && hasSingleMathPlaceholder ? { problemLatex: normalizedLatex } : {}),
       confidence: parsed.confidence,
-      ...(parsed.warning?.trim() ? { warning: parsed.warning.trim() } : {}),
+      ...(sanitizedWarning ? { warning: sanitizedWarning } : {}),
     };
   } catch {
     throw new ServiceError(

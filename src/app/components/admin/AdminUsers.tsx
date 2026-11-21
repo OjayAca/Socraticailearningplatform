@@ -898,7 +898,7 @@ export function SecureAdminUsers() {
           className="font-medium underline"
           href={`https://console.firebase.google.com/project/${process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID}/authentication/users`}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
           Firebase Console
         </a>

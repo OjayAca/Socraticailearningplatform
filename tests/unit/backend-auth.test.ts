@@ -15,12 +15,16 @@ describe("server authentication", () => {
     await expect(authenticate(request(), env)).rejects.toMatchObject({ status: 401 });
     expect(verifyIdToken).not.toHaveBeenCalled();
   });
-  it("uses the verified UID", async () => {
+  it("uses the verified UID without revocation lookup by default, and enables checkRevoked when AUTH_CHECK_REVOKED=true", async () => {
     verifyIdToken.mockResolvedValue({ uid: "alice", aud: "existing-project", iss: "https://securetoken.google.com/existing-project", email_verified: true });
     expect(await authenticate(request("id-token"), env)).toBe("alice");
-    expect(verifyIdToken).toHaveBeenCalledWith("id-token");
+    expect(verifyIdToken).toHaveBeenCalledWith("id-token", false);
+
+    verifyIdToken.mockClear();
+    expect(await authenticate(request("id-token"), { ...env, AUTH_CHECK_REVOKED: "true" })).toBe("alice");
+    expect(verifyIdToken).toHaveBeenCalledWith("id-token", true);
   });
-  it("rejects unverified student email tokens while allowing verified or operator/admin accounts", async () => {
+  it("rejects unverified or missing-claim student email tokens while allowing verified or operator/admin accounts", async () => {
     verifyIdToken.mockResolvedValueOnce({
       uid: "unverified-student",
       aud: "existing-project",
@@ -28,6 +32,16 @@ describe("server authentication", () => {
       email_verified: false,
     });
     await expect(authenticate(request("unverified-token"), env)).rejects.toMatchObject({
+      status: 403,
+      code: "email-unverified",
+    });
+
+    verifyIdToken.mockResolvedValueOnce({
+      uid: "missing-verified-claim-student",
+      aud: "existing-project",
+      iss: "https://securetoken.google.com/existing-project",
+    });
+    await expect(authenticate(request("missing-claim-token"), env)).rejects.toMatchObject({
       status: 403,
       code: "email-unverified",
     });
@@ -41,7 +55,7 @@ describe("server authentication", () => {
     });
     expect(await authenticate(request("admin-token"), env)).toBe("admin-uid");
   });
-  it.each(["auth/id-token-expired", "auth/invalid-id-token", "auth/argument-error"])("rejects %s", async code => {
+  it.each(["auth/id-token-expired", "auth/invalid-id-token", "auth/argument-error", "auth/id-token-revoked", "auth/user-disabled"])("rejects %s", async code => {
     verifyIdToken.mockRejectedValue({ code });
     await expect(authenticate(request("invalid"), env)).rejects.toMatchObject({ status: 401 });
   });

@@ -34,9 +34,14 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Local Firebase migration backups (may contain private student data)
+# Local Firebase migration backups & credentials (may contain private student data or keys)
 .local-backups/
 migration-backups/
+*firebase-adminsdk*.json
+*service-account*.json
+*.pem
+*.key
+repo-code.txt
 
 # Next.js output and local environments
 .next/

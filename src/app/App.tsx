@@ -41,7 +41,8 @@ export default function App() {
 
   useEffect(() => {
     const isUnverifiedStudent =
-      firebaseUser?.emailVerified === false && !isAdminRole(userProfile?.role);
+      (firebaseUser?.emailVerified === false || userProfile?.emailVerified === false) &&
+      !isAdminRole(userProfile?.role);
     if (!firebaseUser?.uid || !userProfile?.uid || isUnverifiedStudent) {
       stopListening();
       return;
@@ -77,6 +78,7 @@ export default function App() {
     firebaseUser?.uid,
     firebaseUser?.emailVerified,
     userProfile?.uid,
+    userProfile?.emailVerified,
     userProfile?.role,
     listenToNotifications,
     stopListening,

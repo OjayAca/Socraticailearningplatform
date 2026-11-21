@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AppNotification } from "@/types";
+import { hasAsciiControlCharacter } from "@/lib/learning/latex-security";
 import { db, firebaseSetupMessage } from "@/lib/firebase";
 import {
   collection,
@@ -404,12 +405,19 @@ function getNotificationRecord(notification: AppNotification): NotificationRecor
   return notification as unknown as NotificationRecord;
 }
 
-function isSafeInternalRoute(value: unknown): value is string {
+/**
+ * Validates that a notification action route stays strictly within local application paths,
+ * rejecting protocol-relative URLs (`//evil.com`), backslash tricks (`/\evil.com`), and control chars.
+ *
+ * @param value - Candidate route path from a notification document.
+ * @returns True if the route is a safe single-slash local route.
+ */
+export function isSafeInternalRoute(value: unknown): value is string {
   return (
     typeof value === "string" &&
-    value.startsWith("/") &&
-    !value.startsWith("//") &&
-    !value.includes("\\")
+    /^\/(?![/\\])/.test(value) &&
+    !value.includes("\\") &&
+    !hasAsciiControlCharacter(value)
   );
 }
 

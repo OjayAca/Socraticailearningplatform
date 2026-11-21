@@ -1,4 +1,5 @@
 import { auth } from "./firebase";
+import { getOptionalAppCheckToken } from "./app-check-client";
 
 export const AI_OPERATIONS = new Set([
   "getPreparedTopicIds", "startLearningSession", "createFollowUpSession", "evaluatePhaseResponse", "requestSessionSupport",
@@ -32,11 +33,19 @@ async function sendOperation(operation: string, input: unknown, timeoutMs = 1250
   } catch {
     throw Object.assign(new Error("Your sign-in could not be refreshed. Your work is preserved. Check your connection and sign in again if needed."), { code: "auth-unavailable" });
   }
+  const appCheckToken = await getOptionalAppCheckToken();
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+  if (appCheckToken) {
+    requestHeaders["X-Firebase-AppCheck"] = appCheckToken;
+  }
   let response: Response;
   try {
     // The server has a 120-second limit and may retry a 45-second provider call.
     // Wait for its response rather than aborting a valid retry after 70 seconds.
-    response = await fetch("/api/learning", {method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({operation,input}),signal:AbortSignal.timeout(timeoutMs)});
+    response = await fetch("/api/learning", {method:"POST",headers:requestHeaders,body:JSON.stringify({operation,input}),signal:AbortSignal.timeout(timeoutMs)});
   } catch (cause) {
     const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
     throw Object.assign(new Error(timedOut

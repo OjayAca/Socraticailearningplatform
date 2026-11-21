@@ -13,6 +13,7 @@ import {
   ReCaptchaEnterpriseProvider,
 } from "firebase/app-check";
 import { getAuth, type Auth } from "firebase/auth";
+import { setClientAppCheck } from "./app-check-client";
 import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -60,8 +61,12 @@ const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY as
   | undefined;
 
 if (firebaseApp && appCheckSiteKey && !isPlaceholderValue(appCheckSiteKey)) {
-  initializeAppCheck(firebaseApp, {
-    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
+  setClientAppCheck(
+    initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    }),
+  );
+} else {
+  setClientAppCheck(null);
 }

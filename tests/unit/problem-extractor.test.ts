@@ -225,4 +225,133 @@ describe("problem-extractor unit and route tests", () => {
       /Read and acknowledge the current learning privacy notice/,
     );
   });
+
+  it("enforces extraction lock with TTL expiry takeover and per-user extraction rate limits", async () => {
+    // Active unexpired lock rejects with 409
+    db.put("ai_locks/student-1_extract", { leaseId: "active-lease", expiresAt: Date.now() + 60_000 });
+    await expect(authorizeAndReserveExtraction(db, env, "student-1")).rejects.toMatchObject({
+      status: 409,
+    });
+
+    // Expired lock is safely taken over
+    db.put("ai_locks/student-1_extract", { leaseId: "crashed-lease", expiresAt: Date.now() - 1 });
+    const leaseId = await authorizeAndReserveExtraction(db, env, "student-1");
+    expect(leaseId).toBeTruthy();
+    const lockAfter = await db.get("ai_locks/student-1_extract");
+    expect(lockAfter.data?.leaseId).toBe(leaseId);
+    expect(lockAfter.data?.expiresAt).toBeGreaterThan(Date.now());
+
+    // Release lock and verify per-user RPM cap (default 3/min)
+    db.put("ai_locks/student-1_extract", { leaseId, expiresAt: 0 });
+    await authorizeAndReserveExtraction(db, env, "student-1");
+    db.put("ai_locks/student-1_extract", null);
+    await authorizeAndReserveExtraction(db, env, "student-1");
+    db.put("ai_locks/student-1_extract", null);
+    await expect(authorizeAndReserveExtraction(db, env, "student-1")).rejects.toMatchObject({
+      status: 429,
+      code: "ai-quota",
+    });
+  });
+
+  it("preserves safe \\displaystyle LaTeX while stripping dangerous \\style/\\htmlData/\\def commands", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      detected: true,
+                      problemText: "Given f(x) = [math], find f(2).",
+                      problemLatex: "\\displaystyle \\frac{x^{2}+1}{2}",
+                      confidence: "high",
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      detected: true,
+                      problemText: "Given f(x) = [math], find f(2).\u0007",
+                      problemLatex: "\\style{color:red}{x^2} + \\htmlData{x=1}{2}",
+                      confidence: "high",
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const safeResult = await extractProblemFromMedia(env, {
+      bytes: VALID_PNG_BYTES,
+      mimeType: "image/png",
+    });
+    expect(safeResult.problemLatex).toBe("\\displaystyle \\frac{x^{2}+1}{2}");
+
+    const strippedResult = await extractProblemFromMedia(env, {
+      bytes: VALID_PNG_BYTES,
+      mimeType: "image/png",
+    });
+    expect(strippedResult.problemText).toBe("Given f(x) = [math], find f(2).");
+    expect(strippedResult.problemLatex).toBeUndefined();
+    expect(strippedResult.warning).toContain("Unsupported LaTeX formatting commands were removed");
+  });
+
+  it("rejects invalid base64 payloads and oversized chunked multipart streams", async () => {
+    const badBase64Response = await POST(
+      new Request("http://localhost/api/learning/extract-problem", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer valid-token",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          dataBase64: "not valid base64!!!",
+          mimeType: "image/png",
+        }),
+      }),
+    );
+    expect(badBase64Response.status).toBe(400);
+
+    const oversizedChunkStream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_EXTRACTION_FILE_BYTES * 2));
+        controller.close();
+      },
+    });
+    const chunkedResponse = await POST(
+      new Request("http://localhost/api/learning/extract-problem", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer valid-token",
+          "Content-Type": "multipart/form-data; boundary=testboundary",
+        },
+        body: oversizedChunkStream,
+        duplex: "half",
+      } as RequestInit),
+    );
+    expect(chunkedResponse.status).toBe(413);
+  });
 });

@@ -1,5 +1,6 @@
 import "server-only";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getServerEnv } from "./config";
@@ -21,3 +22,10 @@ export function getAdminApp() {
 
 export const getAdminAuth = () => getAuth(getAdminApp());
 export const getAdminFirestore = () => getFirestore(getAdminApp());
+
+/**
+ * Returns the Firebase Admin App Check instance bound to the configured project app.
+ *
+ * @returns The Firebase Admin AppCheck service instance.
+ */
+export const getAdminAppCheck = () => getAppCheck(getAdminApp());

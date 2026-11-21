@@ -11,6 +11,12 @@ export interface Env {
   GEMINI_TPM: string;
   GEMINI_RPD: string;
   OPERATOR_UID?: string;
+  AUTH_CHECK_REVOKED?: string;
+  APP_CHECK_ENFORCED?: string;
+  USER_GEMINI_RPM?: string;
+  USER_GEMINI_RPD?: string;
+  USER_EXTRACTION_RPM?: string;
+  USER_EXTRACTION_RPD?: string;
 }
 
 export class ServiceError extends Error {

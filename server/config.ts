@@ -18,5 +18,11 @@ export function getServerEnv(): Env {
     GEMINI_TPM: process.env.GEMINI_TPM ?? "",
     GEMINI_RPD: process.env.GEMINI_RPD ?? "",
     OPERATOR_UID: process.env.OPERATOR_UID,
+    AUTH_CHECK_REVOKED: process.env.AUTH_CHECK_REVOKED ?? "false",
+    APP_CHECK_ENFORCED: process.env.APP_CHECK_ENFORCED ?? "false",
+    USER_GEMINI_RPM: process.env.USER_GEMINI_RPM ?? "",
+    USER_GEMINI_RPD: process.env.USER_GEMINI_RPD ?? "",
+    USER_EXTRACTION_RPM: process.env.USER_EXTRACTION_RPM ?? "",
+    USER_EXTRACTION_RPD: process.env.USER_EXTRACTION_RPD ?? "",
   };
 }

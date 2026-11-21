@@ -34,8 +34,11 @@ function validateEmail(value: string): string | null {
 
 function validatePassword(value: string): string | null {
   if (!value) return "Please create a password.";
-  if (value.length < 6) {
-    return "Password must be at least 6 characters.";
+  if (value.length < 8) {
+    return "Password must be at least 8 characters.";
+  }
+  if (value.length > 128) {
+    return "Password must be 128 characters or fewer.";
   }
   return null;
 }
@@ -183,6 +186,7 @@ export function SignUp() {
               <input
                 id="signup-name"
                 type="text"
+                autoComplete="name"
                 value={name}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -224,6 +228,7 @@ export function SignUp() {
               <input
                 id="signup-email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -265,6 +270,7 @@ export function SignUp() {
               <input
                 id="signup-password"
                 type={isPasswordVisible ? "text" : "password"}
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -285,9 +291,10 @@ export function SignUp() {
                     password: validatePassword(password),
                   }))
                 }
-                placeholder="Create a password (min. 6 characters)"
+                placeholder="Create a password (min. 8 characters)"
                 required
-                minLength={6}
+                minLength={8}
+                maxLength={128}
                 disabled={isLoading}
                 aria-invalid={Boolean(fieldErrors.password)}
                 aria-describedby={fieldErrors.password ? "signup-password-error" : "signup-password-hint"}
@@ -317,7 +324,7 @@ export function SignUp() {
               </p>
             ) : (
               <p id="signup-password-hint" className="text-xs text-slate-500">
-                Use at least 6 characters.
+                Use at least 8 characters.
               </p>
             )}
           </div>
@@ -333,6 +340,7 @@ export function SignUp() {
               <input
                 id="signup-confirm-password"
                 type={isConfirmPasswordVisible ? "text" : "password"}
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -353,7 +361,8 @@ export function SignUp() {
                 }
                 placeholder="Type your password again"
                 required
-                minLength={6}
+                minLength={8}
+                maxLength={128}
                 disabled={isLoading}
                 aria-invalid={Boolean(fieldErrors.confirmPassword)}
                 aria-describedby={

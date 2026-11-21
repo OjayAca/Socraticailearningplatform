@@ -1,9 +1,9 @@
 import { ComputeEngine } from "@cortex-js/compute-engine";
 import type { MathResponse } from "@mindguide/contracts";
 import { callableError } from "./errors.js";
+import { DANGEROUS_LATEX_RE } from "./latex-security.js";
 
 const computeEngine = new ComputeEngine();
-const UNSUPPORTED_LATEX = /\\(includegraphics|href|url|htmlClass|htmlId|style|class|begin\s*\{(?:tikzpicture|picture)\})/i;
 
 export function normalizeMathResponse(input: MathResponse): MathResponse {
   const plainText = String(input?.plainText ?? "").trim().slice(0, 4_000);
@@ -15,7 +15,7 @@ export function normalizeMathResponse(input: MathResponse): MathResponse {
       "Enter a relevant explanation or mathematical response before continuing."
     );
   }
-  if (latex && UNSUPPORTED_LATEX.test(latex)) {
+  if (latex && DANGEROUS_LATEX_RE.test(latex)) {
     throw callableError(
       "invalid-argument",
       "unsupported_notation",

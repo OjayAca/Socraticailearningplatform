@@ -8,7 +8,8 @@ export async function authenticate(request: Request, env: Env): Promise<string> 
   // SDK verification validates the signature, expiry, audience and issuer.
   const auth = getAdminAuth();
   try {
-    const claims = await auth.verifyIdToken(token);
+    const checkRevoked = env.AUTH_CHECK_REVOKED === "true";
+    const claims = await auth.verifyIdToken(token, checkRevoked);
     ensure(claims.aud === env.FIREBASE_PROJECT_ID
       && claims.iss === `https://securetoken.google.com/${env.FIREBASE_PROJECT_ID}`
       && /^[A-Za-z0-9:_-]{1,128}$/.test(claims.uid), "Invalid sign-in token.", 401);
@@ -17,7 +18,7 @@ export async function authenticate(request: Request, env: Env): Promise<string> 
       (typeof env.OPERATOR_UID === "string" &&
         env.OPERATOR_UID.length > 0 &&
         claims.uid === env.OPERATOR_UID);
-    if (claims.email_verified === false && !isOperatorOrAdmin) {
+    if (claims.email_verified !== true && !isOperatorOrAdmin) {
       throw new ServiceError(
         403,
         "email-unverified",

@@ -77,26 +77,33 @@ export function MathInput({
     if (!field) return;
     field.readOnly = disabled;
     if (field.value !== (value.latex ?? "")) field.value = value.latex ?? "";
-    const handleInput = () => onChange({ ...value, latex: field.value });
+    const handleInput = () => onChange({ ...value, latex: field.value.slice(0, maxLength) });
     field.addEventListener("input", handleInput);
     return () => field.removeEventListener("input", handleInput);
-  }, [disabled, onChange, value]);
+  }, [disabled, maxLength, onChange, value]);
 
   const preview = useMemo<{ html: string; error: string | null }>(() => {
     if (!value.latex?.trim()) {
       return { html: "", error: null };
     }
+    if (value.latex.length > maxLength) {
+      return { html: "", error: "Mathematical notation exceeds the maximum allowed length." };
+    }
     try {
       const html = katex.renderToString(value.latex, {
         throwOnError: true,
         strict: "error",
+        trust: false,
+        maxExpand: 100,
+        maxSize: 20,
+        output: "htmlAndMathml",
         displayMode: true,
       });
       return { html, error: null };
     } catch {
       return { html: "", error: "Check the mathematical notation before submitting." };
     }
-  }, [value.latex]);
+  }, [maxLength, value.latex]);
 
   useEffect(() => {
     onSyntaxError?.(preview.error);

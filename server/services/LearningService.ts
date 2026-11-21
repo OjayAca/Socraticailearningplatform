@@ -537,7 +537,7 @@ export class LearningService {
     }
   }
   private async reserveQuota(): Promise<Array<{doc:RecordDoc;data:any}>> {
-    return reserveTutorQuota(this.db,this.env);
+    return reserveTutorQuota(this.db, this.env, this.uid);
   }
   private async approvedTopic(topicId: string, subjectId: string) {
     const [topic, subject] = await Promise.all([this.db.get(`topics/${topicId}`), this.db.get(`subjects/${subjectId}`)]);
