@@ -96,13 +96,19 @@ describe("custom domain configuration", () => {
     expect(resolveGoogleRedirectOriginSuffix("https://evil.example")).toBeNull();
   });
 
-  it("redirects www.mindguide-learn.me permanently to the apex custom domain", async () => {
+  it("redirects www.mindguide-learn.me and mindguide-learning.vercel.app permanently to the apex custom domain", async () => {
     const redirects = await nextConfig.redirects();
     expect(redirects).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           source: "/:path*",
           has: [{ type: "host", value: "www.mindguide-learn.me" }],
+          destination: "https://mindguide-learn.me/:path*",
+          permanent: true,
+        }),
+        expect.objectContaining({
+          source: "/:path*",
+          has: [{ type: "host", value: "mindguide-learning.vercel.app" }],
           destination: "https://mindguide-learn.me/:path*",
           permanent: true,
         }),
