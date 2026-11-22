@@ -142,7 +142,6 @@ for (const size of sizes) {
       await expect(page).toHaveURL(/\/student\/dashboard$/, { timeout: 20_000 });
       await page.goto(`/session/${encodeURIComponent(sessionId!)}/learn`);
       await expect(page.getByRole("textbox", { name: "Message your tutor" })).toBeVisible();
-      await page.getByText("Session details", { exact: true }).click();
       await page.getByRole("button", { name: "Add equation", exact: true }).click();
       await expectContained(page);
       await page.getByRole("textbox", { name: "Message your tutor" }).focus();
