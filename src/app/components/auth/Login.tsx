@@ -222,6 +222,7 @@ export function Login() {
         {error && (
           <Alert
             tone="error"
+            className="text-red-800 dark:border-red-200 dark:bg-red-50 dark:text-red-800"
             action={
               !isResetMode ? (
                 <button
@@ -242,7 +243,10 @@ export function Login() {
         )}
 
         {resetSuccess && (
-          <Alert tone="success">
+          <Alert
+            tone="success"
+            className="dark:border-emerald-200 dark:bg-emerald-50 dark:text-emerald-800"
+          >
             <span>{resetSuccessMessage}</span>
           </Alert>
         )}

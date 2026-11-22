@@ -169,7 +169,10 @@ export function SignUp() {
 
         {/* Error Alert */}
         {displayedError && (
-          <Alert tone="error">
+          <Alert
+            tone="error"
+            className="text-red-800 dark:border-red-200 dark:bg-red-50 dark:text-red-800"
+          >
             <span>{displayedError}</span>
           </Alert>
         )}

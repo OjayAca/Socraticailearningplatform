@@ -247,6 +247,18 @@ describe("authentication supporting flows", () => {
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
+  it("keeps high-contrast light-surface alert colors on SignUp even under dark mode", () => {
+    renderAt(<SignUp />, "/signup");
+    fireEvent.click(screen.getByRole("button", { name: /^sign up$/i }));
+
+    const summaryAlert = screen
+      .getByText("Please review and fix the highlighted fields below.")
+      .closest('[data-slot="alert"]');
+    expect(summaryAlert).not.toBeNull();
+    expect(summaryAlert).toHaveClass("bg-red-50", "text-red-800", "dark:bg-red-50", "dark:text-red-800");
+    expect(summaryAlert).not.toHaveClass("dark:bg-red-950/40", "dark:text-red-300");
+  });
+
   it("disables Login submit only while an authentication request is in flight", () => {
     mocks.state = {
       ...mocks.state,

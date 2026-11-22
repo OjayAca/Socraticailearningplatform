@@ -213,13 +213,19 @@ export function VerifyEmail() {
         </div>
 
         {displayedError && (
-          <Alert tone="error">
+          <Alert
+            tone="error"
+            className="text-red-800 dark:border-red-200 dark:bg-red-50 dark:text-red-800"
+          >
             <span>{displayedError}</span>
           </Alert>
         )}
 
         {verificationStatusMessage && (
-          <Alert tone="success">
+          <Alert
+            tone="success"
+            className="dark:border-emerald-200 dark:bg-emerald-50 dark:text-emerald-800"
+          >
             <span>{verificationStatusMessage}</span>
           </Alert>
         )}

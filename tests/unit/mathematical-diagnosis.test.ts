@@ -11,11 +11,30 @@ describe("specific bounded arithmetic diagnosis",()=>{
     expect(d!.recommendedAction).toContain("image and preimage");
     expect(d!.explanation).not.toContain("=4");
   });
-  it.each(["The total is 4+6+8=20; divide by 3.","18/3=8", "(-2)^2=-4", "2+2=5=4"])("identifies the actual false equality in %s",plainText=>{
-    expect(diagnoseArithmetic({plainText},problem)?.incorrectStep).toContain("=");
+  it.each([
+    "The total is 4+6+8=20; divide by 3.",
+    "18/3=8",
+    "(-2)^2=-4",
+    "2+2=5=4",
+    "The sum is 4 + 8 + 12 = 26, then 26 / 3 = 8.67.",
+    "2 + 2 = 5",
+    "(-2)^2 = -4",
+    "2 + 2 = 5 = 4",
+  ])("identifies the actual false equality in %s", plainText => {
+    const diagnosis = diagnoseArithmetic({ plainText }, problem);
+    expect(diagnosis).toMatchObject({ category: "computational_error", confidence: "high" });
+    expect(diagnosis?.incorrectStep).toContain("=");
   });
-  it.each(["f(-2)=4", "f(-1)=1", "-2^2=-4", "18/3=6", "0.1+0.2=0.3", "2^-2=0.25", "50%=1/2", "x+2=3", "f(2)=3", "I previously thought 2+2=5; now 2+2=4", "Is 2+2=5?", "The wrong step was 2+2=5", "Suppose 2+2=5", "x+x=2x", "1/0=2"])("does not invent an error in %s",plainText=>{
+  it.each(["f(-2)=4", "f(-1)=1", "-2^2=-4", "18/3=6", "4 + 8 + 12 = 24", "18 / 3 = 6", "0.1+0.2=0.3", "2^-2=0.25", "50%=1/2", "x+2=3", "f(2)=3", "I previously thought 2+2=5; now 2+2=4", "Is 2+2=5?", "The wrong step was 2+2=5", "Suppose 2+2=5", "x+x=2x", "1/0=2"])("does not invent an error in %s",plainText=>{
     expect(diagnoseArithmetic({plainText},"Unspecified function and proof.")).toBeNull();
+  });
+  it("evaluates trailing spaces after '=' in linear time without backtracking", () => {
+    const crafted = `1 = ${" ".repeat(4000)}x`;
+    const started = performance.now();
+    const result = diagnoseArithmetic({ plainText: crafted }, "Find 1 + 2.");
+    const elapsedMs = performance.now() - started;
+    expect(result).toBeNull();
+    expect(elapsedMs).toBeLessThan(50);
   });
   it("does not apply the square rule to a shifted function",()=>{
     expect(diagnoseArithmetic({plainText:"f(2)=5"},"Given f(x)=x^2+1")).toBeNull();
