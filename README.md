@@ -81,7 +81,7 @@ npm start
 
 Configure the same public Firebase identifiers before building and private backend secrets through the host's secret store. Run one Next.js service for both interface and API. npm start listens on port 3000 by default; pass -- --port PORT if required. Allow at least 120 seconds for API requests at the hosting/proxy layer. Existing learner request deadlines and lease protections remain in place.
 
-Use a region supported by the configured Gemini project. Add the application hostname to Firebase Authentication's authorized domains and any enabled App Check configuration. Keep existing Firebase rules and indexes. firebase.json now contains only Firestore deployment targets; plain Firebase Hosting static deployment cannot run this backend. Do not deploy the obsolete dist directory or use static export.
+Use a region supported by the configured Gemini project. Production is served on Vercel at `https://mindguide-learn.me` (with `www.mindguide-learn.me` permanently redirecting to `https://mindguide-learn.me`). Add the application hostname (`mindguide-learn.me` and `www.mindguide-learn.me`) to Firebase Authentication's authorized domains and any enabled App Check configuration, and keep `hosting/mindguide-google.html` synced to Firebase Hosting on `socratic-ai-a7765` if trusted sign-in origins change. Keep existing Firebase rules and indexes. firebase.json now contains only Firestore deployment targets; plain Firebase Hosting static deployment cannot run this backend. Do not deploy the obsolete dist directory or use static export.
 
 Publish the repository's current Firestore rules to the existing project as part of the backend migration. Older rules deny the browser's tutor-message reads even when the server can save a session:
 

@@ -3,10 +3,17 @@ import Providers from "./providers";
 import "../src/styles/index.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://mindguide-learn.me"),
   title: "MINDGUIDE - Reason Before Reveal",
   description: "MINDGUIDE is a formative Socratic learning platform for guided Quantitative Methods and Discrete Mathematics problem-solving.",
   icons: { icon: "/mindguide-logo.png", apple: "/mindguide-logo.png" },
-  openGraph: { title: "MINDGUIDE — Reason Before Reveal", description: "Build your reasoning through guided Quantitative Methods and Discrete Mathematics practice.", type: "website", images: ["/mindguide-logo.png"] },
+  openGraph: {
+    url: "https://mindguide-learn.me",
+    title: "MINDGUIDE — Reason Before Reveal",
+    description: "Build your reasoning through guided Quantitative Methods and Discrete Mathematics practice.",
+    type: "website",
+    images: ["/mindguide-logo.png"],
+  },
 };
 export const viewport: Viewport = { themeColor: "#4f46e5", width: "device-width", initialScale: 1, viewportFit: "cover" };
 

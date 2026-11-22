@@ -1,6 +1,19 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/firebase", () => ({
+  auth: null,
+  db: null,
+  firebaseSetupMessage: "",
+  isFirebaseConfigured: false,
+}));
+vi.mock("@/lib/secure-api", () => ({ bootstrapProfile: vi.fn() }));
+
 import { POST } from "../../app/api/auth/google-return/route";
+import nextConfig from "../../next.config.mjs";
+import { resolveGoogleRedirectOriginSuffix } from "../../src/stores/auth-store";
 
 const VALID_ORIGIN = "https://socratic-ai-a7765.firebaseapp.com";
 const VALID_STATE = "123e4567-e89b-42d3-a456-426614174000";
@@ -17,7 +30,7 @@ function makeRequest(
   if (options.contentType !== null) {
     headers["content-type"] = options.contentType ?? "application/x-www-form-urlencoded";
   }
-  return new Request("https://mindguide-learning.vercel.app/api/auth/google-return", {
+  return new Request("https://mindguide-learn.me/api/auth/google-return", {
     method: "POST",
     headers,
     body,
@@ -71,5 +84,38 @@ describe("google-return route security", () => {
     const html = await response.text();
     expect(html).toContain(JSON.stringify(VALID_STATE));
     expect(html).toContain(JSON.stringify(VALID_TOKEN));
+  });
+});
+
+describe("custom domain configuration", () => {
+  it("resolves Google sign-in fallback suffixes only for allowlisted production origins", () => {
+    expect(resolveGoogleRedirectOriginSuffix("https://mindguide-learn.me")).toBe("");
+    expect(resolveGoogleRedirectOriginSuffix("https://mindguide-learning.vercel.app")).toBe(".vercel");
+    expect(resolveGoogleRedirectOriginSuffix("https://www.mindguide-learn.me")).toBeNull();
+    expect(resolveGoogleRedirectOriginSuffix("http://mindguide-learn.me")).toBeNull();
+    expect(resolveGoogleRedirectOriginSuffix("https://evil.example")).toBeNull();
+  });
+
+  it("redirects www.mindguide-learn.me permanently to the apex custom domain", async () => {
+    const redirects = await nextConfig.redirects();
+    expect(redirects).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: "/:path*",
+          has: [{ type: "host", value: "www.mindguide-learn.me" }],
+          destination: "https://mindguide-learn.me/:path*",
+          permanent: true,
+        }),
+      ]),
+    );
+  });
+
+  it("defaults hosting/mindguide-google.html to https://mindguide-learn.me with a strict origin allowlist", () => {
+    const html = readFileSync(resolve(process.cwd(), "hosting/mindguide-google.html"), "utf8");
+    expect(html).toContain('href="https://mindguide-learn.me/login"');
+    expect(html).toContain('const PRIMARY_ORIGIN = "https://mindguide-learn.me"');
+    expect(html).toContain('const VERCEL_ORIGIN = "https://mindguide-learning.vercel.app"');
+    expect(html).toContain("const ALLOWED_ORIGINS = new Set([PRIMARY_ORIGIN, VERCEL_ORIGIN])");
+    expect(html).toContain("${targetOrigin}/api/auth/google-return");
   });
 });

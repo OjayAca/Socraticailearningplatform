@@ -30,6 +30,16 @@ export default {
   experimental: {
     agentUpgrade: "security",
   },
+  async redirects() {
+    return [
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.mindguide-learn.me" }],
+        destination: "https://mindguide-learn.me/:path*",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     const baselineHeaders = [
       { key: "X-Content-Type-Options", value: "nosniff" },

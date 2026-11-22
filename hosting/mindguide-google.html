@@ -2,12 +2,34 @@
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="origin"><title>Google sign-in · MINDGUIDE</title>
 <p role="status">Opening Google sign-in…</p>
-<a href="https://mindguide-learning.vercel.app/login">Return to MINDGUIDE</a>
+<a id="return-link" href="https://mindguide-learn.me/login">Return to MINDGUIDE</a>
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
   import { initializeAuth, browserSessionPersistence, browserPopupRedirectResolver,
     GoogleAuthProvider, getRedirectResult, signInWithRedirect, signOut
   } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
+
+  const PRIMARY_ORIGIN = "https://mindguide-learn.me";
+  const VERCEL_ORIGIN = "https://mindguide-learning.vercel.app";
+  const ALLOWED_ORIGINS = new Set([PRIMARY_ORIGIN, VERCEL_ORIGIN]);
+  const stateKey = "mindguide.google.pending";
+  const originKey = "mindguide.google.origin";
+
+  function resolveInitialOrigin(suffix) {
+    if (suffix === ".vercel") return VERCEL_ORIGIN;
+    try {
+      const refOrigin = document.referrer ? new URL(document.referrer).origin : "";
+      if (ALLOWED_ORIGINS.has(refOrigin)) return refOrigin;
+    } catch {
+      // Ignore malformed referrer values and use the primary origin.
+    }
+    return PRIMARY_ORIGIN;
+  }
+
+  function resolveStoredOrigin() {
+    const saved = sessionStorage.getItem(originKey);
+    return saved && ALLOWED_ORIGINS.has(saved) ? saved : PRIMARY_ORIGIN;
+  }
 
   try {
     const config = await (await fetch("/__/firebase/init.json")).json();
@@ -15,24 +37,31 @@
     const auth = initializeAuth(app, {
       persistence: browserSessionPersistence, popupRedirectResolver: browserPopupRedirectResolver
     });
-    const stateKey = "mindguide.google.pending";
-    const incoming = location.hash.slice(1);
-    if (/^[a-f0-9-]{36}$/.test(incoming)) {
+    const returnLink = document.getElementById("return-link");
+    const match = /^([a-f0-9-]{36})(\.vercel)?$/.exec(location.hash.slice(1));
+    if (match) {
+      const [, incomingState, originSuffix] = match;
+      const targetOrigin = resolveInitialOrigin(originSuffix);
+      if (returnLink) returnLink.href = `${targetOrigin}/login`;
       history.replaceState(null, "", location.pathname);
-      sessionStorage.setItem(stateKey, incoming);
+      sessionStorage.setItem(stateKey, incomingState);
+      sessionStorage.setItem(originKey, targetOrigin);
       const google = new GoogleAuthProvider();
       google.setCustomParameters({ prompt: "select_account" });
       await signInWithRedirect(auth, google);
     } else {
       const state = sessionStorage.getItem(stateKey);
+      const targetOrigin = resolveStoredOrigin();
+      if (returnLink) returnLink.href = `${targetOrigin}/login`;
       const result = await getRedirectResult(auth);
       const token = result && GoogleAuthProvider.credentialFromResult(result)?.idToken;
-      if (!state || !token) throw new Error("No pending sign-in");
+      if (!state || !token || !ALLOWED_ORIGINS.has(targetOrigin)) throw new Error("No pending sign-in");
       sessionStorage.removeItem(stateKey);
+      sessionStorage.removeItem(originKey);
       await signOut(auth);
       const form = document.createElement("form");
       form.method = "post";
-      form.action = "https://mindguide-learning.vercel.app/api/auth/google-return";
+      form.action = `${targetOrigin}/api/auth/google-return`;
       for (const [name, value] of Object.entries({ state, token })) {
         const field = document.createElement("input");
         Object.assign(field, { type: "hidden", name, value });

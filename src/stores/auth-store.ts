@@ -51,6 +51,25 @@ class ProfileLoadError extends Error {
 const profileLoads = new Map<string, Promise<UserProfile>>();
 let authStateSequence = 0;
 
+const GOOGLE_REDIRECT_ORIGIN_SUFFIXES: Readonly<Record<string, string>> = {
+  "https://mindguide-learn.me": "",
+  "https://mindguide-learning.vercel.app": ".vercel",
+};
+
+/**
+ * Resolves the hash suffix used by the Firebase-hosted Google sign-in fallback page
+ * for trusted production origins.
+ *
+ * @param origin - The browser `location.origin` initiating Google sign-in.
+ * @returns The suffix string (`""` for primary domain, `".vercel"` for the Vercel alias), or `null` if the origin is not allowlisted.
+ */
+export function resolveGoogleRedirectOriginSuffix(origin: string): string | null {
+  if (Object.prototype.hasOwnProperty.call(GOOGLE_REDIRECT_ORIGIN_SUFFIXES, origin)) {
+    return GOOGLE_REDIRECT_ORIGIN_SUFFIXES[origin];
+  }
+  return null;
+}
+
 // ─── Store Shape ─────────────────────────────────────────────
 
 interface AuthState {
@@ -262,13 +281,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       return profile;
     } catch (err) {
+      const googleRedirectOriginSuffix =
+        typeof location !== "undefined"
+          ? resolveGoogleRedirectOriginSuffix(location.origin)
+          : null;
       if ((err as { code?: string })?.code === "auth/popup-blocked" &&
-          location.origin === "https://mindguide-learning.vercel.app") {
+          googleRedirectOriginSuffix !== null) {
         try {
           const state = crypto.randomUUID();
           sessionStorage.setItem("mindguide.google.state", state);
           set({ isLoading: false });
-          location.assign(`https://socratic-ai-a7765.firebaseapp.com/mindguide-google.html#${state}`);
+          location.assign(
+            `https://socratic-ai-a7765.firebaseapp.com/mindguide-google.html#${state}${googleRedirectOriginSuffix}`,
+          );
           return;
         } catch {
           // Restricted browsers can also disable session storage or navigation.
