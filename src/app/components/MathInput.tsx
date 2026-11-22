@@ -8,6 +8,23 @@ import "mathlive/fonts.css";
 import "mathlive";
 import type { MathResponse } from "@mindguide/contracts";
 
+type MathfieldElementConstructor = { soundsDirectory?: string | null };
+
+function disableMathLiveSounds(): void {
+  if (typeof window === "undefined") return;
+  const globalCtor = (globalThis as { MathfieldElement?: MathfieldElementConstructor })
+    .MathfieldElement;
+  const customElementCtor = window.customElements?.get?.("math-field") as
+    | MathfieldElementConstructor
+    | undefined;
+  const mathfieldElementCtor = globalCtor ?? customElementCtor;
+  if (mathfieldElementCtor) {
+    mathfieldElementCtor.soundsDirectory = null;
+  }
+}
+
+disableMathLiveSounds();
+
 type MathFieldElement = HTMLElement & {
   value: string;
   insert: (value: string) => void;
@@ -73,6 +90,7 @@ export function MathInput({
   const isNotationExpanded = notationOnly || isNotationOpen || hasNotationValue || hasMathPlaceholder;
 
   useEffect(() => {
+    disableMathLiveSounds();
     const field = fieldRef.current;
     if (!field) return;
     field.readOnly = disabled;

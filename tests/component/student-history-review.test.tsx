@@ -2,6 +2,7 @@ import { clearViews } from "@/lib/view-cache";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
+import { REASONING_PHASES } from "@mindguide/contracts";
 import { SecureStudentHistory, SecureStudentReview } from "@/app/components/SecureStudent";
 
 const mocks = vi.hoisted(() => ({
@@ -372,5 +373,54 @@ describe("student history and review supporting flows", () => {
     );
     expect(screen.getByText("Returned for follow-up")).toBeVisible();
     expect(screen.getByText("Verify and Check")).toBeVisible();
+  });
+
+  it("renders delimited LaTeX inside review checkpoints, evidence summaries, and worked solutions", async () => {
+    mocks.getDoc.mockResolvedValue({
+      id: "math-review-session",
+      exists: () => true,
+      data: () => ({
+        workflowVersion: 6,
+        subject: "Quantitative Methods",
+        topic: "Functions",
+        status: "completed",
+        originalQuestion: "Find \\(f(A)\\) over \\(\\mathbb{Z}\\).",
+        scorecard: { total: 95 },
+        gateStates: Object.fromEntries(REASONING_PHASES.map((phase) => [phase, { status: "accepted" }])),
+        releasedSolution: {
+          method: "Evaluate \\(f(x)\\) on each element",
+          justification: "Direct image definition on \\(A\\)",
+          steps: ["Compute \\(f(2) = 4\\)."],
+          answer: "\\(\\{4\\}\\)",
+          verification: "Check \\(f^{-1}(\\{4\\}) = \\{2\\}\\).",
+          interpretation: "Image maps inputs in \\(A\\) to outputs.",
+        },
+      }),
+    });
+    mocks.getDocs
+      .mockResolvedValueOnce(
+        docs([
+          {
+            id: "resp-1",
+            phase: "problem_understanding",
+            response: { plainText: "We want \\(f(A) = \\{2, 3\\}\\) where inputs lie in \\(\\mathbb{Z}\\)." },
+            evaluation: { evidenceSummary: "Correctly stated \\(f(A) = \\{2, 3\\}\\)." },
+          },
+        ]),
+      )
+      .mockResolvedValueOnce(docs([]));
+
+    const { container } = render(
+      <MemoryRouter initialEntries={["/student/review/math-review-session"]}>
+        <Routes>
+          <Route path="/student/review/:sessionId" element={<SecureStudentReview />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/Correctly stated/i)).toBeVisible();
+    expect(container.querySelectorAll(".katex").length).toBeGreaterThanOrEqual(9);
+    expect(container.textContent).not.toContain("\\(");
+    expect(container.textContent).not.toContain("\\)");
   });
 });

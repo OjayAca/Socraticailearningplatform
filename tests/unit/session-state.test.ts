@@ -7,6 +7,7 @@ import {
   isStudentMutationAllowed,
   nextLearningProgress,
   projectStageProgress,
+  resolveStoredStreak,
 } from "../../src/lib/learning/session-state";
 import type { GateStateMap } from "../../src/lib/learning/workflow";
 
@@ -113,5 +114,20 @@ describe("session state helpers", () => {
   it("treats a streak as current only through the day after the latest submission", () => {
     expect(effectiveCurrentStreak(3, "2026-08-01", new Date("2026-08-02T04:00:00Z"))).toBe(3);
     expect(effectiveCurrentStreak(3, "2026-07-30", new Date("2026-08-02T04:00:00Z"))).toBe(0);
+  });
+
+  it("resolves stored streaks using lastSessionDate or lastSessionAt fallback", () => {
+    const now = new Date("2026-08-03T04:00:00Z"); // 12:00 Manila on 2026-08-03
+    expect(resolveStoredStreak(4, "2026-08-03", null, now)).toBe(4);
+    expect(resolveStoredStreak(4, "2026-08-02", null, now)).toBe(4);
+    expect(resolveStoredStreak(4, "2026-08-01", null, now)).toBe(0);
+    expect(
+      resolveStoredStreak(4, null, Date.parse("2026-08-01T10:00:00Z"), now),
+    ).toBe(0);
+    expect(
+      resolveStoredStreak(4, null, Timestamp.fromDate(new Date("2026-08-02T10:00:00Z")), now),
+    ).toBe(4);
+    expect(resolveStoredStreak(4, undefined, undefined, now)).toBe(4);
+    expect(resolveStoredStreak(0, undefined, undefined, now)).toBe(0);
   });
 });

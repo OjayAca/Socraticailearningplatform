@@ -1,6 +1,6 @@
 import { studentHistory, historyResponse, historyMessage, type HistoryMessage } from "@/lib/learning/student-response";
 import { displayPhaseLabel, displaySessionStatus } from "@/lib/learning/display-labels";
-import { MathText } from "./MathText";
+import { FormattedMathText, MathText } from "./MathText";
 import { TutorMessageBubble } from "./TutorMessageBubble";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
@@ -586,7 +586,9 @@ export function SecureStudentReview() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           <h3 className="font-bold text-slate-950 dark:text-white">Problem</h3>
           <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
-            <MathText text={session.originalQuestion ?? session.problemContext?.promptSnapshot} />
+            <FormattedMathText
+              text={String(session.originalQuestion ?? session.problemContext?.promptSnapshot ?? "")}
+            />
           </div>
           {session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}
         </div>
@@ -619,7 +621,7 @@ export function SecureStudentReview() {
                   Methodology
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
-                  {session.draft.methodology}
+                  <FormattedMathText text={String(session.draft.methodology)} />
                 </p>
               </div>
             )}
@@ -629,7 +631,7 @@ export function SecureStudentReview() {
                   Reflection
                 </p>
                 <p className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300">
-                  {session.draft.reflection}
+                  <FormattedMathText text={String(session.draft.reflection)} />
                 </p>
               </div>
             )}
@@ -663,11 +665,20 @@ export function SecureStudentReview() {
                   {item.phase ? displayPhaseLabel(String(item.phase)) : "Reasoning checkpoint"}
                 </p>
                 <div className="mt-2 text-sm text-slate-800 dark:text-slate-200">
-                  <MathText text={item.response?.plainText} latex={item.response?.latex} />
+                  {item.response?.plainText && (
+                    <span className="whitespace-pre-wrap [overflow-wrap:anywhere]">
+                      <FormattedMathText text={String(item.response.plainText)} />
+                    </span>
+                  )}
+                  {item.response?.latex && (
+                    <span className={item.response?.plainText ? "ml-1.5 inline" : undefined}>
+                      <MathText latex={String(item.response.latex)} />
+                    </span>
+                  )}
                 </div>
                 {item.evaluation?.evidenceSummary && (
                   <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                    {item.evaluation.evidenceSummary}
+                    <FormattedMathText text={String(item.evaluation.evidenceSummary)} />
                   </p>
                 )}
               </div>
@@ -806,24 +817,26 @@ function SolutionDetails({ solution }: { solution: Record<string, any> }) {
         Unlocked worked solution
       </p>
       <p className="text-sm">
-        <strong>Method:</strong> {solution.method}
+        <strong>Method:</strong> <FormattedMathText text={String(solution.method ?? "")} />
       </p>
       <p className="text-sm">
-        <strong>Why it applies:</strong> {solution.justification}
+        <strong>Why it applies:</strong> <FormattedMathText text={String(solution.justification ?? "")} />
       </p>
       <ol className="list-decimal space-y-1 pl-5 text-sm">
         {(solution.steps ?? []).map((step: string, index: number) => (
-          <li key={`${step}_${index}`}>{step}</li>
+          <li key={`${step}_${index}`}>
+            <FormattedMathText text={String(step ?? "")} />
+          </li>
         ))}
       </ol>
       <p className="text-sm">
-        <strong>Final answer:</strong> {solution.answer}
+        <strong>Final answer:</strong> <FormattedMathText text={String(solution.answer ?? "")} />
       </p>
       <p className="text-sm">
-        <strong>Verification:</strong> {solution.verification}
+        <strong>Verification:</strong> <FormattedMathText text={String(solution.verification ?? "")} />
       </p>
       <p className="text-sm">
-        <strong>Interpretation:</strong> {solution.interpretation}
+        <strong>Interpretation:</strong> <FormattedMathText text={String(solution.interpretation ?? "")} />
       </p>
     </div>
   );

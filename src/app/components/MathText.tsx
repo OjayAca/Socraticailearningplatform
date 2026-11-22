@@ -45,8 +45,8 @@ export function MathText({ text = "", latex, displayMode = false }: MathTextProp
       <span
         className={
           displayMode
-            ? "block max-w-full overflow-x-auto"
-            : "inline-block max-w-full overflow-x-auto align-middle"
+            ? "block max-w-full overflow-x-auto overflow-y-hidden py-0.5"
+            : "inline align-baseline"
         }
         dangerouslySetInnerHTML={{ __html: rendered }}
       />

@@ -45,10 +45,10 @@ export function ProtectedRoute({ requiredRole }: ProtectedRouteProps) {
 
   if (isLoading) {
     return (
-      <div className="flex-1 flex items-center justify-center h-full bg-slate-50">
+      <div className="flex-1 flex items-center justify-center h-full bg-slate-50 dark:bg-[#050816]">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
-          <p className="text-slate-500 text-sm font-medium">Loading...</p>
+          <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin" />
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">Loading...</p>
         </div>
       </div>
     );

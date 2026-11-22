@@ -12,6 +12,7 @@ import {
 import { motion } from "motion/react";
 import { useLocation } from "react-router";
 import { isAdminRole, useAuthStore } from "@/stores/auth-store";
+import { resolveStoredStreak } from "@/lib/learning/session-state";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { UserStats } from "@/types";
@@ -54,7 +55,11 @@ export function ProfileContent() {
         setLearningStats({
           sessionsCompleted: completed,
           averageCTScore: Number(progress.averageCTScore ?? (completed ? Math.round(Number(progress.scoreTotal ?? 0) / completed) : 0)),
-          currentStreak: Number(progress.currentStreak ?? 0),
+          currentStreak: resolveStoredStreak(
+            Number(progress.currentStreak ?? 0),
+            progress.lastSessionDate,
+            progress.lastSessionAt,
+          ),
           lastSessionDate: progress.lastSessionAt ?? null,
           topicPerformance: [],
         });

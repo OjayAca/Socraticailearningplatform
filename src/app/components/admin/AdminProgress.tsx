@@ -3,6 +3,7 @@
 import { VALIDATED_SUBJECTS, VALIDATED_TOPICS } from "@/data/validated-curriculum";
 import { db } from "@/lib/firebase";
 import { displaySessionStatus } from "@/lib/learning/display-labels";
+import { resolveStoredStreak } from "@/lib/learning/session-state";
 import {
   DIAGNOSIS_CATEGORY_LABELS,
   type AccountStatus,
@@ -1361,7 +1362,7 @@ export function SecureAdminProgressDetail() {
           />
           <AdminStat
             label="Current Streak"
-            value={`${progress?.currentStreak ?? 0} days`}
+            value={`${resolveStoredStreak(Number(progress?.currentStreak ?? 0), progress?.lastSessionDate, progress?.lastSessionAt)} days`}
             Icon={Flame}
             iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
             helperText={`Last activity: ${formatTimestamp(progress?.lastActivityAt)}`}

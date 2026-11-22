@@ -148,6 +148,23 @@ export function awardEligibleAchievements(
   return { achievements, newlyAwarded };
 }
 
+function toTimestampMillis(value: unknown): number {
+  if (value && typeof value === "object" && "toMillis" in value && typeof value.toMillis === "function") {
+    return Number(value.toMillis()) || 0;
+  }
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.getTime() : 0;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+  if (typeof value === "string") {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
 export function effectiveCurrentStreak(
   storedStreak: number,
   lastSessionDate: string | null,
@@ -158,6 +175,34 @@ export function effectiveCurrentStreak(
   return lastSessionDate === today || lastSessionDate === previousDateKey(today)
     ? Math.max(0, storedStreak)
     : 0;
+}
+
+/**
+ * Resolves a stored learner streak for display by applying calendar-day decay when
+ * `lastSessionDate` or `lastSessionAt` indicates the streak has expired.
+ *
+ * @param storedStreak - Stored streak counter from `learning_progress`.
+ * @param lastSessionDate - Optional `YYYY-MM-DD` Manila calendar date of last completion.
+ * @param lastSessionAt - Optional timestamp (`number`, `Date`, ISO string, or Firestore `Timestamp`) fallback.
+ * @param now - Optional reference date (defaults to current time).
+ * @returns Active streak count (`0` if expired).
+ */
+export function resolveStoredStreak(
+  storedStreak: number,
+  lastSessionDate?: unknown,
+  lastSessionAt?: unknown,
+  now = new Date(),
+): number {
+  const normalizedStreak = Number.isFinite(storedStreak) ? Math.max(0, storedStreak) : 0;
+  if (normalizedStreak === 0) return 0;
+  if (typeof lastSessionDate === "string" && lastSessionDate.trim()) {
+    return effectiveCurrentStreak(normalizedStreak, lastSessionDate.trim(), now);
+  }
+  const timestampMs = toTimestampMillis(lastSessionAt);
+  if (timestampMs > 0) {
+    return effectiveCurrentStreak(normalizedStreak, manilaDateKey(new Date(timestampMs)), now);
+  }
+  return normalizedStreak;
 }
 
 function normalizeAchievements(value: unknown): Partial<Record<AchievementId, AchievementAward>> {

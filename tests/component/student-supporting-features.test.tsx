@@ -154,6 +154,25 @@ describe("student profile and achievements", () => {
     expect(await screen.findByText("Profile Updated")).toBeVisible();
   });
 
+  it("decays stale stored currentStreak to 0 on ProfileContent when lastSessionDate has expired", async () => {
+    mocks.getDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        sessionsCompleted: 5,
+        averageCTScore: 84,
+        currentStreak: 3,
+        lastSessionDate: "2020-01-01",
+      }),
+    });
+
+    renderProfile();
+
+    await waitFor(() => expect(screen.getByText("84%")).toBeVisible());
+    const streakCard = screen.getByText("Day Streak").parentElement;
+    expect(streakCard).not.toBeNull();
+    expect(within(streakCard!).getByText("0")).toBeVisible();
+  });
+
   it("shows administrator profile context without learner statistics", () => {
     mocks.authState = {
       ...mocks.authState,

@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MathInput } from "@/app/components/MathInput";
 
 vi.mock("mathlive", () => ({}));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe("equation-only input", () => {
   it("edits equations without duplicating the chat text field", () => {
@@ -39,5 +42,12 @@ describe("equation-only input", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "+ Insert [math] in problem" }));
     expect(onChange).toHaveBeenCalledWith({ plainText: "Given f(x) = [math]", latex: "" });
+  });
+
+  it("disables MathLive audio loading to prevent 404 requests for missing sound files", () => {
+    const mathfieldCtor = { soundsDirectory: "sounds" as string | null };
+    vi.stubGlobal("MathfieldElement", mathfieldCtor);
+    render(<MathInput notationOnly value={{ plainText: "", latex: "" }} onChange={vi.fn()} />);
+    expect(mathfieldCtor.soundsDirectory).toBeNull();
   });
 });

@@ -309,7 +309,9 @@ describe("protected route recovery and role enforcement", () => {
   it("shows loading and redirects a signed-out visitor", () => {
     mocks.state = { isLoading: true };
     const view = renderGuard();
-    expect(screen.getByText("Loading...")).toBeVisible();
+    const loadingText = screen.getByText("Loading...");
+    expect(loadingText).toBeVisible();
+    expect(loadingText.closest("div.flex-1")).toHaveClass("dark:bg-[#050816]");
 
     view.unmount();
     mocks.state = { isLoading: false, firebaseUser: null };
