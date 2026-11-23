@@ -14,5 +14,6 @@ describe("protected P1 report print view", () => {
     expect(screen.getByText(/pseudonymized/i)).toBeVisible();
     expect(screen.getByText("Learner-abcd")).toBeVisible();
     expect(screen.getByRole("button", { name: /print \/ save as pdf/i })).toBeVisible();
+    expect(screen.getByRole("columnheader", { name: /learner/i })).toHaveClass("whitespace-nowrap");
   });
 });

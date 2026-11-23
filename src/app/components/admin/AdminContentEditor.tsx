@@ -50,6 +50,11 @@ interface AdminContentEditorProps {
   recordIdParam?: string;
 }
 
+interface SubjectOption {
+  id: string;
+  name: string;
+}
+
 interface TopicOption {
   id: string;
   subjectId: string;
@@ -99,14 +104,14 @@ interface ProblemFormState {
 }
 
 interface SubjectFormState {
-  name: Subject;
+  name: string;
   description: string;
   status: ManagedContentStatus;
 }
 
 interface TopicFormState {
   subjectId: string;
-  subject: Subject;
+  subject: string;
   name: string;
   status: ManagedContentStatus;
 }
@@ -257,12 +262,12 @@ function generateDefaultRecordId(
       return generateProblemRecordId(p.subject, p.topicId, p.difficulty, p.variant);
     }
     case "subjects":
-      return slugify(state.subjects.name) || "quantitative-methods";
+      return slugify(state.subjects.name) || "custom-subject";
     case "topics": {
       const match = VALIDATED_TOPICS.find(
         (t) => t.subject === state.topics.subject && t.name === state.topics.name,
       );
-      return match?.id ?? slugify(`${state.topics.subject}-${state.topics.name}`);
+      return match?.id ?? (slugify(`${state.topics.subject}-${state.topics.name}`) || "custom-topic");
     }
     case "formula_theorem_references": {
       const f = state.formula_theorem_references;
@@ -313,15 +318,15 @@ function createInitialFormState(): EditorFormState {
       },
     },
     subjects: {
-      name: firstSubject.name as Subject,
-      description: firstSubject.name,
-      status: "approved",
+      name: "",
+      description: "",
+      status: "draft",
     },
     topics: {
       subjectId: firstSubject.id,
-      subject: firstSubject.name as Subject,
-      name: firstTopic.name,
-      status: "approved",
+      subject: firstSubject.name,
+      name: "",
+      status: "draft",
     },
     formula_theorem_references: {
       kind: "formula",
@@ -410,14 +415,14 @@ function hydrateCollectionState(
     };
   } else if (collectionName === "subjects") {
     next.subjects = {
-      name: asString(rawData.name, base.subjects.name) as Subject,
+      name: asString(rawData.name, base.subjects.name),
       description: asString(rawData.description),
       status: rawStatus,
     };
   } else if (collectionName === "topics") {
     next.topics = {
       subjectId: asString(rawData.subjectId, base.topics.subjectId),
-      subject: asString(rawData.subject, base.topics.subject) as Subject,
+      subject: asString(rawData.subject, base.topics.subject),
       name: asString(rawData.name),
       status: rawStatus,
     };
@@ -512,14 +517,23 @@ function buildMutationPayload(
   }
 
   if (collectionName === "subjects") {
-    return { ...state.subjects };
+    return {
+      ...state.subjects,
+      name: state.subjects.name.trim(),
+      description: state.subjects.description.trim(),
+    };
   }
   if (collectionName === "topics") {
+    const trimmedSubject = state.topics.subject.trim();
+    const trimmedTopicName = state.topics.name.trim();
     const matched = VALIDATED_TOPICS.find(
-      (topic) => topic.subject === state.topics.subject && topic.name === state.topics.name,
+      (topic) => topic.subject === trimmedSubject && topic.name === trimmedTopicName,
     );
     return {
       ...state.topics,
+      subjectId: state.topics.subjectId.trim(),
+      subject: trimmedSubject,
+      name: trimmedTopicName,
       ...(matched ? { subtopics: matched.subtopics } : {}),
     };
   }
@@ -599,6 +613,20 @@ function validateEditorForm(
     }
     if (!state.socratic_prompt_bank.prompt.trim()) {
       messages.push("Socratic prompt text is required.");
+    }
+  } else if (collectionName === "subjects") {
+    if (!state.subjects.name.trim()) {
+      messages.push("Subject name is required.");
+    }
+    if (!state.subjects.description.trim()) {
+      messages.push("Subject description is required.");
+    }
+  } else if (collectionName === "topics") {
+    if (!state.topics.subject.trim() || !state.topics.subjectId.trim()) {
+      messages.push("Subject and Subject ID are required.");
+    }
+    if (!state.topics.name.trim()) {
+      messages.push("Topic name is required.");
     }
   } else if (collectionName === "misconception_categories") {
     if (!state.misconception_categories.name.trim()) {
@@ -720,6 +748,7 @@ function AdminContentEditorInner({
   const [isDirty, setIsDirty] = useState(false);
   const [loading, setLoading] = useState(!isNew);
 
+  const [firestoreSubjects, setFirestoreSubjects] = useState<SubjectOption[]>([]);
   const [firestoreTopics, setFirestoreTopics] = useState<TopicOption[]>([]);
   const [formulaRefs, setFormulaRefs] = useState<FormulaReferenceOption[]>([]);
   const [problemOptions, setProblemOptions] = useState<ProblemSummaryOption[]>([]);
@@ -769,13 +798,28 @@ function AdminContentEditorInner({
     setErrorMsg(null);
     if (!isNew) setLoading(true);
     try {
-      const [topicsSnap, refsSnap, problemsSnap] = await Promise.all([
+      const [subjectsSnap, topicsSnap, refsSnap, problemsSnap] = await Promise.all([
+        getDocs(collection(db, "subjects")).catch(() => null),
         getDocs(collection(db, "topics")).catch(() => null),
         getDocs(collection(db, "formula_theorem_references")).catch(() => null),
         collectionName === "socratic_prompt_bank"
           ? getDocs(collection(db, "problems")).catch(() => null)
           : Promise.resolve(null),
       ]);
+
+      if (subjectsSnap) {
+        setFirestoreSubjects(
+          subjectsSnap.docs
+            .map((entry) => {
+              const data = entry.data() as Record<string, unknown>;
+              return {
+                id: entry.id,
+                name: asString(data.name, entry.id),
+              };
+            })
+            .filter((subject) => Boolean(subject.id && subject.name)),
+        );
+      }
 
       if (topicsSnap) {
         setFirestoreTopics(
@@ -861,6 +905,20 @@ function AdminContentEditorInner({
     };
   }, [loadEditorData]);
 
+  // Merge core VALIDATED_SUBJECTS with any custom Firestore subjects.
+  const allSubjects = useMemo<SubjectOption[]>(() => {
+    const byId = new Map<string, SubjectOption>();
+    for (const subject of VALIDATED_SUBJECTS) {
+      byId.set(subject.id, { id: subject.id, name: subject.name });
+    }
+    for (const subject of firestoreSubjects) {
+      if (!byId.has(subject.id) && subject.name) {
+        byId.set(subject.id, subject);
+      }
+    }
+    return [...byId.values()];
+  }, [firestoreSubjects]);
+
   // Merge VALIDATED_TOPICS with any additional Firestore topics.
   const allTopics = useMemo<TopicOption[]>(() => {
     const byId = new Map<string, TopicOption>();
@@ -880,14 +938,12 @@ function AdminContentEditorInner({
     return [...byId.values()];
   }, [firestoreTopics]);
 
+  const isCoreValidatedSubject = !isNew && VALIDATED_SUBJECTS.some((subj) => subj.id === routeRecordId);
+  const isCoreValidatedTopic = !isNew && VALIDATED_TOPICS.some((topic) => topic.id === routeRecordId);
+
   const filteredProblemTopics = useMemo(
     () => allTopics.filter((topic) => topic.subject === formState.problems.subject),
     [allTopics, formState.problems.subject],
-  );
-
-  const filteredTopicFormTopics = useMemo(
-    () => allTopics.filter((topic) => topic.subject === formState.topics.subject),
-    [allTopics, formState.topics.subject],
   );
 
   const filteredPolicyTopics = useMemo(
@@ -1915,27 +1971,30 @@ function AdminContentEditorInner({
                   <div className="grid gap-4 sm:grid-cols-2">
                     <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       Subject Name
-                      <select
+                      <input
+                        type="text"
+                        disabled={isCoreValidatedSubject || isBusy}
                         value={formState.subjects.name}
+                        placeholder="e.g. Applied Linear Algebra"
                         onChange={(event) => {
-                          const nextName = event.target.value as Subject;
+                          const nextName = event.target.value;
                           updateForm((prev) => ({
                             ...prev,
                             subjects: { ...prev.subjects, name: nextName },
                           }));
                         }}
                         className={inputClass}
-                      >
-                        {VALIDATED_SUBJECTS.map((subj) => (
-                          <option key={subj.id} value={subj.name}>
-                            {subj.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      {isCoreValidatedSubject && (
+                        <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">
+                          Core validated subject names and active status remain locked.
+                        </span>
+                      )}
                     </label>
                     <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       Lifecycle Status
                       <select
+                        disabled={isCoreValidatedSubject || isBusy}
                         value={formState.subjects.status}
                         onChange={(event) =>
                           updateForm((prev) => ({
@@ -1950,6 +2009,7 @@ function AdminContentEditorInner({
                       >
                         <option value="approved">Approved</option>
                         <option value="draft">Draft</option>
+                        <option value="rejected">Rejected</option>
                         <option value="archived">Archived</option>
                       </select>
                     </label>
@@ -1975,35 +2035,41 @@ function AdminContentEditorInner({
                     <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       Subject
                       <select
+                        disabled={isCoreValidatedTopic || isBusy}
                         value={formState.topics.subject}
                         onChange={(event) => {
-                          const nextSubject = event.target.value as Subject;
-                          const matchedSubject = VALIDATED_SUBJECTS.find((s) => s.name === nextSubject);
-                          const firstTopic = allTopics.find((t) => t.subject === nextSubject);
+                          const nextSubject = event.target.value;
+                          const matchedSubject = allSubjects.find((s) => s.name === nextSubject);
                           updateForm((prev) => ({
                             ...prev,
                             topics: {
                               ...prev.topics,
                               subject: nextSubject,
                               subjectId: matchedSubject?.id ?? slugify(nextSubject),
-                              name: firstTopic?.name ?? "",
                             },
                           }));
                         }}
                         className={inputClass}
                       >
-                        {VALIDATED_SUBJECTS.map((subj) => (
+                        {allSubjects.map((subj) => (
                           <option key={subj.id} value={subj.name}>
                             {subj.name}
                           </option>
                         ))}
+                        {formState.topics.subject &&
+                          !allSubjects.some((subj) => subj.name === formState.topics.subject) && (
+                            <option value={formState.topics.subject}>{formState.topics.subject}</option>
+                          )}
                       </select>
                     </label>
 
                     <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       Topic Name
-                      <select
+                      <input
+                        type="text"
+                        disabled={isCoreValidatedTopic || isBusy}
                         value={formState.topics.name}
+                        placeholder="e.g. Markov Chains"
                         onChange={(event) =>
                           updateForm((prev) => ({
                             ...prev,
@@ -2011,18 +2077,18 @@ function AdminContentEditorInner({
                           }))
                         }
                         className={inputClass}
-                      >
-                        {filteredTopicFormTopics.map((topic) => (
-                          <option key={topic.id} value={topic.name}>
-                            {topic.name}
-                          </option>
-                        ))}
-                      </select>
+                      />
+                      {isCoreValidatedTopic && (
+                        <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">
+                          Core validated topic hierarchy and active status remain locked.
+                        </span>
+                      )}
                     </label>
 
                     <label className="text-sm font-bold text-slate-800 dark:text-slate-200">
                       Lifecycle Status
                       <select
+                        disabled={isCoreValidatedTopic || isBusy}
                         value={formState.topics.status}
                         onChange={(event) =>
                           updateForm((prev) => ({
@@ -2037,6 +2103,7 @@ function AdminContentEditorInner({
                       >
                         <option value="approved">Approved</option>
                         <option value="draft">Draft</option>
+                        <option value="rejected">Rejected</option>
                         <option value="archived">Archived</option>
                       </select>
                     </label>
@@ -2659,14 +2726,14 @@ function AdminContentEditorInner({
             </p>
 
             <datalist id="mg-subject-ids">
-              {VALIDATED_SUBJECTS.map((subj) => (
+              {allSubjects.map((subj) => (
                 <option key={subj.id} value={subj.id}>
                   {subj.name}
                 </option>
               ))}
             </datalist>
             <datalist id="mg-topic-ids">
-              {VALIDATED_TOPICS.map((topic) => (
+              {allTopics.map((topic) => (
                 <option key={topic.id} value={topic.id}>
                   {topic.name}
                 </option>
@@ -2723,6 +2790,7 @@ function AdminContentEditorInner({
                   Subject ID Override
                   <input
                     type="text"
+                    disabled={isCoreValidatedTopic || isBusy}
                     list="mg-subject-ids"
                     value={formState.topics.subjectId}
                     onChange={(event) =>

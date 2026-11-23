@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   reload: vi.fn(),
   getIdToken: vi.fn(),
   signOut: vi.fn(),
+  authStateCallback: null as null | ((user: unknown) => Promise<void> | void),
+  onAuthStateChanged: vi.fn(),
 }));
 vi.mock("@/lib/firebase", () => ({
   auth: { currentUser: mocks.user }, db: {}, isFirebaseConfigured: true,
@@ -26,6 +28,7 @@ vi.mock("firebase/auth", async (original) => ({
   reload: mocks.reload,
   getIdToken: mocks.getIdToken,
   signOut: mocks.signOut,
+  onAuthStateChanged: mocks.onAuthStateChanged,
 }));
 vi.mock("firebase/firestore", async (original) => ({
   ...await original<typeof import("firebase/firestore")>(),
@@ -143,6 +146,39 @@ describe("administrator profile loading", () => {
       expect(storeData.size).toBe(0);
     } finally {
       vi.unstubAllGlobals();
+    }
+  });
+
+  it("prevents onAuthStateChanged from racing profile creation during active signUp", async () => {
+    const newStudentUser = { uid: "race-student", email: "race@example.com", emailVerified: false };
+    mocks.onAuthStateChanged.mockImplementation((_auth, cb) => {
+      mocks.authStateCallback = cb;
+      return () => {};
+    });
+    mocks.createUserWithEmailAndPassword.mockResolvedValue({ user: newStudentUser });
+    mocks.sendEmailVerification.mockResolvedValue(undefined);
+    mocks.getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ displayName: "Race Student", email: "race@example.com", role: "student", status: "active" }),
+    });
+
+    let listenerReadsDuringSignUp = 0;
+    mocks.updateProfile.mockImplementation(async () => {
+      const readsBefore = mocks.getDoc.mock.calls.length;
+      await mocks.authStateCallback?.(newStudentUser);
+      listenerReadsDuringSignUp = mocks.getDoc.mock.calls.length - readsBefore;
+    });
+
+    const unsubscribe = useAuthStore.getState().initialize();
+    try {
+      const profile = await useAuthStore.getState().signUp("Race Student", "race@example.com", "secret123");
+      expect(listenerReadsDuringSignUp).toBe(0);
+      expect(profile.displayName).toBe("Race Student");
+      expect(useAuthStore.getState().isLoading).toBe(false);
+      expect(useAuthStore.getState().userProfile?.uid).toBe("race-student");
+    } finally {
+      unsubscribe();
+      mocks.authStateCallback = null;
     }
   });
 });

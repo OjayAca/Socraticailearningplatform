@@ -237,4 +237,21 @@ it('passes optional notation unchanged and prevents duplicate in-flight starts',
   cleanup();
 });
 
+  it("disables Validate and start while Own Problem notation has a syntax error until fixed", async () => {
+    clearViews();
+    mocks.getLearningCatalog.mockResolvedValue({ subjects: VALIDATED_SUBJECTS, topics: VALIDATED_TOPICS, generatedAt: 1 });
+    mocks.getDoc.mockReset().mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({ exists: () => true });
+    render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
+    await choose("Own Problem");
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Evaluate [math] cleanly." } });
+    const field = screen.getByLabelText("Mathematical expression editor") as HTMLElement & { value: string };
+    field.value = "\\frac{1}{";
+    fireEvent.input(field);
+    const startButton = screen.getByRole("button", { name: "Validate and start" });
+    await waitFor(() => expect(startButton).toBeDisabled());
+    field.value = "\\frac{1}{2}";
+    fireEvent.input(field);
+    await waitFor(() => expect(startButton).toBeEnabled());
+  });
+
 });

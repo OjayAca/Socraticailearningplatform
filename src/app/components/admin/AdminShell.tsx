@@ -325,15 +325,18 @@ function AdminSectionGroup({
 function AdminSignOutButton({
   onSignOut,
   collapsed = false,
+  disabled = false,
 }: {
   onSignOut: () => Promise<void>;
   collapsed?: boolean;
+  disabled?: boolean;
 }) {
   const button = (
     <button
       type="button"
+      disabled={disabled}
       onClick={() => void onSignOut()}
-      className={`flex min-h-11 w-full items-center rounded-xl text-sm font-semibold text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:text-rose-400 dark:hover:bg-rose-950/30 ${
+      className={`flex min-h-11 w-full items-center rounded-xl text-sm font-semibold text-rose-600 transition hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-950/30 ${
         collapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5"
       }`}
     >
@@ -363,6 +366,7 @@ export function AdminShell({ active, children }: AdminShellProps) {
   const initials = getInitials(displayName);
   const isDark = resolvedTheme === "dark";
   const [signOutError, setSignOutError] = useState<string | null>(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(
     readSidebarCollapsedPreference,
   );
@@ -376,11 +380,16 @@ export function AdminShell({ active, children }: AdminShellProps) {
   }
 
   async function handleSignOut() {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    setSignOutError(null);
     try {
       await signOut();
-      navigate("/login");
+      navigate("/login", { replace: true });
     } catch (cause) {
       setSignOutError(errorMessage(cause, "Sign out failed. Please try again."));
+    } finally {
+      setIsSigningOut(false);
     }
   }
 
@@ -406,7 +415,7 @@ export function AdminShell({ active, children }: AdminShellProps) {
           ))}
         </div>
 
-        <div className="mt-auto space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+        <div className="mt-auto shrink-0 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
           <nav aria-labelledby="desktop-admin-nav-bottom" className="space-y-1.5">
             {isSidebarCollapsed ? (
               <p id="desktop-admin-nav-bottom" className="sr-only">
@@ -429,6 +438,7 @@ export function AdminShell({ active, children }: AdminShellProps) {
           <AdminSignOutButton
             onSignOut={handleSignOut}
             collapsed={isSidebarCollapsed}
+            disabled={isSigningOut}
           />
         </div>
       </aside>
@@ -477,7 +487,7 @@ export function AdminShell({ active, children }: AdminShellProps) {
                   ))}
                 </div>
 
-                <div className="mt-auto space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                <div className="mt-auto shrink-0 space-y-2 border-t border-slate-200 pt-4 dark:border-slate-800">
                   <nav aria-labelledby="mobile-admin-nav-bottom" className="space-y-1.5">
                     <p
                       id="mobile-admin-nav-bottom"
@@ -491,7 +501,7 @@ export function AdminShell({ active, children }: AdminShellProps) {
                       closeOnNavigate
                     />
                   </nav>
-                  <AdminSignOutButton onSignOut={handleSignOut} />
+                  <AdminSignOutButton onSignOut={handleSignOut} disabled={isSigningOut} />
                 </div>
               </SheetContent>
             </Sheet>

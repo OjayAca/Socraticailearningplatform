@@ -138,13 +138,31 @@ export function isValidatedTopic(id: string, data: any): boolean {
 }
 export function assertCurriculumContent(collection: string, id: string, value: any) {
   if (["problems", "formula_theorem_references", "socratic_prompt_bank", "difficulty_policies"].includes(collection) && containsExcludedContent(value)) throw new Error("Learning content must remain within the approved curriculum scope.");
-  if (["subjects", "topics"].includes(collection) && value.status !== "approved") throw new Error("Validated curriculum entries must remain active; archive learning content separately.");
-  if (collection === "subjects" && !VALIDATED_SUBJECTS.some(item => item.id === id && item.name === value.name)) throw new Error("Choose an exact validated subject and stable ID.");
+  if (collection === "subjects") {
+    const coreById = VALIDATED_SUBJECTS.find(item => item.id === id);
+    const coreByName = VALIDATED_SUBJECTS.find(item => item.name === value.name);
+    if (coreById || coreByName) {
+      if (value.status !== "approved") throw new Error("Validated curriculum entries must remain active; archive learning content separately.");
+      if (!coreById || !coreByName || coreById.id !== coreByName.id) throw new Error("Choose an exact validated subject and stable ID.");
+    }
+    return;
+  }
   if (collection === "topics") {
-    const topic = VALIDATED_TOPICS.find(item => item.id === id);
-    if (!topic || !isValidatedTopic(id, value)) throw new Error("Choose an exact validated topic and parent subject.");
-    if (value.subtopics && JSON.stringify(value.subtopics) !== JSON.stringify(topic.subtopics)) throw new Error("Subtopics must match the validated hierarchy.");
-    value.subtopics = topic.subtopics;
+    const coreTopicById = VALIDATED_TOPICS.find(item => item.id === id);
+    const coreTopicByName = VALIDATED_TOPICS.find(
+      item => item.name === value.name && (item.subjectId === value.subjectId || item.subject === value.subject),
+    );
+    if (coreTopicById) {
+      if (value.status !== "approved") throw new Error("Validated curriculum entries must remain active; archive learning content separately.");
+      if (!isValidatedTopic(id, value)) throw new Error("Choose an exact validated topic and parent subject.");
+      if (value.subtopics && JSON.stringify(value.subtopics) !== JSON.stringify(coreTopicById.subtopics)) throw new Error("Subtopics must match the validated hierarchy.");
+      value.subtopics = coreTopicById.subtopics;
+      return;
+    }
+    if (coreTopicByName) {
+      throw new Error("Choose an exact validated topic and parent subject.");
+    }
+    return;
   }
   if (collection === "problems" && !VALIDATED_TOPICS.some(item => item.id === value.topicId && item.subjectId === value.subjectId && item.subject === value.subject && item.name === value.topic)) throw new Error("Associate this content with a validated subject and topic.");
   if (collection === "formula_theorem_references" && value.supportedTopics?.some((name: string) => !VALIDATED_TOPICS.some(item => item.subject === value.domain && item.name === name))) throw new Error("References must use validated topics within their subject.");

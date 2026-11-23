@@ -260,6 +260,26 @@ describe("administrator progress, logs, and settings recovery", () => {
     expect(screen.queryByText("Student One")).not.toBeInTheDocument();
   });
 
+  it("navigates to learner progress detail when clicking anywhere on an overview row", async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce(snapshot([{ id: "student-1", displayName: "Student One", email: "one@example.com", role: "student", status: "active" }]))
+      .mockResolvedValueOnce(snapshot([{ id: "student-1", sessionsCompleted: 4, averageCTScore: 81, currentStreak: 2 }]))
+      .mockResolvedValueOnce(snapshot([]));
+
+    render(
+      <MemoryRouter initialEntries={["/admin/progress"]}>
+        <Routes>
+          <Route path="/admin/progress" element={<SecureAdminProgress />} />
+          <Route path="/admin/progress/:userId" element={<p>Learner detail destination</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const emailCell = await screen.findByText("one@example.com");
+    fireEvent.click(emailCell);
+    expect(await screen.findByText("Learner detail destination")).toBeVisible();
+  });
+
   it("shows progress-detail and log loading failures", async () => {
     mocks.getDoc.mockRejectedValue(new Error("Progress detail is offline."));
     mocks.getDocs.mockRejectedValue(new Error("Progress detail is offline."));

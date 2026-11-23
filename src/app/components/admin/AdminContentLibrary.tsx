@@ -282,6 +282,7 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
   const [deleteTarget, setDeleteTarget] = useState<ContentRecord | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [deleteReason, setDeleteReason] = useState("Remove unused draft learning content");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const isBusy = busyAction !== null;
 
@@ -484,6 +485,7 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
     setBusyAction("delete");
     setStatusMessage(null);
     setErrorMsg(null);
+    setDeleteError(null);
     try {
       await adminDeleteContent({
         collection: collectionName,
@@ -492,10 +494,13 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
       });
       setDeleteTarget(null);
       setDeleteConfirmation("");
+      setDeleteError(null);
       setStatusMessage(`Permanently deleted ${target.id}.`);
       await loadLibrary();
     } catch (cause) {
-      setErrorMsg(formatErrorMessage(cause, "Could not permanently delete this record."));
+      const message = formatErrorMessage(cause, "Could not permanently delete this record.");
+      setDeleteError(message);
+      setErrorMsg(message);
     } finally {
       setBusyAction(null);
     }
@@ -589,7 +594,7 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
               </Link>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Validated curriculum structure is fixed; archived learning content remains preserved for historical sessions.
+              Core validated subjects and topics remain locked; custom subjects, custom topics, and archived learning content can be managed here.
             </p>
           </div>
         )}
@@ -1211,6 +1216,7 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
                                 onClick={() => {
                                   setDeleteTarget(item);
                                   setDeleteConfirmation("");
+                                  setDeleteError(null);
                                 }}
                                 className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-red-200 bg-white text-red-600 transition hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:opacity-50 dark:border-red-900 dark:bg-slate-900 dark:text-red-400 dark:hover:bg-red-950/40"
                               >
@@ -1432,6 +1438,7 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
           if (!open) {
             setDeleteTarget(null);
             setDeleteConfirmation("");
+            setDeleteError(null);
           }
         }}
       >
@@ -1471,6 +1478,15 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
                     />
                   </label>
                 </div>
+
+                {deleteError && (
+                  <div
+                    role="alert"
+                    className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm font-medium text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-200"
+                  >
+                    {deleteError}
+                  </div>
+                )}
 
                 <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                   <DialogPrimitive.Close asChild>

@@ -290,7 +290,7 @@ export function JsonTable({
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="p-3.5 font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
+                  className="whitespace-nowrap p-3.5 font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300"
                 >
                   {header}
                 </th>

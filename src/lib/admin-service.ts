@@ -1,4 +1,5 @@
 import { assertCurriculumContent, isValidatedTopic, VALIDATED_SUBJECTS, VALIDATED_TOPICS } from "../data/validated-curriculum";
+const PRIVATE_SCAN_CONCURRENCY = 16;
 import { collection, doc, getDoc, getDocs, query, where, runTransaction, serverTimestamp, writeBatch, setDoc, type DocumentData, type Transaction } from "firebase/firestore";
 import type { Difficulty, ReportKind } from "@mindguide/contracts";
 import { currentUser, database, requireAdmin, millis } from "./firestore-client";
@@ -213,14 +214,31 @@ export async function adminOperation(name: string, input: any): Promise<any> {
   }
   if (name === "adminDeleteContent") {
     const ref = doc(db, input.collection, input.id);
+    const targetSnapshot = await getDoc(ref);
+    if (!targetSnapshot.exists() || !["draft", "rejected"].includes(targetSnapshot.get("status"))) {
+      throw new Error("Only unused draft or rejected content can be deleted.");
+    }
     const sources = await Promise.all([...managedCollections, "sessions", "content_validation_records"].map(async name => ({ name, snapshot: await getDocs(collection(db, name)) })));
     for (const source of sources) for (const item of source.snapshot.docs) {
       if (source.name === input.collection && item.id === input.id) continue;
       if (references(item.data(), input.id)) throw new Error("This content is referenced by managed content or learning history. Archive it instead.");
-      // References may also be pinned in protected material.
-      if (["problems", "sessions"].includes(source.name)) {
-        const privateRecords = await getDocs(collection(db, source.name, item.id, "private"));
-        if (privateRecords.docs.some(record => references(record.data(), input.id))) throw new Error("This content is referenced by protected learning material. Archive it instead.");
+    }
+    // References may also be pinned in protected material; scan private subcollections in bounded batches.
+    const privateTargets = sources
+      .filter(source => source.name === "problems" || source.name === "sessions")
+      .flatMap(source =>
+        source.snapshot.docs
+          .filter(item => !(source.name === input.collection && item.id === input.id))
+          .map(item => ({ collectionName: source.name, id: item.id })),
+      );
+    for (let index = 0; index < privateTargets.length; index += PRIVATE_SCAN_CONCURRENCY) {
+      const batch = privateTargets.slice(index, index + PRIVATE_SCAN_CONCURRENCY);
+      const batchMatches = await Promise.all(batch.map(async target => {
+        const privateRecords = await getDocs(collection(db, target.collectionName, target.id, "private"));
+        return privateRecords.docs.some(record => references(record.data(), input.id));
+      }));
+      if (batchMatches.some(Boolean)) {
+        throw new Error("This content is referenced by protected learning material. Archive it instead.");
       }
     }
     const privateRecords = input.collection === "problems" ? await getDocs(collection(db, "problems", input.id, "private")) : null;

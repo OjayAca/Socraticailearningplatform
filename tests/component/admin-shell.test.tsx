@@ -285,4 +285,42 @@ describe("admin-shared helpers", () => {
       endIndex: 4,
     });
   });
+
+  it("renders nowrap table headers in JsonTable and prevents duplicate in-flight Sign Out clicks", async () => {
+    let resolveSignOut!: () => void;
+    mocks.signOut.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSignOut = resolve;
+        }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/admin/dashboard"]}>
+        <Routes>
+          <Route
+            path="/admin/dashboard"
+            element={
+              <AdminShell active="dashboard">
+                <JsonTable rows={[{ studentName: "Ada", averageScore: 95 }]} />
+              </AdminShell>
+            }
+          />
+          <Route path="/login" element={<p>Login screen</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("columnheader", { name: /studentName/i })).toHaveClass("whitespace-nowrap");
+
+    const sidebar = screen.getByRole("complementary", { name: "Administrator sidebar" });
+    const signOutBtn = within(sidebar).getByRole("button", { name: "Sign Out" });
+    fireEvent.click(signOutBtn);
+    fireEvent.click(signOutBtn);
+    expect(signOutBtn).toBeDisabled();
+    expect(mocks.signOut).toHaveBeenCalledOnce();
+
+    resolveSignOut();
+    expect(await screen.findByText("Login screen")).toBeVisible();
+  });
 });

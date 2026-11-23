@@ -243,4 +243,46 @@ describe("actual administrator service with in-memory Firestore", () => {
     expect(exported.csv).toContain('"kind"');
     expect(exported.csv.split("\r\n")).toHaveLength(1);
   });
+  it("fails fast on approved records during delete without scanning session subcollections", async () => {
+    memory.records.set("problems/approved-question", { status: "approved" });
+    memory.denied = "sessions";
+    await expect(invoke("adminDeleteContent", { collection: "problems", id: "approved-question", reason })).rejects.toThrow("Only unused");
+  });
+  it("scans private subcollections across batches above 16 records and deletes unreferenced drafts", async () => {
+    memory.records.set("subjects/custom-draft", { status: "draft", name: "Custom Draft Subject", description: "Demo subject" });
+    for (let index = 0; index < 20; index += 1) {
+      memory.records.set(`problems/extra-${index}`, { status: "approved" });
+    }
+    memory.records.set("problems/extra-18/private/solution", { subjectId: "custom-draft" });
+    await expect(invoke("adminDeleteContent", { collection: "subjects", id: "custom-draft", reason })).rejects.toThrow("referenced");
+    memory.records.delete("problems/extra-18/private/solution");
+    await invoke("adminDeleteContent", { collection: "subjects", id: "custom-draft", reason });
+    expect(memory.records.has("subjects/custom-draft")).toBe(false);
+  });
+  it("supports creating, updating, archiving, restoring, and deleting custom subjects and topics", async () => {
+    await invoke("adminUpsertContent", {
+      collection: "subjects",
+      id: "applied-linear-algebra",
+      value: { name: "Applied Linear Algebra", description: "Custom demo subject.", status: "draft" },
+    });
+    await invoke("adminUpsertContent", {
+      collection: "topics",
+      id: "applied-linear-algebra-eigenvalues",
+      value: {
+        subjectId: "applied-linear-algebra",
+        subject: "Applied Linear Algebra",
+        name: "Eigenvalues",
+        status: "draft",
+      },
+    });
+    await invoke("adminUpsertContent", {
+      collection: "subjects",
+      id: "applied-linear-algebra",
+      value: { name: "Applied Linear Algebra", description: "Approved demo subject.", status: "approved" },
+    });
+    await invoke("adminArchiveContent", { collection: "subjects", id: "applied-linear-algebra" });
+    expect(memory.records.get("subjects/applied-linear-algebra").status).toBe("archived");
+    await invoke("adminDeleteContent", { collection: "topics", id: "applied-linear-algebra-eigenvalues", reason });
+    expect(memory.records.has("topics/applied-linear-algebra-eigenvalues")).toBe(false);
+  });
 });

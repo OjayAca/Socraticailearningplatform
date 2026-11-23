@@ -27,10 +27,23 @@ describe("scoring context after corrected reasoning", () => {
       expect(sent.assessedResponses.some((r:any)=>r.status==="needs_revision")).toBe(true);
       expect(sent.assessedResponses.filter((r:any)=>r.status==="accepted")).toHaveLength(4);
       const acceptedId = (phase: string) => captured.assessedResponses!.find(r => r.phase === phase && r.status === "accepted")!.messageId;
+      expect(sent.intent).toBe("score");
       expect(sent.requiredEvidenceOptions.accuracy).toEqual([acceptedId("guided_computation_or_proof")]);
       expect(sent.requiredEvidenceOptions.methodSelection).toEqual([acceptedId("method_selection")]);
       expect(sent.requiredEvidenceOptions.explanationQuality).toEqual([acceptedId("result_interpretation")]);
       expect(sent.requiredEvidenceOptions.logicalValidity).toContain(acceptedId("guided_computation_or_proof"));
+      expect(body.generationConfig.responseJsonSchema.properties.accuracy.properties.evidenceIds.items).toEqual({
+        type: "string",
+        enum: [acceptedId("guided_computation_or_proof")],
+      });
+      expect(body.generationConfig.responseJsonSchema.properties.methodSelection.properties.evidenceIds.items).toEqual({
+        type: "string",
+        enum: [acceptedId("method_selection")],
+      });
+      expect(body.generationConfig.responseJsonSchema.properties.explanationQuality.properties.evidenceIds.items).toEqual({
+        type: "string",
+        enum: [acceptedId("result_interpretation")],
+      });
       expect(sent.assistance).toEqual(captured.session.supportHistory);
       expect(sent.stageDiagnostics.gates.guided_computation_or_proof).toMatchObject({ attemptCount: 2, correctiveCycleCount: 1 });
       expect(sent.reference.sourceGuidance).toEqual(captured.reference.sourceGuidance);
@@ -46,6 +59,46 @@ describe("scoring context after corrected reasoning", () => {
     const tutoring = educationalContext({...context,intent:"answer"});
     expect(tutoring.stageEvidence).toEqual(context.session.gateEvaluations);
     expect(tutoring.conversation.some(m=>m.role==="student")).toBe(true);
+  });
+
+  it("compacts verbose tutor dialogue and reference extras when multi-turn scoring exceeds 32,000 chars without dropping learner evidence", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ candidates: [{ finishReason: "MAX_TOKENS" }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const longContext = structuredClone(captured);
+      for (let index = 0; index < 12; index += 1) {
+        longContext.messages.push({
+          id: `long-tutor-${index}`,
+          role: "assistant",
+          phase: "guided_computation_or_proof",
+          text: `Step ${index}: `.repeat(240),
+        });
+      }
+      longContext.session.supportHistory = Array.from({ length: 14 }, (_, index) => ({
+        phase: "guided_computation_or_proof",
+        level: "targeted_hint",
+        requestedAt: 1_793_263_000_000 + index,
+        content: [`Verbose hint guidance ${index} `.repeat(30)],
+      }));
+
+      expect(JSON.stringify(educationalContext(longContext)).length + SYSTEM_PROMPT.length + 4096).toBeGreaterThan(32000);
+
+      await expect(new GeminiTutor(env).generate(longContext)).rejects.toThrow("incomplete");
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+      const serialized = body.contents[0].parts[0].text;
+      const sent = JSON.parse(serialized);
+      expect(SYSTEM_PROMPT.length + serialized.length + JSON.stringify(body.generationConfig.responseJsonSchema).length + 4096).toBeLessThanOrEqual(32000);
+      expect(sent.learnerEvidence).toEqual(
+        longContext.messages.filter(m => m.role === "student").map(({ id, phase, text }) => ({ id, phase, text })),
+      );
+      expect(sent.assessedResponses).toHaveLength(captured.assessedResponses!.length);
+      expect(sent.requiredEvidenceOptions.accuracy).toBeDefined();
+      expect(typeof sent.reference.sourceGuidance).toBe("object");
+      expect(sent.reference.sourceGuidance).not.toBe("[object Object]");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("still rejects genuinely oversized evidence before a provider request", async () => {

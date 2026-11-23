@@ -30,4 +30,41 @@ describe("authoritative curriculum", () => {
   it.each(["problems","formula_theorem_references","socratic_prompt_bank","difficulty_policies"])("rejects excluded concepts hidden under an approved %s topic",collection=>{
     for(const text of ["Pigeonhole Principle","linear regression"]) expect(()=>assertCurriculumContent(collection,"content",{topicId:VALIDATED_TOPICS[0].id,statement:text})).toThrow("approved curriculum scope");
   });
+  it("allows custom subjects and topics across lifecycle statuses while keeping core curriculum locked", () => {
+    expect(() =>
+      assertCurriculumContent("subjects", "applied-linear-algebra", {
+        name: "Applied Linear Algebra",
+        description: "Vectors and eigenvalues.",
+        status: "draft",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertCurriculumContent("subjects", "applied-linear-algebra", {
+        name: "Applied Linear Algebra",
+        description: "Vectors and eigenvalues.",
+        status: "archived",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertCurriculumContent("topics", "applied-linear-algebra-eigenvalues", {
+        subjectId: "applied-linear-algebra",
+        subject: "Applied Linear Algebra",
+        name: "Eigenvalues",
+        status: "draft",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertCurriculumContent("subjects", "quantitative-methods", {
+        name: "Quantitative Methods",
+        description: "Core subject",
+        status: "draft",
+      }),
+    ).toThrow("active");
+    expect(() =>
+      assertCurriculumContent("topics", VALIDATED_TOPICS[0].id, {
+        ...VALIDATED_TOPICS[0],
+        status: "archived",
+      }),
+    ).toThrow("active");
+  });
 });

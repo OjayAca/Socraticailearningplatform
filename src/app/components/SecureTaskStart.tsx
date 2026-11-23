@@ -78,6 +78,7 @@ export function SecureTaskStart() {
   const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
   const [question, setQuestion] = useState("");
   const [questionLatex, setQuestionLatex] = useState("");
+  const [mathSyntaxError, setMathSyntaxError] = useState<string | null>(null);
   const submitting = useRef(false);
   const [consented, setConsented] = useState<boolean | null>(
     cached?.consented ?? null,
@@ -173,12 +174,14 @@ export function SecureTaskStart() {
     .map((topic) => customGuidance(topic.id))
     .filter((item) => !!item);
   const trimmedQuestionLength = question.trim().length;
+  const hasInvalidMath = Boolean(questionLatex.trim() && mathSyntaxError);
   const canStart =
     mode === "curated"
       ? !!selectedTopic
       : mode === "free_form" &&
         trimmedQuestionLength >= 8 &&
-        questionLatex.length <= 2000;
+        questionLatex.length <= 2000 &&
+        !hasInvalidMath;
   const hasUnsavedOwnProblem =
     mode === "free_form" &&
     (trimmedQuestionLength > 0 || questionLatex.trim().length > 0);
@@ -189,6 +192,7 @@ export function SecureTaskStart() {
     setDifficultyOverride(null);
     setQuestion("");
     setQuestionLatex("");
+    setMathSyntaxError(null);
     setAvailableIds(null);
     setError(null);
   }
@@ -619,6 +623,7 @@ export function SecureTaskStart() {
                     setQuestionLatex(value.latex ?? "");
                     setError(null);
                   }}
+                  onSyntaxError={setMathSyntaxError}
                   explanationPlaceholder={examples[0]?.example}
                   notationHint="For optional notation, place [math] once in your problem where the expression belongs."
                   notationHeaderActions={
@@ -629,6 +634,7 @@ export function SecureTaskStart() {
                       onExtracted={({ plainText, latex }) => {
                         setQuestion(plainText);
                         setQuestionLatex(latex);
+                        setMathSyntaxError(null);
                         setError(null);
                       }}
                     />

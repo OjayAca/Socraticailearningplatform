@@ -134,75 +134,227 @@ Do NOT award 21–25 merely because all gates are accepted.
 explanationQuality (0..25): 21–25 requires a clear, multi-clause explanation of what the result means in the problem's real context, including units, scope, and limitations. Score 6–15 if the learner only states the number, repeats the question, or gives a vague/minimal sentence without contextual meaning. Score 16–20 if correct in context but concise or omitting scope/limitations.
 methodSelection (0..25): 21–25 requires naming a valid method/formula/theorem AND explicitly linking its preconditions to the problem's givens. Score 6–15 if the method is named without explaining why its conditions hold. Score 16–20 if the link to givens is brief or partially implicit.
 logicalValidity (0..25): 21–25 requires every step/implication to be justified AND an explicit verification check. Score 6–15 if only bare arithmetic is shown or multiple unassisted corrective cycles/heavy hints were needed. Score 16–20 if the calculation is sound but verification is brief or implicit.
-accuracy (0..25): Measures mathematical correctness of results and calculations, NOT hint usage or verification prose (independence/hints are reflected separately in the specific reasoning criteria that used them and assistanceCount). Award 21–25 for complete, accurate computation/proof matching the reference even if hints were requested or no extra verification prose was written; award 6–12 partial credit when the final answer is incorrect but valid intermediate steps are shown; award 0–5 when neither valid intermediate work nor a correct calculation is shown.`;
+accuracy (0..25): Measures mathematical correctness of results and calculations, NOT hint usage or verification prose (independence/hints are reflected separately in the specific reasoning criteria that used them and assistanceCount). Award 21–25 for complete, accurate computation/proof matching the reference even if hints were requested or no extra verification prose was written; award 6–12 partial credit when the final answer is incorrect but valid intermediate steps are shown; award 0–5 when neither valid intermediate work nor a correct calculation is shown.
+Evidence citation rule: For each criterion (accuracy, logicalValidity, methodSelection, explanationQuality), evidenceIds MUST select only exact message IDs from requiredEvidenceOptions[criterion].`;
+
+export function requiredEvidenceOptionsFor(context: TutorContext): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => [
+      criterion,
+      (context.assessedResponses ?? [])
+        .filter(response => response.status === "accepted" && (rubric.phases as readonly string[]).includes(response.phase))
+        .map(response => response.messageId),
+    ]),
+  );
+}
 
 export function educationalContext(context: TutorContext) {
   const { session, reference, messages } = context;
   const currentStage = solverStageForPhase(session.currentPhase);
   const nextStage = currentStage ? SOLVER_STAGES[SOLVER_STAGES.indexOf(currentStage) + 1] : undefined;
   const isOpening = context.intent === "opening";
+  const isScore = context.intent === "score";
   return {
-    curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [],
+    ...(isScore ? {} : { curriculumScope: VALIDATED_TOPICS.find(topic => topic.id === session.topicId)?.subtopics ?? [] }),
     subject: session.subject, topic: session.topic, difficulty: session.difficulty, question: session.originalQuestion,
-    ...(session.instructionalLevel && context.intent !== "score" ? { instructionalLevel: session.instructionalLevel } : {}),
-    ...(session.promptAdjustment && context.intent !== "score" ? { promptAdjustment: session.promptAdjustment } : {}),
-    currentPhase: session.currentPhase, currentStage,
-    currentStageObjective: currentStage ? stageQuestions[currentStage] : undefined,
-    unresolvedDifficulty: session.lastDiagnosis?.resolutionStatus === "open" ? session.lastDiagnosis : undefined,
-    ...(session.activeTopicMisconceptions?.length && context.intent !== "score" ? { activeTopicMisconceptions: session.activeTopicMisconceptions } : {}),
-    reassessIntent: context.reassessIntent ?? false,
-    currentStageCriteria: currentStage ? SOLVER_STAGE_PHASES[currentStage] : [],
-    nextStage: nextStage ?? "final reflection",
-    nextPhase: nextStage ? SOLVER_STAGE_PHASES[nextStage][0] : "final reflection",
-    intent: context.intent, supportLevel: context.supportLevel, response: context.response ? { plainText: context.response.plainText, latex: context.response.latex ?? "" } : undefined,
+    ...(session.instructionalLevel && !isScore ? { instructionalLevel: session.instructionalLevel } : {}),
+    ...(session.promptAdjustment && !isScore ? { promptAdjustment: session.promptAdjustment } : {}),
+    currentPhase: session.currentPhase,
+    intent: context.intent,
+    ...(isScore ? {} : {
+      currentStage,
+      currentStageObjective: currentStage ? stageQuestions[currentStage] : undefined,
+      unresolvedDifficulty: session.lastDiagnosis?.resolutionStatus === "open" ? session.lastDiagnosis : undefined,
+      ...(session.activeTopicMisconceptions?.length ? { activeTopicMisconceptions: session.activeTopicMisconceptions } : {}),
+      reassessIntent: context.reassessIntent ?? false,
+      currentStageCriteria: currentStage ? SOLVER_STAGE_PHASES[currentStage] : [],
+      nextStage: nextStage ?? "final reflection",
+      nextPhase: nextStage ? SOLVER_STAGE_PHASES[nextStage][0] : "final reflection",
+      supportLevel: context.supportLevel,
+      response: context.response ? { plainText: context.response.plainText, latex: context.response.latex ?? "" } : undefined,
+    }),
     reference: {
       expectedConcepts: reference.expectedConcepts, requiredFormula: reference.requiredFormula, requiredTheorem: reference.requiredTheorem,
       conditions: reference.formulaTheoremConditions, answerSpecification: reference.answerSpecification,
       ...(isOpening ? {} : { solutionSteps: reference.solutionSteps, finalAnswer: reference.finalAnswer, interpretation: reference.interpretation }),
-      socraticPrompts: reference.socraticPrompts, methodReference: reference.methodReference,
+      ...(isScore ? {} : { socraticPrompts: reference.socraticPrompts }),
+      methodReference: reference.methodReference,
       sourceGuidance: reference.sourceGuidance
     },
-    stageEvidence: context.intent === "score" ? undefined : session.gateEvaluations ?? {},
+    ...(isScore ? {} : { stageEvidence: session.gateEvaluations ?? {} }),
     // No student profile, user ID, email, tokens, database paths or configuration secrets.
     // Scoring keeps learner text once, in learnerEvidence. Assessment records link
     // to it by messageId; duplicating text and gate summaries exhausted the budget
     // after an ordinary corrected attempt. Preserve tutor context separately.
-    conversation: messages.slice(-12).filter(m => context.intent !== "score" || m.role !== "student").map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, 4000) })),
-    ...(context.intent === "score" ? { rubric:SCORECARD_RUBRIC, assistance: session.supportHistory,
+    conversation: messages.slice(-12).filter(m => !isScore || m.role !== "student").map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, 4000) })),
+    ...(isScore ? { rubric:SCORECARD_RUBRIC, assistance: session.supportHistory,
       stageDiagnostics: {
         diagnosisSummary: session.diagnosisSummary ?? [],
         gates: Object.fromEntries(Object.entries(session.gateEvaluations ?? {}).map(([phase, gate]: [string, any]) => [
           phase, { attemptCount: gate?.attemptCount ?? 0, correctiveCycleCount: gate?.correctiveCycleCount ?? 0, outcome: gate?.outcome ?? null }
         ])),
       },
-      requiredEvidenceOptions: Object.fromEntries(Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => [
-        criterion, (context.assessedResponses ?? [])
-          .filter(response => response.status === "accepted" && (rubric.phases as readonly string[]).includes(response.phase))
-          .map(response => response.messageId),
-      ])),
+      requiredEvidenceOptions: requiredEvidenceOptionsFor(context),
       assessedResponses: (context.assessedResponses ?? []).map(r => ({messageId:r.messageId,phase:r.phase,status:r.status})),
       learnerEvidence: messages.filter(m => m.role === "student").map(m => ({ id: m.id, phase: m.phase, text: String(m.text) })) } : {}),
   };
 }
-// Pre-stringify JSON schemas once per server process to avoid per-request serialization.
+
+function compactSourceGuidance(sourceGuidance: unknown, level: 1 | 2) {
+  if (typeof sourceGuidance === "string") {
+    return sourceGuidance.slice(0, level === 1 ? 600 : 300);
+  }
+  if (!sourceGuidance || typeof sourceGuidance !== "object" || Array.isArray(sourceGuidance)) {
+    return undefined;
+  }
+  const source = sourceGuidance as Record<string, unknown>;
+  const allowedKeys =
+    level === 1
+      ? ["assumptions", "approvedStatements", "alternativeMethods", "expectedReasoning"]
+      : ["approvedStatements", "expectedReasoning"];
+  const compacted: Record<string, unknown> = {};
+  for (const key of allowedKeys) {
+    if (source[key] !== undefined) {
+      compacted[key] = source[key];
+    }
+  }
+  return compacted;
+}
+
+function compactReferenceForScoring(reference: TutorContext["reference"], level: 1 | 2) {
+  if (level === 1) {
+    return {
+      expectedConcepts: reference.expectedConcepts,
+      requiredFormula: reference.requiredFormula,
+      requiredTheorem: reference.requiredTheorem,
+      conditions: reference.formulaTheoremConditions,
+      answerSpecification: reference.answerSpecification,
+      finalAnswer: reference.finalAnswer,
+      interpretation: reference.interpretation,
+      solutionSteps: Array.isArray(reference.solutionSteps)
+        ? reference.solutionSteps.slice(0, 8).map((step: unknown) => (typeof step === "string" ? step.slice(0, 300) : step))
+        : [],
+      sourceGuidance: compactSourceGuidance(reference.sourceGuidance, 1),
+    };
+  }
+  return {
+    answerSpecification: reference.answerSpecification,
+    finalAnswer: reference.finalAnswer,
+    interpretation: reference.interpretation,
+    sourceGuidance: compactSourceGuidance(reference.sourceGuidance, 2),
+  };
+}
+
+function compactConversationForScoring(messages: TutorContext["messages"], limit: number, maxTextChars: number) {
+  return messages
+    .filter(m => m.role !== "student")
+    .slice(-limit)
+    .map(m => ({ id: m.id, role: m.role, phase: m.phase, text: String(m.text).slice(0, maxTextChars) }));
+}
+
+function compactAssistanceForScoring(supportHistory: unknown, limit: number) {
+  if (!Array.isArray(supportHistory)) return supportHistory;
+  return supportHistory.slice(-limit).map((entry: unknown) => {
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      return entry;
+    }
+    const item = entry as Record<string, unknown>;
+    return {
+      ...(item.phase !== undefined ? { phase: item.phase } : {}),
+      ...(item.level !== undefined ? { level: item.level } : {}),
+      ...(item.requestedAt !== undefined ? { requestedAt: item.requestedAt } : {}),
+    };
+  });
+}
+
+/**
+ * Builds the scoring context payload and progressively compacts non-evidence tutor context
+ * when a multi-turn conversation would exceed the 32,000-character tutor prompt budget.
+ * Learner evidence, rubric mappings, and assessed response links are always preserved intact.
+ */
+export function buildBudgetedScoringContext(context: TutorContext, maxContextChars: number) {
+  const base = educationalContext(context);
+  if (JSON.stringify(base).length <= maxContextChars) return base;
+
+  const { session, reference, messages } = context;
+  const stage1 = {
+    ...base,
+    reference: compactReferenceForScoring(reference, 1),
+    conversation: compactConversationForScoring(messages, 6, 800),
+  };
+  if (JSON.stringify(stage1).length <= maxContextChars) return stage1;
+
+  const stage2 = {
+    ...stage1,
+    reference: compactReferenceForScoring(reference, 2),
+    conversation: compactConversationForScoring(messages, 4, 300),
+    assistance: compactAssistanceForScoring(session.supportHistory, 12),
+    stageDiagnostics: {
+      diagnosisSummary: Array.isArray(session.diagnosisSummary)
+        ? session.diagnosisSummary.slice(-5).map((item: unknown) => (typeof item === "string" ? item.slice(0, 200) : item))
+        : [],
+      gates: base.stageDiagnostics?.gates ?? {},
+    },
+  };
+  if (JSON.stringify(stage2).length <= maxContextChars) return stage2;
+
+  return {
+    ...stage2,
+    conversation: [],
+    assistance: compactAssistanceForScoring(session.supportHistory, 5),
+    stageDiagnostics: {
+      diagnosisSummary: [],
+      gates: base.stageDiagnostics?.gates ?? {},
+    },
+  };
+}
+type JsonSchemaNode = Record<string, unknown>;
+
+export function buildScoreJsonSchema(requiredEvidenceOptions?: Record<string, string[]>) {
+  const cloned = structuredClone(scoreJsonSchema) as {
+    properties?: Record<string, { properties?: Record<string, JsonSchemaNode> }>;
+  };
+  const properties = cloned.properties;
+  if (!properties || !requiredEvidenceOptions) return cloned;
+
+  for (const key of ["accuracy", "logicalValidity", "methodSelection", "explanationQuality"] as const) {
+    const allowedIds = Array.from(
+      new Set((requiredEvidenceOptions[key] ?? []).filter(id => typeof id === "string" && id.trim().length > 0)),
+    );
+    const criterionProps = properties[key]?.properties;
+    if (!allowedIds.length || !criterionProps?.evidenceIds || typeof criterionProps.evidenceIds !== "object") continue;
+    const evidenceIdsSchema = criterionProps.evidenceIds as JsonSchemaNode;
+    evidenceIdsSchema.items = { type: "string", enum: allowedIds };
+    evidenceIdsSchema.maxItems = Math.min(4, allowedIds.length);
+  }
+  return cloned;
+}
+
+// Pre-stringify turn JSON schema once per server process to avoid per-request serialization.
 const turnJsonSchemaString = JSON.stringify(turnJsonSchema);
-const scoreJsonSchemaString = JSON.stringify(scoreJsonSchema);
 
 export class GeminiTutor implements Tutor {
   constructor(private env: Env) { }
   async generate(context: TutorContext): Promise<Turn | Score> {
     ensure(this.env.GEMINI_API_KEY && this.env.GEMINI_MODEL, "The AI provider is not configured.", 503);
     const schema = context.intent === "score" ? scoreSchema : turnSchema;
-    const jsonSchema = context.intent === "score" ? scoreJsonSchema : turnJsonSchema;
-    const schemaString = context.intent === "score" ? scoreJsonSchemaString : turnJsonSchemaString;
-    const contextText = JSON.stringify(educationalContext(context));
+    const jsonSchema = context.intent === "score"
+      ? buildScoreJsonSchema(requiredEvidenceOptionsFor(context))
+      : turnJsonSchema;
+    const schemaString = context.intent === "score" ? JSON.stringify(jsonSchema) : turnJsonSchemaString;
     const instruction = context.intent === "answer"
       ? SYSTEM_PROMPT + "\n" + ANSWER_GUIDANCE
       : context.intent === "score"
         ? SYSTEM_PROMPT + "\n" + SCORE_GUIDANCE
         : SYSTEM_PROMPT;
+    const fixedOverheadChars = instruction.length + schemaString.length + 4096;
+    const contextText = JSON.stringify(
+      context.intent === "score"
+        ? buildBudgetedScoringContext(context, Math.max(0, 32000 - fixedOverheadChars))
+        : educationalContext(context),
+    );
     // Character-length heuristic avoids allocating a TextEncoder buffer. Content is predominantly ASCII.
-    ensure(instruction.length + contextText.length + schemaString.length + 4096 <= 32000, "This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.", 422);
+    ensure(fixedOverheadChars + contextText.length <= 32000, "This conversation is too long for the free tutor context. Contact your administrator; your work is preserved.", 422);
     const body = JSON.stringify({
       systemInstruction: { parts: [{ text: instruction }] }, contents: [{ role: "user", parts: [{ text: contextText }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json", responseJsonSchema: jsonSchema }

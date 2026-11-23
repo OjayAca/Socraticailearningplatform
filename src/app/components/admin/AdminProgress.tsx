@@ -42,7 +42,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useParams } from "react-router";
+import { Link, Navigate, useNavigate, useParams } from "react-router";
 import { ScorecardDetails } from "../ScorecardDetails";
 import { Alert } from "../ui/alert";
 import { ListRowSkeleton } from "../ui/skeleton";
@@ -406,6 +406,7 @@ function ScoreProgressBar({
  * and Critical Thinking Scorecard tabs sourced from `users`, `learning_progress`, and `sessions`.
  */
 export function SecureAdminProgress() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<Array<UserProfileDoc & { id: string }>>([]);
   const [progressMap, setProgressMap] = useState<Map<string, LearningProgress>>(new Map());
   const [sessions, setSessions] = useState<AdminSessionRecord[]>([]);
@@ -815,11 +816,15 @@ export function SecureAdminProgress() {
                         {overviewPagination.items.map((row) => (
                           <tr
                             key={row.id}
-                            className="transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                            onClick={(event) => {
+                              if ((event.target as HTMLElement).closest("a, button")) return;
+                              navigate(`/admin/progress/${row.id}`);
+                            }}
+                            className="cursor-pointer transition hover:bg-slate-50 dark:hover:bg-slate-800/50"
                           >
                             <td className="p-4">
                               <Link
-                                className="font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                                className="inline-flex min-h-11 items-center font-bold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
                                 to={`/admin/progress/${row.id}`}
                               >
                                 {row.displayName || row.email || row.id}

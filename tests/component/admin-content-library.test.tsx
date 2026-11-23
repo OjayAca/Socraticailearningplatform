@@ -412,6 +412,37 @@ describe("AdminContentLibrary", () => {
       }),
     );
   });
+
+  it("displays permanent delete errors inside the modal and clears them when reopened", async () => {
+    mocks.getDocs.mockImplementation(async (path: string) => {
+      if (path === "problems") return makeSnapshot(SAMPLE_PROBLEMS);
+      return makeSnapshot([]);
+    });
+    mocks.adminDeleteContent.mockRejectedValueOnce(
+      new Error("This content is referenced by historical learning sessions."),
+    );
+
+    renderContentRoute("/admin/content/problems");
+    await screen.findByText("Derivative of a polynomial");
+
+    fireEvent.click(screen.getByRole("button", { name: "Permanently delete QM-01-B01" }));
+    const deleteModal = await screen.findByRole("alertdialog");
+    fireEvent.change(within(deleteModal).getByLabelText(/Type QM-01-B01 to confirm/i), {
+      target: { value: "QM-01-B01" },
+    });
+    fireEvent.click(within(deleteModal).getByRole("button", { name: "Permanently delete" }));
+
+    expect(await within(deleteModal).findByRole("alert")).toHaveTextContent(
+      "This content is referenced by historical learning sessions.",
+    );
+
+    fireEvent.click(within(deleteModal).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Permanently delete QM-01-B01" }));
+    const reopenedModal = await screen.findByRole("alertdialog");
+    expect(within(reopenedModal).queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 describe("AdminContentEditor", () => {
@@ -650,5 +681,81 @@ describe("AdminContentEditor", () => {
         }),
       }),
     );
+  });
+
+  it("allows creating custom subjects and topics while keeping existing core subjects locked", async () => {
+    mocks.getDocs.mockImplementation(async (path: string) => {
+      if (path === "subjects") {
+        return makeSnapshot([
+          { id: "applied-linear-algebra", name: "Applied Linear Algebra", status: "draft" },
+        ]);
+      }
+      return makeSnapshot([]);
+    });
+    mocks.adminUpsertContent.mockResolvedValue({ id: "saved", version: 1 });
+
+    const subjectView = renderContentRoute("/admin/content/subjects/new");
+    const subjectNameInput = screen.getByLabelText("Subject Name");
+    expect(subjectNameInput).toHaveValue("");
+    fireEvent.change(subjectNameInput, { target: { value: "Applied Linear Algebra" } });
+    fireEvent.change(screen.getByLabelText("Subject Description"), {
+      target: { value: "Vector spaces and eigenvalues for demo." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /validate content/i }));
+    expect(
+      await screen.findByText("All validation checks passed — ready to save."),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(mocks.adminUpsertContent).toHaveBeenCalledWith({
+        collection: "subjects",
+        id: "applied-linear-algebra",
+        value: expect.objectContaining({
+          name: "Applied Linear Algebra",
+          status: "draft",
+        }),
+      }),
+    );
+    subjectView.unmount();
+
+    mocks.adminUpsertContent.mockClear();
+    const topicView = renderContentRoute("/admin/content/topics/new");
+    const subjectSelect = await screen.findByLabelText("Subject");
+    await waitFor(() =>
+      expect(within(subjectSelect).getByRole("option", { name: "Applied Linear Algebra" })).toBeInTheDocument(),
+    );
+    fireEvent.change(subjectSelect, { target: { value: "Applied Linear Algebra" } });
+    fireEvent.change(screen.getByLabelText("Topic Name"), {
+      target: { value: "Eigenvalues" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+    await waitFor(() =>
+      expect(mocks.adminUpsertContent).toHaveBeenCalledWith({
+        collection: "topics",
+        id: "applied-linear-algebra-eigenvalues",
+        value: expect.objectContaining({
+          subjectId: "applied-linear-algebra",
+          subject: "Applied Linear Algebra",
+          name: "Eigenvalues",
+          status: "draft",
+        }),
+      }),
+    );
+    topicView.unmount();
+
+    mocks.getDoc.mockImplementation(async (path: string) => {
+      if (path === "subjects/quantitative-methods") {
+        return makeDocSnap({
+          id: "quantitative-methods",
+          name: "Quantitative Methods",
+          description: "Core quantitative curriculum.",
+          status: "approved",
+        });
+      }
+      return makeDocSnap(null);
+    });
+    renderContentRoute("/admin/content/subjects/edit/quantitative-methods");
+    expect(await screen.findByDisplayValue("Quantitative Methods")).toBeDisabled();
+    expect(screen.getByLabelText("Lifecycle Status")).toBeDisabled();
   });
 });

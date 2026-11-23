@@ -50,6 +50,7 @@ class ProfileLoadError extends Error {
 
 const profileLoads = new Map<string, Promise<UserProfile>>();
 let authStateSequence = 0;
+let isSignUpInProgress = false;
 
 const GOOGLE_REDIRECT_ORIGIN_SUFFIXES: Readonly<Record<string, string>> = {
   "https://mindguide-learn.me": "",
@@ -136,6 +137,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           firebaseUser: null,
           userProfile: null,
           isLoading: false,
+          error: null,
+        });
+        return;
+      }
+
+      if (isSignUpInProgress) {
+        set({
+          firebaseUser: user,
           error: null,
         });
         return;
@@ -228,39 +237,44 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signUp: async (name: string, email: string, password: string) => {
+    isSignUpInProgress = true;
     set({ error: null, isLoading: true });
     try {
-      const credential = await createUserWithEmailAndPassword(requireAuth(), email, password);
-      await updateProfile(credential.user, { displayName: name });
-      // Public account creation always writes a student profile. Administrator
-      // promotion is intentionally a Firebase Console operation.
-      const profile = await createUserProfile(credential.user, name);
-      let verificationError: string | null = null;
-      if (!credential.user.emailVerified) {
-        try {
-          await sendEmailVerification(credential.user);
-        } catch (verificationErr) {
-          verificationError = getFirebaseErrorMessage(verificationErr);
+      try {
+        const credential = await createUserWithEmailAndPassword(requireAuth(), email, password);
+        await updateProfile(credential.user, { displayName: name });
+        // Public account creation always writes a student profile. Administrator
+        // promotion is intentionally a Firebase Console operation.
+        const profile = await createUserProfile(credential.user, name);
+        let verificationError: string | null = null;
+        if (!credential.user.emailVerified) {
+          try {
+            await sendEmailVerification(credential.user);
+          } catch (verificationErr) {
+            verificationError = getFirebaseErrorMessage(verificationErr);
+          }
         }
+        // Invalidate any auth-listener profile read that began before the signup
+        // document was fully written (it may have observed the temporary Auth name).
+        ++authStateSequence;
+        set({
+          firebaseUser: credential.user,
+          userProfile: profile,
+          isLoading: false,
+          error: verificationError,
+        });
+        return profile;
+      } catch (err) {
+        const message = getFirebaseErrorMessage(err);
+        set({
+          userProfile: null,
+          error: message,
+          isLoading: false,
+        });
+        throw new Error(message);
       }
-      // Invalidate any auth-listener profile read that began before the signup
-      // document was fully written (it may have observed the temporary Auth name).
-      ++authStateSequence;
-      set({
-        firebaseUser: credential.user,
-        userProfile: profile,
-        isLoading: false,
-        error: verificationError,
-      });
-      return profile;
-    } catch (err) {
-      const message = getFirebaseErrorMessage(err);
-      set({
-        userProfile: null,
-        error: message,
-        isLoading: false,
-      });
-      throw new Error(message);
+    } finally {
+      isSignUpInProgress = false;
     }
   },
 
