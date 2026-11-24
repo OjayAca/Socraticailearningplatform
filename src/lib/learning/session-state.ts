@@ -2,6 +2,7 @@ import type {
   AchievementAward,
   AchievementId,
   AdaptiveRecommendation,
+  Difficulty,
   LearningProgress,
   ReasoningPhase,
   SessionProjection,
@@ -9,6 +10,7 @@ import type {
   SolverStageProgress,
   Subject,
 } from "@mindguide/contracts";
+import { VALIDATED_TOPICS } from "../../data/validated-curriculum.js";
 import {
   SOLVER_STAGES,
   SOLVER_STAGE_PHASES,
@@ -34,6 +36,47 @@ export function projectStageProgress(
       status: completed ? "completed" : stage === activeStage ? "active" : "locked",
     } satisfies SolverStageProgress];
   })) as Record<SolverStage, SolverStageProgress>;
+}
+
+const DIFFICULTY_RANK: Record<Difficulty, number> = {
+  Basic: 0,
+  Intermediate: 1,
+  Advanced: 2,
+};
+
+function topicSlugKey(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function resolveSubjectRecommendation(
+  subject: Subject,
+  topicRecommendations: Record<string, unknown> | undefined,
+  currentTopicName: string,
+  currentRecommendation: AdaptiveRecommendation,
+): { recommendedDifficulty: Difficulty; recommendationReason: string } {
+  const subjectKeys = new Set(
+    VALIDATED_TOPICS.filter((topic) => topic.subject === subject).map((topic) => topicSlugKey(topic.name)),
+  );
+  subjectKeys.add(topicSlugKey(currentTopicName));
+  let bestDifficulty: Difficulty | null = null;
+  let bestReason: string | null = null;
+  for (const [key, value] of Object.entries(topicRecommendations ?? {})) {
+    if (!subjectKeys.has(key) || !value || typeof value !== "object") continue;
+    const candidate = (value as { recommendedDifficulty?: unknown; reason?: unknown }).recommendedDifficulty;
+    const reason = (value as { reason?: unknown }).reason;
+    if (candidate === "Basic" || candidate === "Intermediate" || candidate === "Advanced") {
+      if (!bestDifficulty || DIFFICULTY_RANK[candidate] > DIFFICULTY_RANK[bestDifficulty]) {
+        bestDifficulty = candidate;
+        bestReason = typeof reason === "string" && reason.trim() ? reason.trim() : null;
+      }
+    }
+  }
+  const recommendedDifficulty = bestDifficulty ?? currentRecommendation.recommendedDifficulty;
+  const recommendationReason =
+    recommendedDifficulty === currentRecommendation.recommendedDifficulty
+      ? currentRecommendation.reason
+      : bestReason ?? currentRecommendation.reason;
+  return { recommendedDifficulty, recommendationReason };
 }
 
 export function nextLearningProgress(
@@ -71,17 +114,32 @@ export function nextLearningProgress(
       }).achievements
     : existingAchievements;
   const subjectProgress = normalizeSubjectProgress(current?.subjectProgress);
+  const currentTopicRecommendations =
+    current?.topicRecommendations && typeof current.topicRecommendations === "object"
+      ? (current.topicRecommendations as Record<string, unknown>)
+      : undefined;
+  let nextTopicRecommendations: Record<string, unknown> = currentTopicRecommendations ?? {};
   if (session) {
     const previousSubject = subjectProgress[session.subject];
     const subjectSessions = Number(previousSubject?.sessionsCompleted ?? 0) + 1;
     const subjectScoreTotal = Number(previousSubject?.scoreTotal ?? 0) + score;
+    nextTopicRecommendations = {
+      ...(currentTopicRecommendations ?? {}),
+      [topicSlugKey(session.topic)]: session.recommendation,
+    };
+    const { recommendedDifficulty, recommendationReason } = resolveSubjectRecommendation(
+      session.subject,
+      nextTopicRecommendations,
+      session.topic,
+      session.recommendation,
+    );
     subjectProgress[session.subject] = {
       sessionsCompleted: subjectSessions,
       scoreTotal: subjectScoreTotal,
       averageCTScore: Math.round(subjectScoreTotal / subjectSessions),
       lastActivityAt: submittedAt.toMillis(),
-      recommendedDifficulty: session.recommendation.recommendedDifficulty,
-      recommendationReason: session.recommendation.reason,
+      recommendedDifficulty,
+      recommendationReason,
     };
   }
   return {
@@ -103,7 +161,7 @@ export function nextLearningProgress(
       generatedAt: session.scorecardGeneratedAt,
     } : normalizeLatestScorecard(current?.latestScorecard),
     subjectProgress,
-    topicRecommendations: (current?.topicRecommendations as Record<string, unknown> | undefined) ?? {},
+    topicRecommendations: nextTopicRecommendations,
   };
 }
 

@@ -53,6 +53,13 @@ export function watchView<T>(key: string, start: (next: (value: T) => void, erro
 export function invalidateViews(): void {
   generation++;
   pending.clear();
+  for (const [key, stream] of streams.entries()) {
+    if (stream.listeners.size === 0) {
+      stream.stop();
+      streams.delete(key);
+      values.delete(key);
+    }
+  }
   for (const key of values.keys()) if (!streams.has(key)) values.delete(key);
 }
 

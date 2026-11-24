@@ -27,14 +27,15 @@ describe("scoring context after corrected reasoning", () => {
       expect(sent.assessedResponses.some((r:any)=>r.status==="needs_revision")).toBe(true);
       expect(sent.assessedResponses.filter((r:any)=>r.status==="accepted")).toHaveLength(4);
       const acceptedId = (phase: string) => captured.assessedResponses!.find(r => r.phase === phase && r.status === "accepted")!.messageId;
+      const stageIds = (phases: string[]) => captured.assessedResponses!.filter(r => phases.includes(r.phase)).map(r => r.messageId);
       expect(sent.intent).toBe("score");
-      expect(sent.requiredEvidenceOptions.accuracy).toEqual([acceptedId("guided_computation_or_proof")]);
+      expect(sent.requiredEvidenceOptions.accuracy).toEqual(stageIds(["guided_computation_or_proof", "verification_and_checking"]));
       expect(sent.requiredEvidenceOptions.methodSelection).toEqual([acceptedId("method_selection")]);
       expect(sent.requiredEvidenceOptions.explanationQuality).toEqual([acceptedId("result_interpretation")]);
       expect(sent.requiredEvidenceOptions.logicalValidity).toContain(acceptedId("guided_computation_or_proof"));
       expect(body.generationConfig.responseJsonSchema.properties.accuracy.properties.evidenceIds.items).toEqual({
         type: "string",
-        enum: [acceptedId("guided_computation_or_proof")],
+        enum: stageIds(["guided_computation_or_proof", "verification_and_checking"]),
       });
       expect(body.generationConfig.responseJsonSchema.properties.methodSelection.properties.evidenceIds.items).toEqual({
         type: "string",

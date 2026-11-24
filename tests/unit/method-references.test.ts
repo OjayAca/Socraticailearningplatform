@@ -7,6 +7,7 @@ import {
   evaluateConditionEquivalence,
   isBareMethodSelection,
   leaksFutureCheckpoint,
+  stageHint,
   validateJustificationBySubject,
 } from "../../server/tutor-dialogue";
 
@@ -78,6 +79,30 @@ describe("bounded mathematical reference conditions",()=>{
     );
     expect(wrongOrder.valid).toBe(false);
     expect(wrongOrder.contradicted).toBe(true);
+
+    const unionRef = solveVerifiedProblem({ operation: "union", values: [1, 2], right: [2, 3] });
+    const badUnion = validateJustificationBySubject(
+      { plainText: "Only keep elements that must be in both sets." },
+      unionRef,
+      "Discrete Mathematics",
+    );
+    expect(badUnion.contradicted).toBe(true);
+
+    const medianRef = solveVerifiedProblem({ operation: "median", values: [5, 1, 9] });
+    const badMedian = validateJustificationBySubject(
+      { plainText: "Take the middle value without sorting the numbers first." },
+      medianRef,
+      "Quantitative Methods",
+    );
+    expect(badMedian.contradicted).toBe(true);
+
+    // A single generic stopword from alternativeMethods must not pass alternative recognition
+    const singleGenericWord = evaluateConditionEquivalence(
+      { plainText: "I will take one value from this list today." },
+      meanRef,
+    );
+    expect(singleGenericWord.matched).toBe(false);
+    expect(singleGenericWord.alternativeRecognized).toBeUndefined();
   });
 
   it("generates formula-specific condition prompts and blocks future checkpoint leakage in Stage 1", () => {
@@ -87,5 +112,28 @@ describe("bounded mathematical reference conditions",()=>{
     );
     expect(leaksFutureCheckpoint("Apply x̄ = (Σx)/n to the dataset.", "problem_understanding", "targeted_hint", meanRef)).toBe(true);
     expect(leaksFutureCheckpoint("Identify the three given observations and what needs to be determined.", "problem_understanding", "targeted_hint", meanRef)).toBe(false);
+  });
+
+  it("rewrites third-person diagnostic explanations into grammatical second-person feedback in stageHint", () => {
+    const refWithoutSafeHint = {
+      requiredFormula: "mean",
+      formulaTheoremConditions: ["All observations belong to the dataset."],
+    };
+    const hint = stageHint(
+      "formula_theorem_justification",
+      "targeted_hint",
+      refWithoutSafeHint,
+      "",
+      {
+        lastDiagnosis: {
+          resolutionStatus: "open",
+          category: "wrong_formula",
+          explanation: "The student uses the wrong formula and the learner divides by n-1.",
+        },
+      },
+    );
+    expect(hint.feedback).toContain("You use the wrong formula");
+    expect(hint.feedback).toContain("you divide by n-1");
+    expect(hint.feedback).not.toMatch(/\b(?:You us|divid|choos|assum|confus|comput|stat)\b/);
   });
 });

@@ -49,6 +49,15 @@ function useLearnerSessions(maximum?: number, attempt = 0) {
     const database = db;
     return watchView<SessionsState>(key, (next, error) => onSnapshot(
       query(collection(database, "sessions"), where("studentId", "==", uid)), snapshot => {
+        const metadata = (snapshot as { metadata?: { fromCache?: boolean } }).metadata;
+        if (
+          metadata?.fromCache &&
+          typeof navigator !== "undefined" &&
+          navigator.onLine !== false &&
+          snapshot.docs.length <= 1
+        ) {
+          return;
+        }
         const sessions = snapshot.docs.map(item => studentHistory(item.id,item.data()));
         sessions.sort((a: Record<string, any>, b: Record<string, any>) => sessionTime(b.updatedAt ?? b.createdAt) - sessionTime(a.updatedAt ?? a.createdAt));
         next({ sessions, loading: false, error: null });

@@ -361,21 +361,22 @@ describe("SecureSession AI workflow v6 workflow", () => {
         source: "deterministic",
       }])),
     };
+    const releasedSolution = {
+      method: "Count the equally likely outcomes.",
+      justification: "Three of six outcomes are even.",
+      steps: ["List the outcomes", "Count the even outcomes"],
+      answer: "1/2",
+      verification: "3 divided by 6 simplifies to 1/2.",
+      interpretation: "An even result occurs half of the time.",
+      releasedAt: 1,
+    };
     mocks.getDoc.mockResolvedValue(sessionSnapshot("scored-session", {
       revision: 8,
       status: "ready_for_submission",
       currentPhase: "critical_thinking_scorecard",
       currentPrompt: "Review and submit your learning record.",
       scorecard,
-      releasedSolution: {
-        method: "Count the equally likely outcomes.",
-        justification: "Three of six outcomes are even.",
-        steps: ["List the outcomes", "Count the even outcomes"],
-        answer: "1/2",
-        verification: "3 divided by 6 simplifies to 1/2.",
-        interpretation: "An even result occurs half of the time.",
-        releasedAt: 1,
-      },
+      releasedSolution,
     }));
     mocks.submitLearningSession.mockResolvedValue({
       session: {
@@ -399,8 +400,8 @@ describe("SecureSession AI workflow v6 workflow", () => {
         stageProgress: Object.fromEntries([
           ["problem_understanding", 2],
           ["method_selection", 2],
-          ["computation", 2],
-          ["interpretation", 1],
+          ["computation", 1],
+          ["interpretation", 2],
         ].map(([stage, totalGates]) => [stage, {
           stage,
           status: "completed",
@@ -411,7 +412,7 @@ describe("SecureSession AI workflow v6 workflow", () => {
         allowedSupport: [],
         draft: null,
         scorecard,
-        releasedSolution: null,
+        releasedSolution,
         adaptiveRecommendation: null,
         configurationVersions: null,
         promptAdjustment: "maintain",
@@ -439,6 +440,8 @@ describe("SecureSession AI workflow v6 workflow", () => {
     expect(scorecardRegion).toBeVisible();
     expect(within(scorecardRegion).getByText("84/100")).toBeVisible();
     expect(within(scorecardRegion).getByText("Your reasoning is strong and your verification can be clearer.")).toBeVisible();
+    expect(screen.getByText("Unlocked worked solution")).toBeVisible();
+    expect(screen.getByText("Three of six outcomes are even.")).toBeVisible();
   });
 
   it("keeps internal lastDiagnosis metadata out of the student conversation UI", async () => {
@@ -624,5 +627,54 @@ describe("SecureSession AI workflow v6 workflow", () => {
     expect(screen.queryByText("Session details")).not.toBeInTheDocument();
     expect(screen.queryByText(/SECRET_DIAGNOSIS_EVIDENCE/)).not.toBeInTheDocument();
     expect(screen.queryByText(/HIDDEN_AI_REASONING_NOTE/)).not.toBeInTheDocument();
+  });
+
+  it("displays recoveryMode guidance and prevents re-requesting an already-delivered hint tier before another attempt", async () => {
+    const supportHistory = [
+      { phase: "problem_understanding", level: "targeted_hint", title: "Reasoning support", content: ["Hint 1"], requestedAt: 1 },
+    ];
+    const session = projectedSession({
+      recoveryMode: true,
+      allowedSupport: ["socratic_prompt", "targeted_hint"],
+      supportHistory,
+    });
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
+      recoveryMode: true,
+      allowedSupport: session.allowedSupport,
+      supportHistory,
+    }));
+    mocks.requestSessionSupport.mockResolvedValueOnce({
+      session: { ...session, revision: 1 },
+      level: "socratic_prompt",
+      title: "Reasoning support",
+      content: ["Try focusing on the requested quantity."],
+    });
+    renderSession();
+    await screen.findByLabelText("Message your tutor");
+    expect(screen.getByText(/Guided recovery active/i)).toBeVisible();
+    expect(screen.getByText(/Submit an attempt to unlock the next hint level/i)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "I need a hint" }));
+    await waitFor(() =>
+      expect(mocks.requestSessionSupport).toHaveBeenCalledWith(
+        expect.objectContaining({ requestedLevel: "socratic_prompt" }),
+      ),
+    );
+  });
+
+  it("shows exhausted-hints Socratic status when partial_step was already used in the current phase", async () => {
+    const supportHistory = [
+      { phase: "problem_understanding", level: "targeted_hint", title: "Reasoning support", content: ["Hint 1"], requestedAt: 1 },
+      { phase: "problem_understanding", level: "stronger_hint", title: "Reasoning support", content: ["Hint 2"], requestedAt: 2 },
+      { phase: "problem_understanding", level: "partial_step", title: "Reasoning support", content: ["Hint 3"], requestedAt: 3 },
+    ];
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
+      allowedSupport: ["socratic_prompt", "targeted_hint", "stronger_hint", "partial_step"],
+      supportHistory,
+    }));
+    renderSession();
+    await screen.findByLabelText("Message your tutor");
+    expect(
+      screen.getByText(/All hint levels used — Socratic prompt available/i),
+    ).toBeVisible();
   });
 });

@@ -16,7 +16,8 @@ describe("four-stage Socratic solver contract", () => {
     expect(Object.values(SOLVER_STAGE_PHASES).flat()).toHaveLength(7);
     expect(solverStageForPhase("relevant_information_identification")).toBe("problem_understanding");
     expect(solverStageForPhase("formula_theorem_justification")).toBe("method_selection");
-    expect(solverStageForPhase("verification_and_checking")).toBe("computation");
+    expect(solverStageForPhase("guided_computation_or_proof")).toBe("computation");
+    expect(solverStageForPhase("verification_and_checking")).toBe("interpretation");
     expect(solverStageForPhase("result_interpretation")).toBe("interpretation");
   });
 

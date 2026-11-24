@@ -52,4 +52,15 @@ describe("view cache", () => {
     expect(peekView("sessions:a")).toBeUndefined();
     expect(second).toHaveBeenCalledTimes(1);
   });
+
+  it("disposes detached idle streams on invalidateViews so post-mutation navigation re-subscribes cleanly", () => {
+    const stop = vi.fn();
+    const start = vi.fn((_next: (value: number) => void) => stop);
+    const detach = watchView("sessions:b", start, vi.fn(), vi.fn());
+    expect(start).toHaveBeenCalledOnce();
+    detach();
+    invalidateViews();
+    expect(stop).toHaveBeenCalledOnce();
+    expect(peekView("sessions:b")).toBeUndefined();
+  });
 });

@@ -130,4 +130,56 @@ describe("session state helpers", () => {
     expect(resolveStoredStreak(4, undefined, undefined, now)).toBe(4);
     expect(resolveStoredStreak(0, undefined, undefined, now)).toBe(0);
   });
+
+  it("preserves highest subject recommendedDifficulty across topics instead of downgrading on a Basic topic", () => {
+    const updated = nextLearningProgress(
+      "student-1",
+      {
+        sessionsCompleted: 4,
+        scoreTotal: 360,
+        subjectProgress: {
+          "Quantitative Methods": {
+            sessionsCompleted: 4,
+            scoreTotal: 360,
+            averageCTScore: 90,
+            lastActivityAt: 100,
+            recommendedDifficulty: "Intermediate",
+            recommendationReason: "Advanced in Functions",
+          },
+        },
+        topicRecommendations: {
+          functions: {
+            recommendedDifficulty: "Intermediate",
+            reason: "Advanced in Functions",
+            confidence: "medium",
+          },
+          descriptive_statistics: {
+            recommendedDifficulty: "Basic",
+            reason: "New topic",
+            confidence: "low",
+          },
+        },
+      },
+      85,
+      Timestamp.fromDate(new Date("2026-08-03T04:00:00Z")),
+      {
+        id: "session-5",
+        subject: "Quantitative Methods",
+        topic: "Descriptive Statistics",
+        scorecardSummary: "Solid reasoning",
+        scorecardGeneratedAt: 200,
+        recommendation: {
+          recommendedDifficulty: "Basic",
+          reason: "1/3 Basic completed",
+          confidence: "low",
+        },
+      },
+    );
+    expect(updated.subjectProgress["Quantitative Methods"]?.recommendedDifficulty).toBe("Intermediate");
+    expect(updated.subjectProgress["Quantitative Methods"]?.recommendationReason).toBe("Advanced in Functions");
+    expect(updated.topicRecommendations?.descriptive_statistics).toMatchObject({
+      recommendedDifficulty: "Basic",
+      reason: "1/3 Basic completed",
+    });
+  });
 });

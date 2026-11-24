@@ -24,9 +24,9 @@ This document specifies the data structures and additive fields persisted in Fir
 | `resolvedMisconceptions` | `DiagnosisCategory[]` (optional) | Misconception categories resolved during this session. |
 | `supportHistory` | `SupportEvent[]` | Chronological log of support requests (`phase`, `level`, `hintLevel`, `title`, `content`, `requestedAt`). |
 | `supportSummary` | `SupportSummary` (optional) | Aggregated support metrics separating `highestHintLevel` (`0..3`) from `solutionUnlocked` (`boolean`). |
-| `scorecard` | `ScorecardResult \| null` | Calibrated 4-criterion Critical Thinking Scorecard (`0..100`), including `supportSummary` and `nextPracticeRecommendation`. |
+| `scorecard` | `ScorecardResult \| null` | Process + Outcome calibrated 4-criterion Critical Thinking Scorecard (`0..100`), including `supportSummary` and `nextPracticeRecommendation`. |
 | `releasedSolution` | `ReleasedSolution \| null` | Complete worked explanation, stripped by `studentSession` unless all four stages are completed and the scorecard is finalized. |
-| `adaptiveRecommendation` | `AdaptiveRecommendation \| null` | Topic-level difficulty recommendation including `decisionLabel` and `masteryStatus`. |
+| `adaptiveRecommendation` | `AdaptiveRecommendation \| null` | Enforced topic-level difficulty assignment and recommendation including `decisionLabel` and `masteryStatus`. |
 
 ---
 
@@ -54,7 +54,7 @@ This document specifies the data structures and additive fields persisted in Fir
 | `solutionUnlocked` | `boolean` | `true` only after all four Socratic stages are accepted and the worked solution (Level 4) is unlocked via `finalizeScorecard`. |
 | `correctiveAttempts` | `number` | Sum of `correctiveCycleCount` across evaluated checkpoints. |
 | `selfCorrections` | `number` | Count of checkpoints where `selfCorrected === true`. |
-| `completedIndependentlyAfterSupport` | `boolean` | `true` when all checkpoints are accepted and the final interpretation checkpoint did not require Level 2 or Level 3 hints. |
+| `completedIndependentlyAfterSupport` | `boolean` | `true` when all checkpoints are accepted without Level 2/3 hints or 2+ substantive hints across any reasoning stage. |
 
 ---
 

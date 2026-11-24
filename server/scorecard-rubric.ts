@@ -5,35 +5,36 @@ import type {
   Subject,
   SupportSummary,
 } from "../packages/contracts/src/index";
+import { hasExplicitVerification } from "./tutor-dialogue";
 
-/** Four equal criteria; score demonstrated learner mastery against observable evidence depth, verification, and independence. */
+/** Four equal criteria; score demonstrated learner mastery against observable process and outcome evidence. */
 export const SCORECARD_RUBRIC = {
   accuracy: {
     phases:["guided_computation_or_proof","verification_and_checking"],
-    strong:"21–25: Complete, correct computations or proof conclusion matching the mathematical reference.",
-    adequate:"16–20: Substantially correct mathematical work with a minor notation or rounding omission.",
-    weak:"6–15: Partial credit for valid intermediate calculation or proof steps despite an incorrect or incomplete final result.",
+    strong:"21–25: Complete, accurate computations or proof conclusion matching the mathematical reference without repeated errors or heavy hints.",
+    adequate:"16–20: Substantially correct mathematical work with a single corrected slip, light hint, or minor notation omission.",
+    weak:"6–15: Partial credit for valid intermediate calculation or proof steps despite an incorrect result, multiple errors, or strategic hint support.",
     incorrect:"0–5: Incorrect result with no valid intermediate steps, or no usable mathematical evidence.",
   },
   logicalValidity: {
     phases:["guided_computation_or_proof","verification_and_checking"],
     strong:"21–25: Every material implication is supported; assumptions and independent verification are explicit.",
     adequate:"16–20: Sound argument or calculation with a minor unstated link or verification omission.",
-    weak:"6–15: Some valid steps but substantial gaps, bare symbolic steps without reasoning, or unsupported implications.",
+    weak:"6–15: Some valid steps but substantial gaps, missing verification, repeated errors, or heavy hint reliance.",
     incorrect:"0–5: Circular, contradictory or invalid argument; no usable chain of reasoning.",
   },
   methodSelection: {
     phases:["method_selection","formula_theorem_justification"],
-    strong:"21–25: Appropriate method with conditions explicitly linked to the actual givens; valid alternatives receive equal credit.",
-    adequate:"16–20: Appropriate method with a concise justification or minor omission in applicability reasoning.",
-    weak:"6–15: Relevant method named but conditions are weakly justified or partially mismatched.",
-    incorrect:"0–5: Inapplicable method or no usable method evidence. Arithmetic mistakes alone do not lower this criterion.",
+    strong:"21–25: Appropriate method with conditions explicitly linked to the actual givens on initial reasoning; valid alternatives receive equal credit.",
+    adequate:"16–20: Appropriate method with a concise justification, single corrected slip, or minor omission in applicability reasoning.",
+    weak:"6–15: Relevant method named after wrong-formula attempts, weak justification, or strategic/procedural hint reliance.",
+    incorrect:"0–5: Inapplicable method or no usable method evidence.",
   },
   explanationQuality: {
-    phases:["result_interpretation"],
+    phases:["verification_and_checking","result_interpretation"],
     strong:"21–25: Thorough learner explanation of the result in context, including relevant units, scope and limitations.",
-    adequate:"16–20: Understandable contextual explanation with a minor omission in scope or limitations.",
-    weak:"6–15: Brief, surface-level, or partial explanation with an unsupported or unclear contextual interpretation.",
+    adequate:"16–20: Understandable contextual explanation with a minor omission in scope, units, or limitations.",
+    weak:"6–15: Brief, surface-level, or partial explanation with an unsupported, heavily hinted, or unclear contextual interpretation.",
     incorrect:"0–5: No contextual interpretation or interpretation contradicts the problem.",
   },
 } as const;
@@ -93,12 +94,10 @@ export function buildSupportSummary(
   const correctiveAttempts = evaluations.reduce((sum, g) => sum + Number(g?.correctiveCycleCount ?? 0), 0);
   const selfCorrections = evaluations.filter(g => Boolean(g?.selfCorrected)).length;
   const allAccepted = evaluations.length > 0 && evaluations.every(g => g?.status === "accepted");
-  // Completed independently after support if all stages were accepted and the final stage (result_interpretation)
-  // did not require Level 2 or Level 3 hints.
-  const finalStageHeavyHint = supportHistory.some(
-    h => h.phase === "result_interpretation" && (h.level === "stronger_hint" || h.level === "partial_step"),
-  );
-  const completedIndependentlyAfterSupport = allAccepted && !finalStageHeavyHint;
+  // Completed independently if all stages were accepted without Level 2/3 hints or multiple substantive hints across any stage.
+  const substantiveHints = supportHistory.filter(h => h.level && h.level !== "socratic_prompt");
+  const anyHeavyHint = substantiveHints.some(h => h.level === "stronger_hint" || h.level === "partial_step") || substantiveHints.length >= 2;
+  const completedIndependentlyAfterSupport = allAccepted && !anyHeavyHint;
 
   return {
     hintsRequested,
@@ -162,9 +161,9 @@ export function buildNextPracticeRecommendation(
 }
 
 /**
- * Deterministically bounds AI-generated criterion scores against observable learner evidence
- * so gate completion alone never inflates scores to 25/25 when explanations or verifications are shallow,
- * while preserving full accuracy credit when calculations are mathematically correct.
+ * Deterministically bounds AI-generated criterion scores against observable process and outcome evidence
+ * so gate completion alone never inflates scores when earlier errors, heavy hints, omitted verification,
+ * or shallow explanations occurred.
  *
  * @param score - Raw criterion scores and feedback generated by the scoring tutor.
  * @param input - Assessed learner responses, gate diagnostics, support usage, and math verification outcome.
@@ -183,24 +182,57 @@ export function calibrateScorecard<T extends {
       .join(" ")
       .trim();
 
-  const effectiveCorrections = (phases: readonly ReasoningPhase[]) =>
-    Math.max(
-      0,
-      ...phases.map(p => {
-        const g = input.gateEvaluations?.[p];
-        const raw = Number(g?.correctiveCycleCount ?? 0);
-        // Independent self-correction of a single mistake is positive reasoning evidence
-        return g?.selfCorrected && raw <= 2 ? Math.max(0, raw - 1) : raw;
-      }),
+  const stageCorrections = (phases: readonly ReasoningPhase[]) =>
+    phases.reduce((sum, p) => sum + Number(input.gateEvaluations?.[p]?.correctiveCycleCount ?? 0), 0);
+
+  const stageSubstantiveHints = (phases: readonly ReasoningPhase[]) =>
+    (input.supportHistory ?? []).filter(
+      h => h.phase && phases.includes(h.phase) && h.level && h.level !== "socratic_prompt",
     );
 
-  const stageSupport = (phases: readonly ReasoningPhase[]) =>
-    (input.supportHistory ?? []).filter(h => h.phase && phases.includes(h.phase));
+  const highestStageHint = (phases: readonly ReasoningPhase[]) =>
+    stageSubstantiveHints(phases).reduce<number>((max, h) => Math.max(max, hintLevelNumberFor(h.level)), 0);
 
-  // Neutral socratic_prompt (Level 0) and a single targeted_hint (Level 1) do not trigger heavy support caps
-  const hasHeavySupport = (phases: readonly ReasoningPhase[]) => {
-    const substantive = stageSupport(phases).filter(h => h.level && h.level !== "socratic_prompt");
-    return substantive.some(h => h.level === "stronger_hint" || h.level === "partial_step") || substantive.length >= 2;
+  const processCap = (
+    phases: readonly ReasoningPhase[],
+    cleanSelfCorrectionCeiling = 21,
+  ): { ceiling: number; note: string; advice: string } | null => {
+    const corrections = stageCorrections(phases);
+    const hints = stageSubstantiveHints(phases);
+    const maxHint = highestStageHint(phases);
+    const cleanSelfCorrection = corrections === 1
+      && hints.length === 0
+      && phases.some(p => Boolean(input.gateEvaluations?.[p]?.selfCorrected));
+
+    if (corrections >= 3 || maxHint >= 3) {
+      return {
+        ceiling: 8,
+        note: "required repeated corrective attempts or procedural hint support",
+        advice: "Practice completing this reasoning stage independently before advancing.",
+      };
+    }
+    if (corrections >= 2 || maxHint >= 2 || hints.length >= 2) {
+      return {
+        ceiling: 12,
+        note: "required multiple corrections or strategic hint guidance",
+        advice: "Review the underlying rules and work through similar steps without hints.",
+      };
+    }
+    if (cleanSelfCorrection) {
+      return {
+        ceiling: cleanSelfCorrectionCeiling,
+        note: "corrected an earlier mistake independently",
+        advice: "Double-check your initial reasoning before submitting to catch slips on the first try.",
+      };
+    }
+    if (corrections === 1 || maxHint === 1) {
+      return {
+        ceiling: 16,
+        note: "required correction or hint assistance",
+        advice: "Verify each condition and step carefully before submitting.",
+      };
+    }
+    return null;
   };
 
   const capCriterion = (
@@ -214,34 +246,46 @@ export function calibrateScorecard<T extends {
       if (!criterion.improvementAdvice.trim() || /^(none|n\/?a|no improvement)/i.test(criterion.improvementAdvice.trim())) {
         criterion.improvementAdvice = adviceIfCapped;
       }
-      if (reasonNoteIfAssisted && !/assist|hint|guidance/i.test(criterion.reason)) {
+      if (reasonNoteIfAssisted && !/assist|hint|guidance|correction|corrected/i.test(criterion.reason)) {
         criterion.reason = `${criterion.reason.replace(/[.]+$/, "")}; ${reasonNoteIfAssisted}`;
       }
     }
   };
 
-  // 1. Explanation Quality (result_interpretation)
+  // 1. Explanation Quality (verification_and_checking, result_interpretation)
   const interpPhases = SCORECARD_RUBRIC.explanationQuality.phases;
-  const interpText = acceptedText(interpPhases);
-  const interpWords = wordsOf(interpText);
-  const hasContextMeaning = /\b(per|each|every|share|sharing|equally|equal|weight|spread|deviat|dispersion|expect|repetition|long|run|guarantee|chance|likely|likelihood|because|since|requires|table|both|either|subset|population|sample|means|indicates|represents|implies|context|observation|member|outcome|element|function|input|output|image|preimage)\b/i.test(interpText);
-  if (interpWords.length < 5 || interpText.length < 20 || !hasContextMeaning) {
+  const interpOnlyText = acceptedText(["result_interpretation"]) || acceptedText(interpPhases);
+  const interpWords = wordsOf(interpOnlyText);
+  const hasContextMeaning = /\b(?:per\s+\w+|share|equally|equal[\s-]share|weight|spread|variability|dispersion|deviat|expect|long[\s-]run|guarantee|chance|likel(?:y|ihood)|proportion|percent|average|typical|most\s+common|most\s+frequent|hours?|minutes?|days?|learners?|students?|units?|scope|limit(?:ation)?|context|represents?|describes?|indicates?|summariz|population|sample|subset|member|observation|outcome|element|event|image|preimage|equivalence|contradiction|conjunction|disjunction|implies)\b/i.test(interpOnlyText);
+
+  const interpProcess = processCap(interpPhases);
+  if (interpProcess) {
     capCriterion(
       score.explanationQuality,
-      12,
-      "Explain what the computed result means in the real context of the problem, including relevant units and limitations, rather than only restating the value.",
+      interpProcess.ceiling,
+      interpProcess.advice,
+      `${interpProcess.note} in the final stage.`,
     );
-  } else if (hasHeavySupport(interpPhases) || effectiveCorrections(interpPhases) >= 2) {
+  }
+  const stage1Phases: readonly ReasoningPhase[] = ["problem_understanding", "relevant_information_identification"];
+  if (stageCorrections(stage1Phases) >= 2 || highestStageHint(stage1Phases) >= 2) {
     capCriterion(
       score.explanationQuality,
       18,
-      "Practice formulating the contextual interpretation and its limitations independently without relying on hints.",
-      "needed assistance formulating the contextual interpretation.",
+      "Identify the problem goal and givens clearly before interpreting the result.",
+      "needed guidance clarifying the initial problem givens.",
     );
-  } else if (interpWords.length < 12 || interpText.length < 60) {
+  }
+  if (interpWords.length < 5 || interpOnlyText.length < 20 || !hasContextMeaning) {
     capCriterion(
       score.explanationQuality,
-      20,
+      10,
+      "Explain what the computed result means in the real context of the problem, including relevant units and limitations, rather than only restating the value.",
+    );
+  } else if (interpWords.length < 12 || interpOnlyText.length < 60) {
+    capCriterion(
+      score.explanationQuality,
+      18,
       "To reach full mastery (21–25), expand your interpretation to cover units, domain scope, and what the result does or does not guarantee.",
     );
   }
@@ -250,19 +294,22 @@ export function calibrateScorecard<T extends {
   const methodPhases = SCORECARD_RUBRIC.methodSelection.phases;
   const methodText = acceptedText(methodPhases);
   const methodWords = wordsOf(methodText);
-  const hasJustificationLink = /\b(because|since|equal|equally|contribute|importance|weight|independent|population|sample|requires|condition|assum|disjoint|every|all|either|both|substitut|order|applies|given|rule|definition|theorem|principle)\b/i.test(methodText);
+  const hasJustificationLink = /\b(?:because|since|requires?|propositions?|connectives?|conjunction|disjunction|negation|biconditional|truth\s+value|equal(?:ly)?|weight|contribute|importance|independent|population|sample|bessel|condition|assum|disjoint|mutually\s+exclusive|order|replacement|distinct|frequency|probability|substitut|implication|truth\s+table|contrapositive|definition|theorem|principle|precondition|complete)\b/i.test(methodText);
+
+  const methodProcess = processCap(methodPhases);
+  if (methodProcess) {
+    capCriterion(
+      score.methodSelection,
+      methodProcess.ceiling,
+      methodProcess.advice,
+      `${methodProcess.note} justifying why the method conditions apply.`,
+    );
+  }
   if (methodWords.length < 4 || !hasJustificationLink) {
     capCriterion(
       score.methodSelection,
-      14,
+      12,
       "Justify why your selected formula or theorem applies by explicitly connecting its required conditions to the problem's givens.",
-    );
-  } else if (hasHeavySupport(methodPhases) || effectiveCorrections(methodPhases) >= 2) {
-    capCriterion(
-      score.methodSelection,
-      18,
-      "Identify and justify the governing formula or theorem conditions independently before proceeding to calculation.",
-      "needed assistance justifying why the method conditions apply.",
     );
   } else if (methodWords.length < 10 || methodText.length < 50) {
     capCriterion(
@@ -275,28 +322,33 @@ export function calibrateScorecard<T extends {
   // 3. Logical Validity (guided_computation_or_proof, verification_and_checking)
   const compPhases = SCORECARD_RUBRIC.logicalValidity.phases;
   const compText = acceptedText(compPhases);
-  const compWords = wordsOf(compText);
-  const hasExplicitCheck = /\b(check|verif|complement|sum|total|revers|substitut|confirm|table|consistent|because|since|therefore|thus|implies)\b/i.test(compText)
-    || input.assessedResponses.some(r => r.phase === "verification_and_checking" && r.evaluation?.status === "accepted");
-  if (hasHeavySupport(compPhases) || effectiveCorrections(compPhases) >= 2) {
+  const verificationCheckText = acceptedText(["guided_computation_or_proof", "verification_and_checking", "result_interpretation"]);
+  const hasExplicitCheck = hasExplicitVerification({ plainText: verificationCheckText });
+
+  const logicProcess = processCap(compPhases);
+  if (logicProcess) {
     capCriterion(
       score.logicalValidity,
-      18,
-      "Write out each intermediate logical or algebraic step and verify it independently.",
-      "needed assistance completing or verifying the computation steps.",
+      logicProcess.ceiling,
+      logicProcess.advice,
+      `${logicProcess.note} completing or verifying the computation steps.`,
     );
-  } else if (compWords.length < 10 && !hasExplicitCheck) {
+  }
+  if (!hasExplicitCheck) {
     capCriterion(
       score.logicalValidity,
-      20,
+      16,
       "Include an explicit verification step (such as an inverse check, complement check, or case check) alongside your derivation.",
     );
   }
 
-  // 4. Accuracy (mathematical correctness of results & intermediate calculation steps, decoupled from hint dependence and verification prose)
+  // 4. Accuracy (Process + Outcome: mathematical correctness of final result AND errors/hints during computation)
+  const compOnlyPhases: readonly ReasoningPhase[] = ["guided_computation_or_proof"];
+  const compOnlyText = acceptedText(compOnlyPhases) || compText;
+  const compOnlyWords = wordsOf(compOnlyText);
   if (input.math === "incorrect") {
-    const hasIntermediateSteps = compWords.length >= 4
-      || (/[+\-*/^=]/.test(compText) && compText.trim().split(/\s+/).length >= 3);
+    const hasIntermediateSteps = compOnlyWords.length >= 4
+      || (/[+\-*/^=]/.test(compOnlyText) && compOnlyText.trim().split(/\s+/).length >= 3);
     if (hasIntermediateSteps) {
       const partialAdvice = "Check the final arithmetic step against your intermediate setup and givens.";
       capCriterion(score.accuracy, 12, partialAdvice);
@@ -309,18 +361,29 @@ export function calibrateScorecard<T extends {
     } else {
       score.accuracy.score = 0;
     }
-  } else if (input.math === "correct" && compWords.length < 6) {
-    capCriterion(
-      score.accuracy,
-      20,
-      "Write out intermediate calculation steps leading to your result.",
-    );
-  } else if (input.math === "unsupported" && compWords.length < 4 && !/[+\-*/^=]/.test(compText)) {
-    capCriterion(
-      score.accuracy,
-      20,
-      "Show the complete mathematical steps leading to your result.",
-    );
+  } else {
+    const accuracyProcess = processCap(compOnlyPhases, 20);
+    if (accuracyProcess) {
+      capCriterion(
+        score.accuracy,
+        accuracyProcess.ceiling,
+        "Check each intermediate arithmetic or algebraic step carefully before submitting.",
+        `${accuracyProcess.note} during computation.`,
+      );
+    }
+    if (input.math === "correct" && compOnlyWords.length < 6) {
+      capCriterion(
+        score.accuracy,
+        20,
+        "Write out intermediate calculation steps leading to your result.",
+      );
+    } else if (input.math === "unsupported" && compOnlyWords.length < 4 && !/[+\-*/^=]/.test(compOnlyText)) {
+      capCriterion(
+        score.accuracy,
+        20,
+        "Show the complete mathematical steps leading to your result.",
+      );
+    }
   }
 
   return score;

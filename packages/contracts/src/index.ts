@@ -113,15 +113,15 @@ export const SOLVER_STAGE_PHASES: Record<SolverStage, readonly ReasoningPhase[]>
     "relevant_information_identification",
   ],
   method_selection: ["method_selection", "formula_theorem_justification"],
-  computation: ["guided_computation_or_proof", "verification_and_checking"],
-  interpretation: ["result_interpretation"],
+  computation: ["guided_computation_or_proof"],
+  interpretation: ["verification_and_checking", "result_interpretation"],
 };
 
 export const STAGE_ACCEPTANCE_CRITERIA: Record<SolverStage, string> = {
   problem_understanding: "Identifies relevant information and what needs to be determined.",
   method_selection: "Identifies an appropriate formula, method, or theorem and justifies why its conditions apply.",
-  computation: "Demonstrates valid mathematical procedures.",
-  interpretation: "Explains what the result means in the context of the problem.",
+  computation: "Demonstrates valid step-by-step mathematical computation or proof.",
+  interpretation: "Verifies the result independently and explains what it means in the context of the problem.",
 };
 
 export const PHASE_LABELS: Record<WorkflowPhase, string> = {
@@ -395,7 +395,7 @@ export interface CuratedLearningSessionInput {
   mode: "curated";
   subjectId: string;
   topicId: string;
-  requestedDifficulty: Difficulty;
+  requestedDifficulty?: Difficulty;
 }
 
 export interface OwnProblemInput {

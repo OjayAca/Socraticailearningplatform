@@ -57,6 +57,8 @@ const CONDITION_STOPWORDS = new Set([
   "each", "that", "with", "from", "this", "have", "has", "are", "when", "must", "only", "into",
   "over", "does", "not", "data", "set", "sets", "value", "values", "given", "problem", "they",
   "their", "there", "these", "those", "every", "both", "more", "than", "then",
+  "using", "used", "based", "between", "number", "numbers", "same", "without", "either",
+  "first", "second", "table", "assumed", "reference",
 ]);
 
 /** Canonical semantic equivalence classes for formula/theorem conditions across QM and DM. */
@@ -166,6 +168,60 @@ export function evaluateConditionEquivalence(
       };
     }
   }
+  if (methodName.includes("median")) {
+    if (/\b(?:without\s+(?:sorting|ordering|arranging)|before\s+(?:sorting|ordering)|unsorted|unordered\s+(?:middle|list))\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "Finding the median requires ordering the observations before locating the middle position.",
+      };
+    }
+  }
+  if (methodName.includes("mode")) {
+    if (/\b(?:average\s+of\s+all|add\s+all\s+and\s+divide|ignore\s+frequenc(?:y|ies)|always\s+has\s+(?:a|one)\s+mode)\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "The mode is determined by frequency of occurrence, and a dataset with all distinct values has no mode.",
+      };
+    }
+  }
+  if (methodName.includes("union")) {
+    if (/\b(?:only\s+(?:common|shared|elements\s+in\s+both)|must\s+(?:be|occur|appear)\s+in\s+both\s+sets)\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "Set union includes elements belonging to either set (or both), not only shared elements.",
+      };
+    }
+  }
+  if (methodName.includes("intersection")) {
+    if (/\b(?:elements\s+in\s+(?:only\s+one|either)\s+set|all\s+elements\s+from\s+both\s+sets\s+even\s+if\s+not\s+shared)\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "Set intersection includes only elements that belong to both sets simultaneously.",
+      };
+    }
+  }
+  if (methodName.includes("difference")) {
+    if (/\b(?:order\s+does\s+not\s+matter|order\s+doesnt\s+matter|commutative|a\s+minus\s+b\s+(?:equals|is\s+the\s+same\s+as)\s+b\s+minus\s+a)\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "Set difference is not commutative; operand order determines which elements are excluded.",
+      };
+    }
+  }
+  if (methodName.includes("logic") || methodName.includes("propositional")) {
+    if (/\b(?:exclusive\s+or|or\s+means\s+(?:exactly|only)\s+one\s+is\s+true)\b/i.test(normalized)) {
+      return {
+        matched: false,
+        contradicted: true,
+        contradictionReason: "Standard propositional OR is inclusive and is true when at least one operand is true.",
+      };
+    }
+  }
 
   // Generic negation guard before a matched phrase
   const isNegatedPhrase = (phrase: string) => {
@@ -218,8 +274,12 @@ export function evaluateConditionEquivalence(
         : []),
   ];
   for (const alt of alternatives) {
-    const altWords = tokenizeWords(alt).filter(w => w.length >= 4 && !METHOD_FILLER_WORDS.has(w));
-    if (altWords.length > 0 && altWords.some(w => normalized.includes(w)) && tokenizeWords(normalized).length >= 5) {
+    const altWords = [...new Set(
+      tokenizeWords(alt).filter(w => w.length >= 4 && !METHOD_FILLER_WORDS.has(w) && !CONDITION_STOPWORDS.has(w)),
+    )];
+    const matchedWords = altWords.filter(w => normalized.includes(w));
+    const requiredMatches = Math.min(2, altWords.length);
+    if (altWords.length > 0 && matchedWords.length >= requiredMatches && tokenizeWords(normalized).length >= 5) {
       return { matched: true, contradicted: false, alternativeRecognized: true, matchedCondition: alt };
     }
   }
@@ -453,6 +513,82 @@ const unionMethodQuestions = ["How will you handle a value that appears in both 
 const varianceQuestions = ["Who is the group being studied?", "Do the data cover every member of that group or only some members?", "Which matters for this choice: the number of observations or who was observed?", "How would you finish “These observations cover ___, so I would use ___ variance”?"];
 const levels = ["socratic_prompt", "targeted_hint", "stronger_hint", "partial_step"];
 
+/**
+ * Checks whether a learner response includes explicit verification or checking evidence
+ * (such as an inverse check, complement sum, substitution check, or truth-table verification).
+ *
+ * @param response - Learner response containing plain text and/or LaTeX.
+ * @returns True if explicit verification reasoning is present.
+ */
+export function hasExplicitVerification(response?: MathResponse | null): boolean {
+  const combined = [response?.plainText ?? "", response?.latex ?? ""].join(" ").trim();
+  if (!combined) return false;
+  return /\b(?:check(?:ing|ed)?|verif(?:y|ying|ied|ication)|confirm(?:ing|ed)?|revers(?:e|ing|ed)|inverse|complement(?:ary)?|double[\s-]?check|counterexample|truth\s+table|plug(?:ging)?\s+(?:it\s+)?back|substitut(?:e|ing)\s+(?:it\s+)?back|multiply(?:ing)?\s+(?:it\s+)?back|adds?\s+up\s+to|sums?\s+to\s+(?:1|100%|the\s+total)|recomput(?:e|ed|ing)|recheck(?:ing|ed)?|back[\s-]?substitut(?:e|ion))\b/i.test(combined);
+}
+
+/**
+ * Checks whether a Stage 1 opening question prematurely asks for a formula, theorem,
+ * proof, calculation, or final answer before problem understanding is established.
+ *
+ * @param question - Candidate opening tutor question.
+ * @returns True if the question prematurely skips past problem understanding.
+ */
+export function isPrematureOpeningQuestion(question: string): boolean {
+  return /\b(?:sum|calculate|compute|solve|formula|theorem|proof|substitute|divide|multiply|final\s+answer|first\s+step|evaluate|plug\s+in)\b/i.test(question);
+}
+
+const THIRD_PERSON_TO_SECOND_PERSON_VERBS: Record<string, string> = {
+  selects: "select",
+  uses: "use",
+  applies: "apply",
+  chooses: "choose",
+  assumes: "assume",
+  omits: "omit",
+  confuses: "confuse",
+  computes: "compute",
+  interprets: "interpret",
+  claims: "claim",
+  states: "state",
+  treats: "treat",
+  divides: "divide",
+  multiplies: "multiply",
+  adds: "add",
+  subtracts: "subtract",
+};
+
+const THIRD_PERSON_SUBJECT_VERB_RE = new RegExp(
+  `\\b(?:the\\s+student|the\\s+learner|student|learner)\\s+(${Object.keys(THIRD_PERSON_TO_SECOND_PERSON_VERBS).join("|")})\\b`,
+  "gi",
+);
+
+function youPronounFor(matched: string): string {
+  return matched[0] === matched[0]?.toUpperCase() ? "You" : "you";
+}
+
+/**
+ * Normalizes third-person diagnostic phrasing (e.g., "The student selected...") into
+ * second-person learner feedback before displaying it inside a stage hint.
+ */
+function toSecondPersonDiagnosis(explanation: string): string {
+  return explanation
+    .trim()
+    .replace(THIRD_PERSON_SUBJECT_VERB_RE, (match, verb: string) => {
+      const base = THIRD_PERSON_TO_SECOND_PERSON_VERBS[verb.toLowerCase()] ?? verb.toLowerCase();
+      return `${youPronounFor(match)} ${base}`;
+    })
+    .replace(/\b(?:the\s+student|the\s+learner|student|learner)\s+(is|was|has)\b/gi, (match, aux: string) => {
+      const lower = aux.toLowerCase();
+      const conjugated = lower === "is" ? "are" : lower === "was" ? "were" : "have";
+      return `${youPronounFor(match)} ${conjugated}`;
+    })
+    .replace(/\b(?:the\s+student|the\s+learner|student|learner)['’]s\b/gi, (match) =>
+      match[0] === match[0]?.toUpperCase() ? "Your" : "your",
+    )
+    .replace(/^(?:The\s+student|The\s+learner|Student|Learner)\b/i, (match) => youPronounFor(match))
+    .replace(/\b(?:the\s+student|the\s+learner)\b/gi, (match) => youPronounFor(match))
+    .replace(/\b(?:his|her|their)\b/gi, (match) => (match[0] === match[0]?.toUpperCase() ? "Your" : "your"));
+}
+
 export function stageHint(
   phase: ReasoningPhase,
   level: string,
@@ -497,8 +633,9 @@ export function stageHint(
   const openDiagnosis = context?.lastDiagnosis?.resolutionStatus === "open" && context.lastDiagnosis.category && context.lastDiagnosis.category !== "none"
     ? context.lastDiagnosis
     : null;
-  const diagnosisContextPrefix = openDiagnosis?.explanation && !leaksFutureCheckpoint(openDiagnosis.explanation, stage, level, ref)
-    ? `${openDiagnosis.explanation} `
+  const diagnosisExplanation = openDiagnosis?.explanation ? toSecondPersonDiagnosis(openDiagnosis.explanation) : "";
+  const diagnosisContextPrefix = diagnosisExplanation && !leaksFutureCheckpoint(diagnosisExplanation, stage, level, ref)
+    ? `${diagnosisExplanation} `
     : "";
 
   let feedback = safeHint

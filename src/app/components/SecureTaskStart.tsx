@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import type {
   AdaptiveRecommendation,
-  Difficulty,
   GetCurrentConsentNoticeResponse,
   LearningCatalog,
   SubjectProgress,
@@ -71,9 +70,6 @@ export function SecureTaskStart() {
   );
   const [subjectId, setSubjectId] = useState("");
   const [topicId, setTopicId] = useState("");
-  const [difficultyOverride, setDifficultyOverride] = useState<Difficulty | null>(
-    null,
-  );
   const [availableIds, setAvailableIds] = useState<string[] | null>(null);
   const [availabilityAttempt, setAvailabilityAttempt] = useState(0);
   const [question, setQuestion] = useState("");
@@ -168,8 +164,7 @@ export function SecureTaskStart() {
   const selectedTopic = topics.find((topic) => topic.id === topicId);
   const recommendation =
     topicRecommendations[topicKey(selectedTopic?.name ?? "")];
-  const difficulty =
-    difficultyOverride ?? recommendation?.recommendedDifficulty ?? "Basic";
+  const difficulty = recommendation?.recommendedDifficulty ?? "Basic";
   const examples = subjectTopics
     .map((topic) => customGuidance(topic.id))
     .filter((item) => !!item);
@@ -189,7 +184,6 @@ export function SecureTaskStart() {
   function applyModeChange(next: typeof mode) {
     setMode(next);
     setTopicId("");
-    setDifficultyOverride(null);
     setQuestion("");
     setQuestionLatex("");
     setMathSyntaxError(null);
@@ -261,7 +255,6 @@ export function SecureTaskStart() {
               mode,
               subjectId,
               topicId,
-              requestedDifficulty: difficulty,
             })
           : await startLearningSession({
               mode,
@@ -542,7 +535,6 @@ export function SecureTaskStart() {
                         value={topicId}
                         onChange={(event) => {
                           setTopicId(event.target.value);
-                          setDifficultyOverride(null);
                           setError(null);
                         }}
                         className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 p-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700"
@@ -577,36 +569,30 @@ export function SecureTaskStart() {
                       </details>
                     )}
                     {selectedTopic && (
-                      <label className="block text-sm font-bold text-slate-900 dark:text-slate-100">
-                        Difficulty
-                        <select
-                          disabled={loading}
-                          value={difficulty}
-                          onChange={(event) => {
-                            setDifficultyOverride(
-                              event.target.value as Difficulty,
-                            );
-                            setError(null);
-                          }}
-                          className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 p-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-700"
-                        >
-                          {(
-                            ["Basic", "Intermediate", "Advanced"] as const
-                          ).map((level) => (
-                            <option key={level}>{level}</option>
-                          ))}
-                        </select>
-                        <span className="mt-1.5 block text-xs font-normal text-slate-500 dark:text-slate-400">
-                          Recommended level ·{" "}
-                          {recommendation?.recommendedDifficulty ?? "Basic"}
-                          {recommendation?.masteryStatus
-                            ? ` · Mastery: ${recommendation.masteryStatus}`
-                            : ""}
-                          {recommendation?.decisionLabel
-                            ? ` (${recommendation.decisionLabel})`
-                            : ""}
-                        </span>
-                      </label>
+                      <section
+                        aria-label="Adaptive difficulty assignment"
+                        className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-4 text-sm dark:border-indigo-900/60 dark:bg-indigo-950/30"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-slate-900 dark:text-slate-100">
+                            Assigned Difficulty: {difficulty}
+                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                            <span className="rounded-full bg-white px-2.5 py-0.5 font-semibold text-indigo-700 dark:bg-slate-900 dark:text-indigo-300">
+                              Mastery: {recommendation?.masteryStatus ?? "Developing"}
+                            </span>
+                            {recommendation?.decisionLabel && (
+                              <span className="rounded-full border border-indigo-200 bg-white px-2.5 py-0.5 font-semibold text-slate-700 dark:border-indigo-800 dark:bg-slate-900 dark:text-slate-300">
+                                {recommendation.decisionLabel}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">
+                          {recommendation?.reason ??
+                            "Adaptive assignment starts at Basic. Complete 3 distinct sessions in this topic to evaluate advancement."}
+                        </p>
+                      </section>
                     )}
                   </>
                 )}

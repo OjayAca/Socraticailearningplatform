@@ -85,6 +85,27 @@ describe("scorecard presentation", () => {
       completedIndependentlyAfterSupport: true,
     });
 
+    const heavyEarlierStageSummary = buildSupportSummary(
+      [
+        { phase: "method_selection", level: "targeted_hint" },
+        { phase: "method_selection", level: "stronger_hint" },
+        { phase: "result_interpretation", level: "socratic_prompt" },
+      ],
+      {
+        problem_understanding: { status: "accepted", correctiveCycleCount: 0, selfCorrected: false },
+        method_selection: { status: "accepted", correctiveCycleCount: 2, selfCorrected: false },
+        guided_computation_or_proof: { status: "accepted", correctiveCycleCount: 0, selfCorrected: false },
+        result_interpretation: { status: "accepted", correctiveCycleCount: 0, selfCorrected: false },
+      },
+      true,
+    );
+    expect(heavyEarlierStageSummary).toMatchObject({
+      hintsRequested: 3,
+      highestHintLevel: 2,
+      solutionUnlocked: true,
+      completedIndependentlyAfterSupport: false,
+    });
+
     const recommendation = buildNextPracticeRecommendation(
       {
         accuracy: { score: 25, reason: "Correct", improvementAdvice: "None" },

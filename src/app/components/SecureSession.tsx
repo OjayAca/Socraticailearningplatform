@@ -547,11 +547,14 @@ export function SecureSession() {
             {closedSessionMessage(session.status, session.scorecard)}
           </p>
           {session.scorecard && (
-            <div className="mt-6 text-left">
+            <div className="mt-6 space-y-4 text-left">
               <h2 className="text-xl font-bold text-slate-950 dark:text-white">
                 Critical Thinking Scorecard
               </h2>
               <ScorecardDetails scorecard={session.scorecard} />
+              {session.releasedSolution && (
+                <ReleasedSolutionCard solution={session.releasedSolution} />
+              )}
             </div>
           )}
           <Link
@@ -825,29 +828,7 @@ export function SecureSession() {
                   </h2>
                   <ScorecardDetails scorecard={session.scorecard} />
                   {session.releasedSolution && (
-                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
-                      <p className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-300">
-                        Unlocked worked solution
-                      </p>
-                      <h3 className="mt-2 font-bold">Method</h3>
-                      <MathText text={session.releasedSolution.method} />
-                      <h3 className="mt-4 font-bold">Why it applies</h3>
-                      <MathText text={session.releasedSolution.justification} />
-                      <h3 className="mt-4 font-bold">Steps</h3>
-                      <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm">
-                        {session.releasedSolution.steps.map((step, index) => (
-                          <li key={index}>
-                            <MathText text={step} />
-                          </li>
-                        ))}
-                      </ol>
-                      <h3 className="mt-4 font-bold">Final answer</h3>
-                      <MathText text={session.releasedSolution.answer} />
-                      <h3 className="mt-4 font-bold">Verification</h3>
-                      <MathText text={session.releasedSolution.verification} />
-                      <h3 className="mt-4 font-bold">Interpretation</h3>
-                      <MathText text={session.releasedSolution.interpretation} />
-                    </div>
+                    <ReleasedSolutionCard solution={session.releasedSolution} />
                   )}
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                     Formative AI-supported feedback only — not an official
@@ -920,6 +901,12 @@ export function SecureSession() {
         </Alert>
       )}
 
+      {reasoning && session.recoveryMode && (
+        <Alert tone="info" className="mx-4 mb-2 shrink-0">
+          Guided recovery active — take this checkpoint one small step at a time.
+        </Alert>
+      )}
+
       {reasoning && (
         <footer className="shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2 sm:pb-6">
           <div className="mx-auto max-w-2xl">
@@ -951,14 +938,16 @@ export function SecureSession() {
                     {busyAction === "hint" ? "Getting hint..." : "I need a hint"}
                   </span>
                 </button>
-                {session.allowedSupport.length > 1 && (
+                {hintTierStatusText(
+                  session.allowedSupport,
+                  session.supportHistory,
+                  session.currentPhase,
+                ) && (
                   <span className="text-[11px] font-medium text-violet-700/80 dark:text-violet-300/80">
-                    {supportTierLabel(
-                      nextSupportLevel(
-                        session.allowedSupport,
-                        session.supportHistory,
-                        session.currentPhase,
-                      ),
+                    {hintTierStatusText(
+                      session.allowedSupport,
+                      session.supportHistory,
+                      session.currentPhase,
                     )}
                   </span>
                 )}
@@ -1180,19 +1169,58 @@ function promptFor(phase: string): string {
   );
 }
 
-function nextSupportLevel(
-  allowedSupport: SupportLevel[],
+function ReleasedSolutionCard({
+  solution,
+}: {
+  solution: NonNullable<SessionProjection["releasedSolution"]>;
+}) {
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
+      <p className="text-xs font-bold uppercase text-emerald-700 dark:text-emerald-300">
+        Unlocked worked solution
+      </p>
+      <h3 className="mt-2 font-bold">Method</h3>
+      <MathText text={solution.method} />
+      <h3 className="mt-4 font-bold">Why it applies</h3>
+      <MathText text={solution.justification} />
+      <h3 className="mt-4 font-bold">Steps</h3>
+      <ol className="mt-2 list-decimal space-y-2 pl-5 text-sm">
+        {solution.steps.map((step, index) => (
+          <li key={index}>
+            <MathText text={step} />
+          </li>
+        ))}
+      </ol>
+      <h3 className="mt-4 font-bold">Final answer</h3>
+      <MathText text={solution.answer} />
+      <h3 className="mt-4 font-bold">Verification</h3>
+      <MathText text={solution.verification} />
+      <h3 className="mt-4 font-bold">Interpretation</h3>
+      <MathText text={solution.interpretation} />
+    </div>
+  );
+}
+
+function phaseSupportLevels(
   supportHistory: SessionProjection["supportHistory"] = [],
   currentPhase?: string,
-): SupportLevel | undefined {
-  if (!allowedSupport.length) return undefined;
-  const phaseLevels = new Set(
+): Set<SupportLevel> {
+  return new Set(
     (supportHistory ?? [])
       .filter(
         (entry) => !currentPhase || !entry.phase || entry.phase === currentPhase,
       )
       .map((entry) => entry.level),
   );
+}
+
+function nextSupportLevel(
+  allowedSupport: SupportLevel[],
+  supportHistory: SessionProjection["supportHistory"] = [],
+  currentPhase?: string,
+): SupportLevel | undefined {
+  if (!allowedSupport.length) return undefined;
+  const phaseLevels = phaseSupportLevels(supportHistory, currentPhase);
   const substantiveOrder: SupportLevel[] = [
     "targeted_hint",
     "stronger_hint",
@@ -1203,7 +1231,9 @@ function nextSupportLevel(
       return candidate;
     }
   }
-  return allowedSupport.at(-1);
+  return allowedSupport.includes("socratic_prompt")
+    ? "socratic_prompt"
+    : allowedSupport.at(-1);
 }
 
 function supportTierLabel(level?: SupportLevel): string {
@@ -1216,4 +1246,30 @@ function supportTierLabel(level?: SupportLevel): string {
     full_solution: "Full solution unlocked",
   };
   return (level && labels[level]) || "Support unlocked";
+}
+
+function hintTierStatusText(
+  allowedSupport: SupportLevel[],
+  supportHistory: SessionProjection["supportHistory"] = [],
+  currentPhase?: string,
+): string | null {
+  if (!allowedSupport.length) return null;
+  const nextLevel = nextSupportLevel(allowedSupport, supportHistory, currentPhase);
+  if (!nextLevel) return null;
+  if (nextLevel !== "socratic_prompt") {
+    return supportTierLabel(nextLevel);
+  }
+  if (
+    allowedSupport.includes("partial_step") &&
+    phaseSupportLevels(supportHistory, currentPhase).has("partial_step")
+  ) {
+    return "All hint levels used — Socratic prompt available";
+  }
+  const hasAnySubstantive =
+    allowedSupport.includes("targeted_hint") ||
+    allowedSupport.includes("stronger_hint") ||
+    allowedSupport.includes("partial_step");
+  return hasAnySubstantive
+    ? "Submit an attempt to unlock the next hint level"
+    : "Submit an attempt to unlock Level 1–3 hints";
 }

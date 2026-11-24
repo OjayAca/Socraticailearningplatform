@@ -155,19 +155,20 @@ describe('custom input UI → real client → in-memory secure service acceptanc
     expect(result.diagnosis?.category).toBe('computational_error');
     expect(result.session.releasedSolution).toBeNull();expect(result.tutorMessage?.text).not.toContain('13');
   });
-  it('preserves the prepared-problem path from the UI',async()=>{
+  it('preserves the adaptive prepared-problem path from the UI',async()=>{
     const topicId='quantitative-methods-functions';
-    db.put('problems/prepared',{topicId,status:'approved',difficulty:'Advanced',version:1,validationRecordId:'approval',problemText:'Given f(x) = 2x+3, find f(5).'});
+    db.put('problems/prepared',{topicId,status:'approved',difficulty:'Basic',version:1,validationRecordId:'approval',problemText:'Given f(x) = 2x+3, find f(5).'});
     db.put('content_validation_records/approval',{decision:'approved',problemId:'prepared',problemVersion:1});
     db.put('problem_scoring/prepared',{problemVersion:1,validationRecordId:'approval',expectedConcepts:['evaluation'],solutionSteps:['Substitute x.'],finalAnswer:'13',interpretation:'The function value.',answerSpecification:{kind:'number',value:13}});
     render(<MemoryRouter><SecureTaskStart/></MemoryRouter>);
     fireEvent.click(await screen.findByRole('button',{name:/Quantitative Methods/}));
     fireEvent.click(screen.getByRole('button',{name:'Prepared Problem'}));
     fireEvent.change(await screen.findByRole('combobox',{name:'Topic'}),{target:{value:topicId}});
-    fireEvent.change(screen.getByRole('combobox',{name:/Difficulty/}),{target:{value:'Advanced'}});
+    expect(screen.getByText(/Assigned Difficulty: Basic/i)).toBeVisible();
+    expect(screen.queryByRole('combobox',{name:/Difficulty/})).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button',{name:'Start Session'}));
     await waitFor(()=>expect(started?.problemId).toBe('prepared'));
     expect(requests.map(r=>r.operation)).toEqual(['getPreparedTopicIds','startLearningSession']);
-    expect(started.difficulty).toBe('Advanced');
+    expect(started.difficulty).toBe('Basic');
   });
 });

@@ -147,16 +147,17 @@ describe("P1 subject-first task start", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("lets learners without an academic profile start a prepared session", async () => {
+  it("lets learners without an academic profile start an adaptively assigned prepared session", async () => {
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
     await choose("Prepared Problem");
     const start = screen.getByRole("button", { name: "Start Session" });
     expect(start).toBeDisabled();
     fireEvent.change(await screen.findByRole("combobox", {name:"Topic"}), {target:{value:"quantitative-methods-introduction-to-probability"}});
-    expect(screen.getByRole("combobox", {name:/Difficulty/})).toHaveValue("Basic");
+    expect(screen.getByText(/Assigned Difficulty: Basic/i)).toBeVisible();
+    expect(screen.queryByRole("combobox", { name: /Difficulty/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Complete your academic profile")).not.toBeInTheDocument();
     fireEvent.click(start);
-    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", subjectId:"quantitative-methods", requestedDifficulty:"Basic", topicId: "quantitative-methods-introduction-to-probability" });
+    expect(mocks.startLearningSession).toHaveBeenCalledWith({ mode: "curated", subjectId:"quantitative-methods", topicId: "quantitative-methods-introduction-to-probability" });
   });
 
   it("shows descriptions and personalized progress before topic selection", async () => {
@@ -169,7 +170,7 @@ describe("P1 subject-first task start", () => {
     expect(await screen.findByRole("option", { name: "Logic" })).toBeVisible();
   });
 
-  it("clears the question, notation and manual level when switching modes or subjects", async () => {
+  it("clears the question and notation when switching modes or subjects", async () => {
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
     await choose("Own Problem");
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
@@ -191,28 +192,27 @@ describe("P1 subject-first task start", () => {
     await choose("Prepared Problem");
     let topic = await screen.findByRole("combobox", {name:"Topic"});
     fireEvent.change(topic, {target:{value:"quantitative-methods-introduction-to-probability"}});
-    fireEvent.change(screen.getByRole("combobox",{name:/Difficulty/}), {target:{value:"Advanced"}});
+    expect(screen.getByText(/Assigned Difficulty: Basic/i)).toBeVisible();
     await choose("Own Problem");
     await choose("Prepared Problem");
     topic = await screen.findByRole("combobox", {name:"Topic"});
     expect(topic).toHaveValue("");
-    fireEvent.change(topic, {target:{value:"quantitative-methods-introduction-to-probability"}});
-    expect(screen.getByRole("combobox",{name:/Difficulty/})).toHaveValue("Basic");
   });
 
-  it("defaults to the saved topic recommendation and lets the student override it", async () => {
+  it("enforces the saved topic adaptive recommendation without a manual override dropdown", async () => {
     mocks.getDoc.mockReset().mockResolvedValueOnce({exists:()=>true,data:()=>({
-      topicRecommendations:{logic:{recommendedDifficulty:"Intermediate"}}
+      topicRecommendations:{logic:{recommendedDifficulty:"Intermediate",masteryStatus:"Mastered",decisionLabel:"Advance",reason:"3/3 Basic sessions completed strongly."}}
     })}).mockResolvedValueOnce({exists:()=>true});
     render(<MemoryRouter><SecureTaskStart /></MemoryRouter>);
     await choose("Prepared Problem", /Discrete Mathematics/);
     fireEvent.change(await screen.findByRole("combobox", {name:"Topic"}), {target:{value:"discrete-mathematics-logic"}});
-    const level = screen.getByRole("combobox", {name:/Difficulty/});
-    expect(level).toHaveValue("Intermediate");
-    fireEvent.change(level, {target:{value:"Advanced"}});
+    expect(screen.getByText(/Assigned Difficulty: Intermediate/i)).toBeVisible();
+    expect(screen.getByText(/Mastery: Mastered/i)).toBeVisible();
+    expect(screen.getByText(/3\/3 Basic sessions completed strongly\./i)).toBeVisible();
+    expect(screen.queryByRole("combobox", { name: /Difficulty/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", {name:"Start Session"}));
     expect(mocks.startLearningSession).toHaveBeenCalledWith({
-      mode:"curated",subjectId:"discrete-mathematics",topicId:"discrete-mathematics-logic",requestedDifficulty:"Advanced"
+      mode:"curated",subjectId:"discrete-mathematics",topicId:"discrete-mathematics-logic"
     });
   });
 

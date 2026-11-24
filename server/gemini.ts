@@ -42,8 +42,8 @@ export interface Tutor { generate(context: TutorContext): Promise<Turn | Score> 
 export const stageQuestions = {
   problem_understanding: "In your own words, what do you need to find, and which given information helps you find it?",
   method_selection: "How does the method you chose connect the given information to what you need to find?",
-  computation: "Can you show your calculation or proof one step at a time and explain how you checked it?",
-  interpretation: "What does your result mean in the context of the original problem?",
+  computation: "Can you show your calculation or proof one step at a time?",
+  interpretation: "How can you verify your result independently, and what does it mean in the context of the original problem?",
 };
 
 /** Resolve conflicting evaluations into answer-free, current-stage dialogue. */
@@ -95,7 +95,7 @@ Diagnose the specific misconception from observable student evidence: wrong_form
 misinterpreted_variable, computational_error or incorrect_interpretation, as appropriate.
 Use procedural_error for an inappropriate method, skipped_reasoning for a missing step, weak_justification for unsupported application, and theorem_condition_violation for an unmet assumption.
 Use unrecognized_alternative when an unfamiliar method may be valid; ask for its assumptions, do not label it a confirmed mistake.
-For a diagnosis, include incorrectStep quoting only the learner's relevant statement, explanation of the violated condition, and recommendedAction. Do not put protected answers in any field.
+For a diagnosis, include incorrectStep quoting only the learner's relevant statement, second-person or neutral explanation of the violated condition (never refer to 'the student' in third person), and recommendedAction. Do not put protected answers in any field.
 For a mistake, set accepted=false and ask a corrective Socratic question in the current stage without giving the answer.
 If evidence is uncertain, set accepted=false and category=none; ask for clarification without claiming the student is wrong.
 Never combine accepted=true with a misconception category or low/medium confidence.
@@ -104,19 +104,19 @@ partial_step=an incomplete setup the learner must finish. Never count provided h
 Assess the current learner-visible stage as a whole using currentStageCriteria, the student's response and their previous evidence.
 There is no required number of answers. One sufficient response completes the stage; never ask for a second answer merely to tick another internal criterion.
 Problem understanding includes the goal and relevant givens; method selection includes a valid method and why it applies;
-computation includes correct working and verification; interpretation explains the result in context.
+computation includes complete step-by-step calculation or proof; interpretation includes both independent verification and contextual explanation.
 When instructionalLevel is provided, it governs cross-session problem complexity; use promptAdjustment (simplify, maintain, deepen) to adjust in-session conversational scaffolding. Use the same gates and scoring rubric at every level.
 Accept concise evidence appropriate to the problem's difficulty. A bare 'I understand' is not evidence of understanding.
 accepted applies ONLY to mastery of the current stage and an answer with high confidence. If accepted, ask the nextStage's question;
 otherwise ask only about the missing or incorrect understanding in this stage. Do not repeat criteria already demonstrated.
 Never skip a future stage. No acceptance on opening, questions or help. If uncertain, ask for clarification.
 On opening, ask only for the goal and relevant givens in the learner's own words. Do not request a formula, sum, calculation, proof or final answer yet.
-For scoring only: assess the saved learner conversation and assessedResponses using four criteria each 0..25.
-Use accepted responses to identify the learner's final reasoning; weigh depth, explicit justification, verification, and independence.
-Gate acceptance only means minimum progress to advance, never automatic full marks (21–25). Disclose assistance separately; never count tutor-provided work as learner evidence. Full marks (21–25) require thorough, explicit, fully supported learner evidence for that criterion.
+For scoring only: assess the FULL saved learner conversation and assessedResponses (both earlier incorrect attempts and final accepted responses) using four criteria each 0..25.
+Weigh both process and final outcome: wrong formulas, computational errors, missing verification, shallow explanations, and reliance on hints must lower the corresponding criterion score even if the stage was later completed.
+Gate acceptance only means minimum progress to advance, never automatic full marks (21–25). Disclose assistance separately; never count tutor-provided work as learner evidence. Full marks (21–25) require independent, accurate, thorough, and explicitly verified learner evidence.
 Mathematical notation in learner responses is part of their evidence. Never substitute the reference solution for learner work.
-Anchors: 0=no usable evidence, 5=major errors, 12=brief or surface-level with weak justification/context, 18=adequate and correct with minor omissions, 25=thorough, verified, and fully supported in context.
-For each criterion cite at least one exact message ID from its requiredEvidenceOptions. Read the matching learnerEvidence text before scoring. Additional citations must be assessed learner responses. An ID can support multiple criteria.
+Anchors: 0=no usable evidence, 5=major errors, 12=multiple errors, heavy hint support, or surface-level work, 18=adequate with minor errors/omissions or light help, 25=independent, accurate, verified, and fully supported in context.
+For each criterion cite exact message IDs from its requiredEvidenceOptions (including any wrong attempts and the accepted response for that stage). Read the matching learnerEvidence text before scoring. An ID can support multiple criteria.
 Quote learner work as evidence; do not infer reasoning from gate completion. Distinguish assisted from independent reasoning.
 This is formative feedback, not an official grade. Supply a complete verified worked solution only in score mode.
 Stay within the selected subject, topic, curriculumScope, and supplied problem reference. Do not introduce unrelated topics, formulas, theorems, or problem types.
@@ -126,25 +126,29 @@ const ANSWER_GUIDANCE = `Set outcome to correct_complete, correct_incomplete, in
 Complete: high confidence, accepted=true, category=none. Name what the learner demonstrated. Set questionStage to the next stage for the next question.
 Incomplete: accepted=false, category=none, high confidence. Quote what is correct in evidence; acknowledge it and ask ONE question about the remaining missingCriterion. Never ask again for information already supplied.
 Incorrect: identify the specific false claim and ask one corrective question. A false condition is a conceptual_error, not weak_justification. Unclear or irrelevant: use unsupported_response, ask one neutral clarification, and never invent an error.
-For all three unaccepted outcomes set questionStage to the current stage. Select missingCriterion from currentStageCriteria. On repeated difficulty with that criterion, give a concrete choice or partial step to apply. Do not credit tutor hints.
+For unaccepted outcomes set questionStage to the current stage, except when computation exposes a wrong_formula or theorem_condition_violation that requires revisiting method_selection (in which case set questionStage to method_selection). Select missingCriterion from currentStageCriteria. On repeated difficulty with that criterion, give a concrete choice or partial step to apply. Do not credit tutor hints.
 For a simple union, naming union and identifying the supplied sets (even “numbers inside the curly braces”) satisfies understanding. Do not require listing every member. For population variance, identifying full group coverage justifies the formula; measuring spread alone leaves coverage unexplained; group size alone is an incorrect condition.`;
 
-const SCORE_GUIDANCE = `Critical Thinking Scorecard calibration rules:
-Do NOT award 21–25 merely because all gates are accepted.
-explanationQuality (0..25): 21–25 requires a clear, multi-clause explanation of what the result means in the problem's real context, including units, scope, and limitations. Score 6–15 if the learner only states the number, repeats the question, or gives a vague/minimal sentence without contextual meaning. Score 16–20 if correct in context but concise or omitting scope/limitations.
-methodSelection (0..25): 21–25 requires naming a valid method/formula/theorem AND explicitly linking its preconditions to the problem's givens. Score 6–15 if the method is named without explaining why its conditions hold. Score 16–20 if the link to givens is brief or partially implicit.
-logicalValidity (0..25): 21–25 requires every step/implication to be justified AND an explicit verification check. Score 6–15 if only bare arithmetic is shown or multiple unassisted corrective cycles/heavy hints were needed. Score 16–20 if the calculation is sound but verification is brief or implicit.
-accuracy (0..25): Measures mathematical correctness of results and calculations, NOT hint usage or verification prose (independence/hints are reflected separately in the specific reasoning criteria that used them and assistanceCount). Award 21–25 for complete, accurate computation/proof matching the reference even if hints were requested or no extra verification prose was written; award 6–12 partial credit when the final answer is incorrect but valid intermediate steps are shown; award 0–5 when neither valid intermediate work nor a correct calculation is shown.
-Evidence citation rule: For each criterion (accuracy, logicalValidity, methodSelection, explanationQuality), evidenceIds MUST select only exact message IDs from requiredEvidenceOptions[criterion].`;
+const SCORE_GUIDANCE = `Critical Thinking Scorecard Process + Outcome calibration rules:
+Do NOT award 21–25 merely because all gates are accepted. Evaluate BOTH the full reasoning trajectory (earlier mistakes, missing verification, hints used) and the final accepted work across all four criteria:
+explanationQuality (0..25): 21–25 requires independent, clear, multi-clause contextual explanation including units, scope, and limitations. Score 6–15 if the learner only states the number, repeats the question, gave vague/minimal sentences, or relied on heavy hints. Score 16–20 if correct in context but concise or omitting scope/limitations.
+methodSelection (0..25): 21–25 requires independently naming a valid method/formula/theorem AND explicitly linking its preconditions to the problem's givens on the first attempt (or a single minor slip). Score 6–15 if the learner initially selected a wrong formula, omitted conditions until prompted, or needed Level 2–3 hints. Score 16–20 if the link to givens was brief or needed a single hint/correction.
+logicalValidity (0..25): 21–25 requires sound, step-by-step reasoning AND an explicit independent verification check. Score 6–15 if verification was omitted, steps had logical gaps, or multiple corrections/Level 2–3 hints were needed. Score 16–20 if calculation is sound with only minor verification omission or light support.
+accuracy (0..25): Measures BOTH mathematical accuracy during the process AND correctness of the final accepted calculation/proof. Award 21–25 ONLY when calculations/proof steps were accurate without multiple errors or Level 2–3 hints (at most a single minor self-corrected slip). Lower to 14–20 when an error was corrected after feedback or Level 1 help; lower to 6–13 when multiple arithmetic/final-answer errors or Level 2–3 hints were required; award 0–5 when neither valid intermediate work nor a correct calculation is shown.
+Evidence citation rule: For each criterion (accuracy, logicalValidity, methodSelection, explanationQuality), evidenceIds MUST select only exact message IDs from requiredEvidenceOptions[criterion] (cite at least one accepted message ID from that criterion's stage, plus any earlier incorrect/revised message IDs).`;
 
 export function requiredEvidenceOptionsFor(context: TutorContext): Record<string, string[]> {
   return Object.fromEntries(
-    Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => [
-      criterion,
-      (context.assessedResponses ?? [])
-        .filter(response => response.status === "accepted" && (rubric.phases as readonly string[]).includes(response.phase))
-        .map(response => response.messageId),
-    ]),
+    Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => {
+      const ids = (context.assessedResponses ?? [])
+        .filter(
+          response =>
+            (response.status === "accepted" || response.status === "needs_revision")
+            && (rubric.phases as readonly string[]).includes(response.phase),
+        )
+        .map(response => response.messageId);
+      return [criterion, [...new Set(ids)]];
+    }),
   );
 }
 
@@ -403,11 +407,16 @@ export function exposesAnswer(turn: Pick<Turn,"feedback"|"question"|"evidence"|"
   const answer = String(reference.finalAnswer ?? "").trim();
   if (!answer || response && checkMath(response, reference.answerSpecification) === "correct") return false;
   const escaped = answer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const rawText = [turn.feedback,turn.question,...turn.evidence,turn.incorrectStep,turn.explanation,turn.recommendedAction].filter(Boolean).join(" ");
+  const learnerEchoes = [response?.plainText ?? "", response?.latex ?? ""].map(v => v.trim().toLowerCase()).filter(Boolean);
+  const unquotedEvidence = turn.evidence.filter(item => {
+    const trimmed = item.trim().toLowerCase();
+    return trimmed && !learnerEchoes.some(echo => echo.includes(trimmed));
+  });
+  const rawText = [turn.feedback,turn.question,...unquotedEvidence,turn.incorrectStep,turn.explanation,turn.recommendedAction].filter(Boolean).join(" ");
   const cleanText = rawText.replace(/[*_`]+/g, "");
   const cleanLower = cleanText.toLowerCase();
   const explicitPattern = new RegExp(
-    `(?:the (?:final |correct )?(?:answer|result|solution) is|(?:final |correct )?(?:answer|result|solution)\\s*[:=]|therefore[, ]+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`,
+    `(?:the (?:final |correct )?(?:answer|result|solution) is|(?:final |correct )?(?:answer|result|solution)\\s*[:=]|therefore[, ]+|(?:gives|equals|yields|is equal to|we get|you get|comes out to)\\s+)\\s*[:=]?\\s*${escaped}(?!\\w|\\.\\d)`,
     "i",
   );
   if (explicitPattern.test(cleanText) || (answer.length > 25 && cleanLower.includes(answer.toLowerCase()))) {
@@ -424,8 +433,15 @@ export function allowedSupport(gates: any, history: any[] = []) {
   const phase = REASONING_PHASES.find(p => gates[p]?.status !== "accepted");
   if (!phase) return [];
   const gate = gates[phase];
-  const help = history.filter(entry => entry.phase === phase).length;
-  return ["socratic_prompt", ...(gate.attemptCount >= 1 || help >= 1 ? ["targeted_hint"] : []), ...(gate.correctiveCycleCount >= 2 || help >= 2 ? ["stronger_hint"] : []), ...(gate.correctiveCycleCount >= 3 || help >= 3 ? ["partial_step"] : [])];
+  const attempts = Number(gate?.attemptCount ?? 0);
+  const corrections = Number(gate?.correctiveCycleCount ?? 0);
+  const substantiveHints = history.filter(entry => entry.phase === phase && entry.level && entry.level !== "socratic_prompt").length;
+  return [
+    "socratic_prompt",
+    ...(attempts >= 1 ? ["targeted_hint"] : []),
+    ...(attempts >= 1 && (corrections >= 2 || (attempts >= 2 && substantiveHints >= 1)) ? ["stronger_hint"] : []),
+    ...(attempts >= 1 && (corrections >= 3 || (corrections >= 2 && substantiveHints >= 2)) ? ["partial_step"] : []),
+  ];
 }
 export function projection(id: string, session: any) {
   const currentStage = solverStageForPhase(session.currentPhase);
@@ -455,10 +471,45 @@ export function numericValue(input: string): number | null {
   const sum = (): number => { let v = product(); while (["+", "-"].includes(tokens[i])) { const op = tokens[i++]; const r = product(); v = op === "+" ? v + r : v - r; } return v; };
   try { const v = sum(); return i === tokens.length && Number.isFinite(v) ? v : null; } catch { return null; }
 }
+/**
+ * Normalizes bounded LaTeX math delimiters and basic arithmetic operators
+ * (`\frac`, `\times`, `\cdot`, `\div`, `\left`/`\right`) for deterministic verification.
+ *
+ * @param raw - Raw student plain text or LaTeX expression.
+ * @returns Normalized expression string.
+ */
+function normalizeMathForCheck(raw: string): string {
+  let normalized = raw.trim();
+  if ((normalized.startsWith("$$") && normalized.endsWith("$$")) || (normalized.startsWith("\\[") && normalized.endsWith("\\]")) || (normalized.startsWith("\\(") && normalized.endsWith("\\)"))) {
+    normalized = normalized.slice(2, -2).trim();
+  } else if (normalized.startsWith("$") && normalized.endsWith("$") && normalized.length >= 2) {
+    normalized = normalized.slice(1, -1).trim();
+  }
+  normalized = normalized
+    .replace(/\\left\s*\(/g, "(")
+    .replace(/\\right\s*\)/g, ")")
+    .replace(/\\left\s*\\\{/g, "{")
+    .replace(/\\right\s*\\\}/g, "}")
+    .replace(/\\\{/g, "{")
+    .replace(/\\\}/g, "}")
+    .replace(/\\(?:cdot|times)\b/g, "*")
+    .replace(/\\div\b/g, "/")
+    .replace(/−/g, "-")
+    .replace(/[×·]/g, "*")
+    .replace(/÷/g, "/");
+  for (let pass = 0; pass < 4; pass += 1) {
+    const next = normalized.replace(/\\frac\s*\{([^{}]+)\}\s*\{([^{}]+)\}/g, "(($1)/($2))");
+    if (next === normalized) break;
+    normalized = next;
+  }
+  return normalized.trim();
+}
+
 export function checkMath(response: MathResponse, spec: any): "correct" | "incorrect" | "unsupported" {
   if (!spec) return "unsupported";
-  let answer = (response.latex || response.plainText).trim();
+  let answer = normalizeMathForCheck(response.latex || response.plainText);
   if (spec.kind === "number") {
+    answer = answer.replace(/^(?:[a-zA-Z]\w*(?:\([^)]+\))?|mean|median|mode|range|variance|answer|result)\s*=\s*/i, "");
     if (spec.unit) { if (!answer.endsWith(spec.unit)) return "unsupported"; answer = answer.slice(0, -spec.unit.length); }
     const parts = answer.split("=");
     const values = parts.map(numericValue);

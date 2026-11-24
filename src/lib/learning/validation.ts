@@ -67,7 +67,7 @@ const startSessionSchema = z.discriminatedUnion("mode", [
     mode: z.literal("curated"),
     subjectId,
     topicId: z.string().regex(/^[A-Za-z0-9_-]{1,160}$/),
-    requestedDifficulty: difficulty,
+    requestedDifficulty: difficulty.optional(),
   }),
   ownProblemSchema.extend({
     mode: z.literal("free_form"),

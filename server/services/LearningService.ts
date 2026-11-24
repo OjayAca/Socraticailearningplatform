@@ -13,7 +13,7 @@ import { reserveTutorQuota } from "../tutor-quota";
 import { updateMisconceptionProfile } from "../learning-policy";
 import { nextLearningProgress } from "../../src/lib/learning/session-state";
 import { AI_WORKFLOW_VERSION, PROMPT_VERSION, RUBRIC_VERSION, allowedSupport, checkMath, correctiveTurn, exposesAnswer, initialGates, projection, recommendation, scoreSchema, stageQuestions, turnSchema, type Score, type Tutor, type TutorContext, type Turn } from "../gemini";
-import { asksForHint, conditionPromptForMethod, evaluateConditionEquivalence, isBareMethodSelection, responseOutcome, sameQuestion, stageHint, verifiedConceptTurn } from "../tutor-dialogue";
+import { asksForHint, conditionPromptForMethod, hasExplicitVerification, isBareMethodSelection, isPrematureOpeningQuestion, leaksFutureCheckpoint, responseOutcome, sameQuestion, stageHint, validateJustificationBySubject, verifiedConceptTurn } from "../tutor-dialogue";
 import { digest, ensure, ServiceError, type Env, type RecordDoc, type Store } from "../platform";
 
 const idOf = (doc: RecordDoc) => doc.path.split("/").at(-1)!;
@@ -167,9 +167,8 @@ export class LearningService {
             "A different problem is already active for this topic. Finish or abandon that session before starting this problem.", 409);
           } else {
             await this.approvedTopic(input.topicId, input.subjectId);
-            ensure(existing.data.problemMode === "curated" && existing.data.subjectId === input.subjectId
-              && (!input.requestedDifficulty || existing.data.difficulty === input.requestedDifficulty),
-              "Another session is active for this topic. Finish or abandon it in Learning History before starting at this difficulty.", 409);
+            ensure(existing.data.problemMode === "curated" && existing.data.subjectId === input.subjectId,
+              "Another session is active for this topic. Finish or abandon it in Learning History before starting a new problem.", 409);
           }
           if (!existing.data.needsOpening) return {session:projection(idOf(existing),existing.data)};
           session = existing;
@@ -278,19 +277,24 @@ export class LearningService {
       if (generated && name !== "finalizeScorecard") {
         let turn = turnSchema.parse(generated);
         if (["startLearningSession", "createFollowUpSession", "resumeTutorOpening"].includes(name)) {
-          // Keep the leak guard on the original response, then bound opening dialogue.
+          // Keep the leak guard on the original response, then preserve safe domain-specific opening questions.
           ensure(!exposesAnswer(turn,reference,input.response), "The tutor response needs revision before it can be shown. Your stage is unchanged; retry later.", 503);
-          turn = {...turn, feedback:"Let's begin by understanding the problem.", question:stageQuestions.problem_understanding, accepted:false, intent:"question"};
+          const safeOpening = (!turn.questionStage || turn.questionStage === "problem_understanding")
+            && !leaksFutureCheckpoint(`${turn.feedback} ${turn.question}`, "problem_understanding", "socratic_prompt", reference)
+            && !isPrematureOpeningQuestion(turn.question);
+          turn = safeOpening
+            ? { ...turn, accepted: false, intent: "question" }
+            : { ...turn, feedback: "Let's begin by understanding the problem.", question: stageQuestions.problem_understanding, accepted: false, intent: "question" };
         }
         const answer = name === "evaluatePhaseResponse" && (input.intent ?? "answer") === "answer" && turn.intent === "answer";
         if (answer) ensure(!exposesAnswer(turn,reference,input.response), "The tutor response needs revision before it can be shown. Your stage is unchanged; retry later.", 503);
         const stage = solverStageForPhase(s.currentPhase);
         const arithmetic = stage === "computation" && answer ? diagnoseArithmetic(input.response,s.originalQuestion) : null;
         const math = arithmetic ? "incorrect" : stage === "computation" && answer ? checkMath(input.response,reference.answerSpecification) : "unsupported";
-        const conditionEquivalence = answer && stage === "method_selection"
-          ? evaluateConditionEquivalence(input.response, reference)
-          : { matched: false, contradicted: false };
-        if (answer && stage === "method_selection" && conditionEquivalence.contradicted) {
+        const subjectJustification = answer && stage === "method_selection"
+          ? validateJustificationBySubject(input.response, reference, s.subject)
+          : { valid: true, contradicted: false };
+        if (answer && stage === "method_selection" && subjectJustification.contradicted) {
           turn = {
             ...turn,
             accepted: false,
@@ -299,10 +303,10 @@ export class LearningService {
             missingCriterion: "formula_theorem_justification",
             confidence: "high",
             evidence: [input.response.plainText.trim() || "Stated a condition that contradicts the selected method."],
-            feedback: conditionEquivalence.contradictionReason ?? "The stated condition does not match the requirements of this method.",
+            feedback: subjectJustification.contradictionReason ?? "The stated condition does not match the requirements of this method.",
             question: conditionPromptForMethod(reference, s.subject),
             incorrectStep: input.response.plainText.trim() || undefined,
-            explanation: conditionEquivalence.contradictionReason ?? "A required assumption of the formula or theorem is contradicted.",
+            explanation: subjectJustification.contradictionReason ?? "A required assumption of the formula or theorem is contradicted.",
             recommendedAction: "Compare the stated assumption against the given information in the problem.",
           };
         }
@@ -316,7 +320,10 @@ export class LearningService {
         if (answer && (!turn.accepted || !turn.evidence.some(item=>item.trim()) || math === "incorrect" || turn.confidence !== "high" || turn.category !== "none")) {
           const proposed = turn;
           turn = correctiveTurn(turn, s.currentPhase, math);
-          const usableQuestion = !proposed.accepted && math !== "incorrect" && (!proposed.questionStage || proposed.questionStage === stage)
+          const allowedRegressionStage = !proposed.questionStage
+            || proposed.questionStage === stage
+            || (stage === "computation" && ["wrong_formula", "theorem_condition_violation"].includes(proposed.category) && proposed.questionStage === "method_selection");
+          const usableQuestion = !proposed.accepted && math !== "incorrect" && allowedRegressionStage
             && !/next stage|another problem|successfully completed|move on/i.test(proposed.question);
           if (usableQuestion && (proposed.confidence === "high" || (proposed.confidence === "medium" && turn.category !== "none") || proposed.category === "none" || proposed.category === "unsupported_response")) {
             turn.question = proposed.question;
@@ -330,7 +337,7 @@ export class LearningService {
             feedback:"A final answer alone does not show how you obtained it.",question:stageQuestions.computation,
             incorrectStep:input.response.plainText,explanation:"The required computation or logical steps are missing.",recommendedAction:"Show the calculation or proof and explain how you checked it."};
         }
-        if (answer && stage === "method_selection" && turn.accepted && isBareMethodSelection(input.response, reference)
+        if (answer && stage === "method_selection" && turn.accepted && !subjectJustification.valid
           && !(previous?.demonstrated?.length)
           && !assessedResponses.some(r=>solverStageForPhase(r.phase)==="method_selection" && !isBareMethodSelection(r.response, reference))) {
           turn = {...turn,accepted:false,outcome:"correct_incomplete",category:"weak_justification",missingCriterion:"formula_theorem_justification",confidence:"high",
@@ -340,6 +347,29 @@ export class LearningService {
             incorrectStep:input.response.plainText.trim() || undefined,
             explanation:"Naming a formula or theorem alone does not establish that its preconditions hold for the given information.",
             recommendedAction:"Explain which given facts satisfy the conditions required to use your chosen method."};
+        }
+        if (answer && stage === "interpretation" && turn.accepted) {
+          const verifiedInCurrentOrPrior = hasExplicitVerification(input.response)
+            || Boolean(previous?.demonstrated?.some((entry: string) => hasExplicitVerification({ plainText: entry })))
+            || assessedResponses.some(
+              r => ["guided_computation_or_proof", "verification_and_checking", "result_interpretation"].includes(r.phase)
+                && r.evaluation?.status !== "needs_revision"
+                && hasExplicitVerification(r.response),
+            );
+          if (!verifiedInCurrentOrPrior) {
+            turn = {
+              ...turn,
+              accepted: false,
+              outcome: "correct_incomplete",
+              category: "skipped_reasoning",
+              missingCriterion: "verification_and_checking",
+              confidence: "high",
+              evidence: [input.response.plainText.trim() || "Provided interpretation without an explicit verification step."],
+              feedback: "You started interpreting the result, but an independent verification check is still required before unlocking the solution.",
+              question: "How can you check your calculation or reasoning independently to confirm your result is correct?",
+              recommendedAction: "Show an explicit verification check (such as an inverse check, complement sum, or case check) before finishing.",
+            };
+          }
         }
         // Assistance cannot grant acceptance, even if the model sets it accidentally.
         if (!answer) turn = {...turn, accepted:false};
@@ -400,8 +430,13 @@ export class LearningService {
           if (regressToMethod) {
             for (const depPhase of [...SOLVER_STAGE_PHASES.method_selection, ...SOLVER_STAGE_PHASES.computation]) {
               const prevGate = updates.gateStates[depPhase];
-              if (prevGate?.status === "accepted") {
-                updates.gateStates[depPhase] = { ...prevGate, status: depPhase === "method_selection" ? "needs_revision" : "locked" };
+              if (depPhase === "method_selection") {
+                updates.gateStates[depPhase] = { ...prevGate, status: "needs_revision" };
+                if (updates.gateEvaluations[depPhase]) {
+                  updates.gateEvaluations[depPhase] = { ...updates.gateEvaluations[depPhase], status: "needs_revision" };
+                }
+              } else if (prevGate?.status === "accepted" || depPhase === "guided_computation_or_proof") {
+                updates.gateStates[depPhase] = { ...prevGate, status: "locked" };
                 if (updates.gateEvaluations[depPhase]) {
                   updates.gateEvaluations[depPhase] = { ...updates.gateEvaluations[depPhase], status: "needs_revision" };
                 }
@@ -415,9 +450,18 @@ export class LearningService {
           const isTentativeError = diagnosis.confidence === "medium" && diagnosis.category !== "none" && diagnosis.category !== "unrecognized_alternative";
           updates.diagnosisSummary = [...new Set([...(s.diagnosisSummary ?? []),...(isConfirmedError ? [diagnosis.category] : [])])];
           updates.tentativeDiagnoses = [...new Set([...(s.tentativeDiagnoses ?? []),...(isTentativeError ? [diagnosis.category] : [])])];
-          if (selfCorrected && s.lastDiagnosis?.category && s.lastDiagnosis.category !== "none") {
-            updates.selfCorrectedCategories = [...new Set([...(s.selfCorrectedCategories ?? []), s.lastDiagnosis.category])];
-            updates.resolvedMisconceptions = [...new Set([...(s.resolvedMisconceptions ?? []), s.lastDiagnosis.category])];
+          if (isConfirmedError) {
+            updates.stageOpenCategories = [...new Set([...(Array.isArray(s.stageOpenCategories) ? s.stageOpenCategories : []), diagnosis.category])];
+          }
+          if (selfCorrected) {
+            const priorCategories = new Set<string>([
+              ...(Array.isArray(s.stageOpenCategories) ? s.stageOpenCategories : []),
+              ...(s.lastDiagnosis?.category && s.lastDiagnosis.category !== "none" ? [s.lastDiagnosis.category] : []),
+            ]);
+            if (priorCategories.size > 0) {
+              updates.selfCorrectedCategories = [...new Set([...(s.selfCorrectedCategories ?? []), ...priorCategories])];
+              updates.resolvedMisconceptions = [...new Set([...(s.resolvedMisconceptions ?? []), ...priorCategories])];
+            }
           }
           updates.promptAdjustment = !accepted && (evaluation.correctiveCycleCount >= 2 || diagnosis.category !== "none")
             ? "simplify"
@@ -426,12 +470,13 @@ export class LearningService {
               : "maintain";
           if (accepted) {
             updates.recoveryMode = false;
+            updates.stageOpenCategories = [];
             // One assessed response can demonstrate all criteria of this stage.
-            // Retain internal evidence for reporting without requiring extra turns.
+            // Retain internal evidence for reporting without requiring extra turns, keeping selfCorrected on the evaluated gate only.
             for (const phase of SOLVER_STAGE_PHASES[stage!]) {
               if (updates.gateStates[phase]?.status === "accepted") continue;
               const previous = s.gateStates[phase];
-              const stageEvaluation = {...evaluation,phase,attemptCount:(previous?.attemptCount ?? 0)+1,correctiveCycleCount:previous?.correctiveCycleCount ?? 0};
+              const stageEvaluation = {...evaluation,phase,selfCorrected:false,attemptCount:(previous?.attemptCount ?? 0)+1,correctiveCycleCount:previous?.correctiveCycleCount ?? 0};
               updates.gateStates[phase] = {...previous,...stageEvaluation};
               updates.gateEvaluations[phase] = stageEvaluation;
             }
@@ -447,7 +492,7 @@ export class LearningService {
             text = `${turn.feedback}\n\n${updates.currentPrompt}`;
           }
           updates.allowedSupport = allowedSupport(updates.gateStates, s.supportHistory);
-          updates.supportSummary = buildSupportSummary(updates.supportHistory, updates.gateEvaluations, Boolean(updates.releasedSolution));
+          updates.supportSummary = buildSupportSummary(updates.supportHistory ?? s.supportHistory, updates.gateEvaluations, Boolean(updates.releasedSolution));
           Object.assign(extra,{evaluation,diagnosis,learnerMessage:turn.feedback,nextPrompt:updates.currentPrompt,completion:null});
           writes.push({doc:empty(`${session.path}/responses/${input.requestId}`),data:{phase:s.currentPhase,response:input.response,evaluation,diagnosis,studentId:this.uid,createdAt:stamp()}});
         } else {
@@ -478,7 +523,10 @@ export class LearningService {
           score[key].evidence = score[key].evidenceIds.map(id => evidence.get(id)!.trim().slice(0, 600));
         }
         ensure(Object.values({a:score.accuracy,l:score.logicalValidity,m:score.methodSelection,e:score.explanationQuality}).every(c=>c.confidence !== "low"), "The tutor could not reliably score the saved conversation. Your accepted stages are preserved; retry generating the solution and scorecard.", 422);
-        const acceptedComputation = assessedResponses.filter(r=>["guided_computation_or_proof","verification_and_checking"].includes(r.phase) && r.evaluation?.status === "accepted" && evidence.has(r.messageId)).at(-1);
+        const acceptedComputation = assessedResponses
+          .filter(r=>r.phase==="guided_computation_or_proof" && r.evaluation?.status === "accepted" && evidence.has(r.messageId))
+          .at(-1)
+          ?? assessedResponses.filter(r=>r.phase==="verification_and_checking" && r.evaluation?.status === "accepted" && evidence.has(r.messageId)).at(-1);
         const math = acceptedComputation?.response ? checkMath(acceptedComputation.response,reference.answerSpecification) : "unsupported";
         calibrateScorecard(score, {
           assessedResponses,
@@ -507,8 +555,12 @@ export class LearningService {
         const now = Date.now();
         const misconceptionProfile = updateMisconceptionProfile(current.misconceptionProfile, submittedSnapshot, now);
         const rec = recommendation(s.instructionalLevel ?? s.difficulty,[...history,submittedSnapshot],s.topicId,misconceptionProfile);
-        const next = nextLearningProgress(this.uid,current,s.scorecard.total,{toDate:()=>new Date(now),toMillis:()=>now},{id:idOf(session),subject:s.subject,topic:s.topic,scorecardSummary:s.scorecard.feedback,scorecardGeneratedAt:s.scorecard.generatedAt,recommendation:rec as any});
-        writes.push({doc:progress,data:{...current,...next,misconceptionProfile,topicRecommendations:{...current.topicRecommendations,[s.topic.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")]:rec},updatedAt:stamp()}});
+        const updatedTopicRecommendations = {
+          ...(current.topicRecommendations ?? {}),
+          [s.topic.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")]: rec,
+        };
+        const next = nextLearningProgress(this.uid,{...current,topicRecommendations:updatedTopicRecommendations},s.scorecard.total,{toDate:()=>new Date(now),toMillis:()=>now},{id:idOf(session),subject:s.subject,topic:s.topic,scorecardSummary:s.scorecard.feedback,scorecardGeneratedAt:s.scorecard.generatedAt,recommendation:rec as any});
+        writes.push({doc:progress,data:{...current,...next,misconceptionProfile,topicRecommendations:updatedTopicRecommendations,updatedAt:stamp()}});
         for (const [key,award] of Object.entries(next.achievements)) {
           if (!award || current.achievements?.[key]) continue;
           const notification = await this.db.get(`notifications/achievement_${this.uid}_${key}`);
@@ -559,7 +611,7 @@ export class LearningService {
     const misconceptionProfile = progress.data?.misconceptionProfile;
     const rec = recommendation(sorted[0]?.instructionalLevel ?? sorted[0]?.difficulty ?? "Basic", sorted, topicId, misconceptionProfile);
     const activeTopicMisconceptions = Object.values(misconceptionProfile ?? {})
-      .filter((r: any) => r?.status === "confirmed" && (!r.topicIds?.length || r.topicIds.includes(topicId)))
+      .filter((r: any) => r?.status === "confirmed" && (!r.topicId || r.topicId === topicId))
       .map((r: any) => r.category);
     return { topic, subject, history, rec, activeTopicMisconceptions };
   }
@@ -574,8 +626,8 @@ export class LearningService {
         const attempted = !assessed && (await this.db.query(`${old.path}/messages`)).some(message=>message.data.role==="student" && (message.data.intent ?? "answer")==="answer");
         if (old.data.statsCommittedAt || assessed || attempted) excluded.add(old.data.problemId);
       }
-      // Follow-ups have no manual selection and keep the existing adaptive assignment.
-      const level = input.requestedDifficulty ?? rec.recommendedDifficulty;
+      // Enforced adaptive assignment: curated sessions always assign the policy recommendation for the topic.
+      const level = rec.recommendedDifficulty;
       const candidates = (await this.db.query("problems", "topicId", input.topicId))
         .filter(d => d.data.difficulty === level && !excluded.has(idOf(d)))
         .sort((a, b) => idOf(a).localeCompare(idOf(b)));
