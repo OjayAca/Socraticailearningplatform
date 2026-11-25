@@ -51,3 +51,6 @@ repo-code.txt
 
 # Owner attestation, isolated staging credential and per-attempt audit files
 .mindguide-staging/
+
+# Firebase CLI cache
+.firebase/

@@ -298,21 +298,3 @@ function previousDateKey(dateKey: string): string {
   date.setUTCDate(date.getUTCDate() - 1);
   return date.toISOString().slice(0, 10);
 }
-
-export type StudentMutation =
-  | "reasoning"
-  | "support"
-  | "draft"
-  | "finalize"
-  | "submit"
-  | "abandon"
-  | "follow_up";
-
-export function isStudentMutationAllowed(status: unknown, operation: StudentMutation): boolean {
-  if (status === "in_progress") {
-    return ["reasoning", "support", "draft", "finalize", "abandon"].includes(operation);
-  }
-  if (status === "ready_for_submission") return operation === "submit" || operation === "abandon";
-  if (status === "returned") return operation === "follow_up";
-  return false;
-}

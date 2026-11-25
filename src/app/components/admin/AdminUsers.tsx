@@ -29,6 +29,8 @@ import {
   AdminPagination,
   AdminSearchInput,
   PageTitle,
+} from "./admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   paginateSlice,
@@ -36,7 +38,7 @@ import {
   statusBadgeClass,
   type SearchableAcademicProfile,
   type TimestampLike,
-} from "./admin-shared";
+} from "./admin-utils";
 
 const USERS_PAGE_SIZE = 10;
 

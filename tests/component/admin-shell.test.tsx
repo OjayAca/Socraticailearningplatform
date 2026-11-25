@@ -1,5 +1,4 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Activity } from "lucide-react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import {
@@ -12,15 +11,15 @@ import {
   AdminSearchInput,
   AdminTabs,
   JsonTable,
-  LogPanel,
   PageTitle,
-  Stat,
+} from "@/app/components/admin/admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   paginateSlice,
   searchableUser,
   statusBadgeClass,
-} from "@/app/components/admin/admin-shared";
+} from "@/app/components/admin/admin-utils";
 
 const mocks = vi.hoisted(() => ({
   resolvedTheme: "dark" as "light" | "dark",
@@ -203,7 +202,7 @@ describe("AdminShell", () => {
 describe("admin-shared helpers", () => {
   afterEach(cleanup);
 
-  it("renders PageTitle, Stat, JsonTable, LogPanel, AdminSearchInput, AdminTabs, and AdminPagination", () => {
+  it("renders PageTitle, JsonTable, AdminSearchInput, AdminTabs, and AdminPagination", () => {
     const onSearch = vi.fn();
     const onTab = vi.fn();
     const onPage = vi.fn();
@@ -211,7 +210,6 @@ describe("admin-shared helpers", () => {
     render(
       <MemoryRouter>
         <PageTitle title="Analytics" description="Overview metrics" />
-        <Stat label="User accounts" value={42} />
         <AdminSearchInput
           value="ada"
           onChange={onSearch}
@@ -227,19 +225,12 @@ describe("admin-shared helpers", () => {
           ]}
         />
         <JsonTable rows={[{ learner: "Ada", score: 95 }]} />
-        <LogPanel
-          title="Audit events"
-          icon={<Activity className="h-4 w-4" />}
-          rows={[{ id: "log-1", action: "user_activated", target: "student-1" }]}
-        />
         <AdminPagination page={2} pageSize={10} totalItems={25} onPageChange={onPage} />
       </MemoryRouter>,
     );
 
     expect(screen.getByRole("heading", { name: "Analytics" })).toBeVisible();
-    expect(screen.getByText("42")).toBeVisible();
     expect(screen.getByText("Ada")).toBeVisible();
-    expect(screen.getByText("user_activated")).toBeVisible();
     expect(screen.getByText("Page 2 of 3")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "Clear search" }));

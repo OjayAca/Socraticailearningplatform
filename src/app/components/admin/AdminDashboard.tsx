@@ -36,11 +36,13 @@ import { AdminShell } from "./AdminShell";
 import {
   AdminStat,
   PageTitle,
+} from "./admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   statusBadgeClass,
   type TimestampLike,
-} from "./admin-shared";
+} from "./admin-utils";
 
 const SUBJECTS: ReadonlyArray<Subject> = ["Quantitative Methods", "Discrete Mathematics"];
 const ACTIVE_SESSION_STATUSES = new Set(["in_progress", "ready_for_submission"]);

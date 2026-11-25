@@ -53,15 +53,17 @@ import {
   AdminStat,
   AdminTabs,
   PageTitle,
+  type AdminTabItem,
+} from "./admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   paginateSlice,
   searchableUser,
   statusBadgeClass,
-  type AdminTabItem,
   type SearchableAcademicProfile,
   type TimestampLike,
-} from "./admin-shared";
+} from "./admin-utils";
 
 type ProgressTabId = "overview" | "sessions" | "scorecard";
 type ActivityFilter = "all" | "active" | "ongoing" | "completed" | "inactive";

@@ -36,7 +36,7 @@ import {
   SheetTrigger,
 } from "../ui/sheet";
 import { Tooltip } from "../ui/tooltip";
-import { errorMessage } from "./admin-shared";
+import { errorMessage } from "./admin-utils";
 
 /** Canonical administrator sidebar destination identifiers. */
 type AdminNavSectionId =

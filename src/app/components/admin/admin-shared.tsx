@@ -2,47 +2,16 @@
 
 import type { ReactNode } from "react";
 import {
-  Activity,
-  AlertCircle,
-  BookOpen,
-  BrainCircuit,
   ChevronLeft,
   ChevronRight,
   Loader2,
   Search,
-  Users,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router";
 import { Skeleton } from "../ui/skeleton";
-
-/** Supported timestamp input shapes from Firestore or JavaScript runtimes. */
-export type TimestampLike =
-  | number
-  | string
-  | Date
-  | { toDate: () => Date }
-  | { toMillis: () => number }
-  | null
-  | undefined;
-
-/** Optional academic profile fields indexed by administrator user search. */
-export interface SearchableAcademicProfile {
-  studentNumber?: string;
-  course?: string;
-  yearLevel?: string;
-  section?: string;
-}
-
-/** Minimal user record shape accepted by {@link searchableUser}. */
-export interface SearchableUserRecord {
-  displayName?: unknown;
-  email?: unknown;
-  role?: unknown;
-  status?: unknown;
-  academicProfile?: SearchableAcademicProfile | null;
-}
+import type { TimestampLike } from "./admin-utils";
 
 /** Props for {@link PageTitle}. */
 export interface PageTitleProps {
@@ -138,67 +107,6 @@ export function AdminStat({
       )}
     </div>
   );
-}
-
-/** Props for {@link Stat}. */
-export interface StatProps {
-  /** Descriptive label of the statistic. */
-  label: string;
-  /** Numeric count or quantity. */
-  value: number;
-}
-
-/**
- * Renders an administrator platform statistic card with automatic icon mapping.
- *
- * @param props - See {@link StatProps}.
- * @returns Rendered metric card with icon badge.
- */
-export function Stat({ label, value }: StatProps) {
-  const normalized = label.toLowerCase();
-  const Icon = normalized.includes("user")
-    ? Users
-    : normalized.includes("session")
-      ? BrainCircuit
-      : normalized.includes("problem")
-        ? BookOpen
-        : normalized.includes("audit")
-          ? Activity
-          : AlertCircle;
-
-  return (
-    <AdminStat
-      label={label}
-      value={value}
-      Icon={Icon}
-      iconClassName="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"
-    />
-  );
-}
-
-/**
- * Maps a session, account, or content status string to Tailwind badge classes.
- *
- * @param status - Domain status string (for example `active`, `submitted`, `deactivated`).
- * @returns Tailwind class string for pill styling.
- */
-export function statusBadgeClass(status?: string): string {
-  switch (status) {
-    case "completed":
-    case "reviewed":
-    case "approved":
-    case "active":
-      return "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30";
-    case "submitted":
-    case "pending_validation":
-    case "suspended":
-      return "bg-amber-50 text-amber-700 ring-1 ring-amber-600/20 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30";
-    case "deactivated":
-    case "rejected":
-      return "bg-rose-50 text-rose-700 ring-1 ring-rose-600/20 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30";
-    default:
-      return "bg-slate-100 text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700";
-  }
 }
 
 /** Props for {@link Action}. */
@@ -317,7 +225,7 @@ export function JsonTable({
   );
 }
 
-/** Structured log entry rendered inside {@link LogPanel}. */
+/** Structured audit or AI log entry rendered in administrator log feeds. */
 export interface LogEntry {
   id: string;
   action?: string;
@@ -328,63 +236,6 @@ export interface LogEntry {
   correlationId?: string;
   createdAt?: TimestampLike;
   [key: string]: unknown;
-}
-
-/** Props for {@link LogPanel}. */
-export interface LogPanelProps {
-  /** Panel heading text. */
-  title: string;
-  /** Leading icon element for the panel heading. */
-  icon: ReactNode;
-  /** Log records to display in chronological or query order. */
-  rows: ReadonlyArray<LogEntry>;
-  /** Empty-state text shown when no log records exist. */
-  emptyMessage?: string;
-}
-
-/**
- * Renders a scrollable audit or legacy AI failure log feed panel.
- *
- * @param props - See {@link LogPanelProps}.
- * @returns The rendered log feed card.
- */
-export function LogPanel({
-  title,
-  icon,
-  rows,
-  emptyMessage = "No log entries found.",
-}: LogPanelProps) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
-      <h2 className="flex items-center gap-2 text-base font-bold text-slate-950 dark:text-white">
-        <span className="text-indigo-600 dark:text-indigo-400">{icon}</span>
-        {title}
-      </h2>
-      <div className="mt-4 max-h-[40rem] divide-y divide-slate-200 overflow-auto dark:divide-slate-800">
-        {rows.length === 0 ? (
-          <p className="py-6 text-center text-xs text-slate-500 dark:text-slate-400">
-            {emptyMessage}
-          </p>
-        ) : (
-          rows.map((row) => (
-            <div key={row.id} className="py-3 text-xs">
-              <p className="font-bold text-slate-900 dark:text-slate-100">
-                {row.action ?? row.operation ?? row.reason ?? "event"}
-              </p>
-              <p className="mt-1 break-all text-slate-500 dark:text-slate-400">
-                {row.target ?? row.sessionId ?? row.correlationId ?? row.id}
-              </p>
-              {row.createdAt !== undefined && row.createdAt !== null && (
-                <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                  {formatTimestamp(row.createdAt)}
-                </p>
-              )}
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
 }
 
 /** Shape of a released worked solution displayed during session review. */
@@ -614,52 +465,6 @@ export function AdminTabs({
   );
 }
 
-/** Result returned by {@link paginateSlice}. */
-export interface PaginationResult<T> {
-  /** Items belonging to the clamped current page. */
-  items: ReadonlyArray<T>;
-  /** 1-based clamped page index. */
-  page: number;
-  /** Total number of pages (at least 1). */
-  totalPages: number;
-  /** Total number of input items. */
-  totalItems: number;
-  /** 1-based index of the first item on the current page (0 when empty). */
-  startIndex: number;
-  /** 1-based index of the last item on the current page (0 when empty). */
-  endIndex: number;
-}
-
-/**
- * Computes a safe 1-based page slice from an array of items.
- *
- * @param items - Full filtered item list.
- * @param page - Requested 1-based page number.
- * @param pageSize - Maximum items per page (must be >= 1).
- * @returns Clamped page metadata and sliced items.
- */
-export function paginateSlice<T>(
-  items: ReadonlyArray<T>,
-  page: number,
-  pageSize: number,
-): PaginationResult<T> {
-  const safePageSize = Math.max(1, Math.floor(pageSize));
-  const totalItems = items.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / safePageSize));
-  const clampedPage = Math.min(Math.max(1, Math.floor(page)), totalPages);
-  const offset = (clampedPage - 1) * safePageSize;
-  const sliced = items.slice(offset, offset + safePageSize);
-
-  return {
-    items: sliced,
-    page: clampedPage,
-    totalPages,
-    totalItems,
-    startIndex: totalItems === 0 ? 0 : offset + 1,
-    endIndex: totalItems === 0 ? 0 : offset + sliced.length,
-  };
-}
-
 /** Props for {@link AdminPagination}. */
 export interface AdminPaginationProps {
   /** Current 1-based page number. */
@@ -735,68 +540,4 @@ export function AdminPagination({
       </div>
     </nav>
   );
-}
-
-/**
- * Builds a lowercased searchable string from user identity, role, status, and academic profile fields.
- *
- * @param user - User profile record to index.
- * @returns Lowercased text suitable for substring search matching.
- */
-export function searchableUser(user: SearchableUserRecord): string {
-  const fields: unknown[] = [
-    user.displayName,
-    user.email,
-    user.role,
-    user.status,
-    user.academicProfile?.studentNumber,
-    user.academicProfile?.course,
-    user.academicProfile?.yearLevel,
-    user.academicProfile?.section,
-  ];
-  return fields
-    .filter((value): value is string | number | boolean => value !== undefined && value !== null)
-    .map((value) => String(value))
-    .join(" ")
-    .toLowerCase();
-}
-
-/**
- * Extracts a human-readable error message from an unknown thrown value.
- *
- * @param cause - Caught error or rejection value.
- * @param fallback - Message returned when `cause` is not an `Error` instance.
- * @returns Resolved error message string.
- */
-export function errorMessage(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback;
-}
-
-/**
- * Formats a Firestore `Timestamp`, epoch millisecond number, ISO string, or `Date` into a locale string.
- *
- * @param value - Timestamp-like value to format.
- * @returns Formatted locale timestamp string, or `"—"` when unavailable or invalid.
- */
-export function formatTimestamp(value: TimestampLike): string {
-  if (value === null || value === undefined || value === "") return "—";
-  if (typeof value === "number") {
-    return Number.isFinite(value) ? new Date(value).toLocaleString() : "—";
-  }
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? "—" : value.toLocaleString();
-  }
-  if (typeof value === "string") {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? "—" : new Date(parsed).toLocaleString();
-  }
-  if (typeof value === "object") {
-    if ("toDate" in value && typeof value.toDate === "function") {
-      return value.toDate().toLocaleString();
-    }
-    if ("toMillis" in value && typeof value.toMillis === "function") {
-      return new Date(value.toMillis()).toLocaleString();
-    }
-  }
-  return "—";
 }

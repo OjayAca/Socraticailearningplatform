@@ -33,15 +33,17 @@ import {
   AdminStat,
   AdminTabs,
   PageTitle,
+  type AdminTabItem,
+} from "./admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   paginateSlice,
   searchableUser,
   statusBadgeClass,
-  type AdminTabItem,
   type SearchableAcademicProfile,
   type TimestampLike,
-} from "./admin-shared";
+} from "./admin-utils";
 
 type CohortTabId = "cohort" | "participants";
 type CohortAdmissionStatus = "admitted" | "revoked" | "not_admitted";

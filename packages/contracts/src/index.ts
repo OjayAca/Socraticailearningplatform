@@ -57,21 +57,6 @@ export interface SessionConfigurationVersions {
   difficultyPolicy: ManagedReferenceVersion;
 }
 
-export interface ContentValidationRecord {
-  id: string;
-  problemId: string;
-  syllabusReference: string;
-  contentMatrixItem: string;
-  validatorName: string;
-  validatorRole: string;
-  validationDate: number;
-  evidenceReference: string;
-  evidenceHash: string;
-  decision: "approved" | "rejected";
-  createdAt: number;
-  createdBy: string;
-}
-
 export const REASONING_PHASES = [
   "problem_understanding",
   "relevant_information_identification",
@@ -100,13 +85,6 @@ export const SOLVER_STAGES = [
 
 export type SolverStage = (typeof SOLVER_STAGES)[number];
 
-export const SOLVER_STAGE_LABELS: Record<SolverStage, string> = {
-  problem_understanding: "Problem Understanding",
-  method_selection: "Method Selection",
-  computation: "Computation",
-  interpretation: "Interpretation",
-};
-
 export const SOLVER_STAGE_PHASES: Record<SolverStage, readonly ReasoningPhase[]> = {
   problem_understanding: [
     "problem_understanding",
@@ -122,18 +100,6 @@ export const STAGE_ACCEPTANCE_CRITERIA: Record<SolverStage, string> = {
   method_selection: "Identifies an appropriate formula, method, or theorem and justifies why its conditions apply.",
   computation: "Demonstrates valid step-by-step mathematical computation or proof.",
   interpretation: "Verifies the result independently and explains what it means in the context of the problem.",
-};
-
-export const PHASE_LABELS: Record<WorkflowPhase, string> = {
-  problem_understanding: "Understand the Problem",
-  relevant_information_identification: "Identify Relevant Information",
-  method_selection: "Select a Method",
-  formula_theorem_justification: "Justify the Formula or Theorem",
-  guided_computation_or_proof: "Guided Computation or Proof",
-  verification_and_checking: "Verify and Check",
-  result_interpretation: "Interpret the Result",
-  controlled_solution_release: "Controlled Solution Support",
-  critical_thinking_scorecard: "Critical Thinking Scorecard",
 };
 
 export type GateStatus = "locked" | "pending" | "needs_revision" | "accepted";
@@ -312,21 +278,6 @@ export interface SolverStageProgress {
   totalGates: number;
 }
 
-export interface PublicProblem {
-  id: string;
-  subjectId: string;
-  topicId: string;
-  subject: Subject;
-  topic: string;
-  difficulty: Difficulty;
-  variant: number;
-  problemText: string;
-  supportedResponseFormats: Array<"text" | "latex">;
-  status: ManagedContentStatus;
-  version: number;
-  validationRecordId?: string;
-}
-
 export interface SessionProjection {
   needsOpening?: boolean;
   scoringSource?: "client_practice" | "ai_formative";
@@ -375,13 +326,6 @@ export interface SessionDraft {
   reflection: string;
 }
 
-export interface CallableErrorBody {
-  code: string;
-  message: string;
-  retryable: boolean;
-  correlationId: string;
-}
-
 export interface MutationRequest {
   requestId: string;
 }
@@ -413,8 +357,6 @@ export type StartLearningSessionInput =
   | CuratedLearningSessionInput
   | FreeFormLearningSessionInput;
 
-export type StartLearningSessionRequest = MutationRequest & StartLearningSessionInput;
-
 export interface EvaluatePhaseResponseRequest extends MutationRequest {
   intent?: TutorIntent;
   sessionId: string;
@@ -444,12 +386,6 @@ export interface TutorMessage {
   model?: string;
   promptVersion?: string;
 }
-export interface TutorAvailability {
-  code: string;
-  message: string;
-  retryable: boolean;
-  retryAfter: number;
-}
 
 export interface RequestSupportRequest extends MutationRequest {
   sessionId: string;
@@ -464,12 +400,6 @@ export interface RequestSupportResponse {
   content: string[];
 }
 
-export interface SaveSessionDraftRequest extends MutationRequest {
-  sessionId: string;
-  revision: number;
-  draft: SessionDraft;
-}
-
 export interface SessionMutationResponse {
   session: SessionProjection;
   completion?: SessionCompletion | null;
@@ -479,9 +409,6 @@ export interface RevisionedSessionMutationRequest extends MutationRequest {
   sessionId: string;
   revision: number;
 }
-
-export type FinalizeScorecardRequest = RevisionedSessionMutationRequest;
-export type SubmitLearningSessionRequest = RevisionedSessionMutationRequest;
 
 export interface GetCurrentConsentNoticeResponse {
   version: string;
@@ -643,12 +570,6 @@ export type DeletableContentCollection = Exclude<
   "system_settings" | "policy_documents"
 >;
 
-export interface AdminDeleteUserRequest extends MutationRequest {
-  userId: string;
-  confirmationEmail: string;
-  reason: string;
-}
-
 export interface AdminDeleteContentRequest extends MutationRequest {
   collection: DeletableContentCollection;
   id: string;
@@ -659,10 +580,6 @@ export interface AdminPublishAnnouncementRequest extends MutationRequest {
   title: string;
   message: string;
   reason: string;
-}
-
-export interface AdminSubmitProblemValidationRequest extends MutationRequest {
-  problemId: string;
 }
 
 export interface AdminRecordProblemValidationRequest extends MutationRequest {
@@ -714,10 +631,6 @@ export function isReasoningPhase(value: unknown): value is ReasoningPhase {
   return REASONING_PHASES.includes(value as ReasoningPhase);
 }
 
-export function isWorkflowPhase(value: unknown): value is WorkflowPhase {
-  return WORKFLOW_PHASES.includes(value as WorkflowPhase);
-}
-
 export function solverStageForPhase(phase: WorkflowPhase): SolverStage {
   if (phase === "controlled_solution_release" || phase === "critical_thinking_scorecard") {
     return "interpretation";
@@ -725,9 +638,4 @@ export function solverStageForPhase(phase: WorkflowPhase): SolverStage {
   return SOLVER_STAGES.find((stage) =>
     SOLVER_STAGE_PHASES[stage].includes(phase as ReasoningPhase)
   ) ?? "problem_understanding";
-}
-
-export function nextWorkflowPhase(phase: WorkflowPhase): WorkflowPhase | null {
-  const index = WORKFLOW_PHASES.indexOf(phase);
-  return index >= 0 ? WORKFLOW_PHASES[index + 1] ?? null : null;
 }

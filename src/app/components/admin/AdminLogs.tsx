@@ -38,14 +38,16 @@ import {
   AdminStat,
   AdminTabs,
   PageTitle,
+  type AdminTabItem,
+  type LogEntry,
+} from "./admin-shared";
+import {
   errorMessage,
   formatTimestamp,
   paginateSlice,
   statusBadgeClass,
-  type AdminTabItem,
-  type LogEntry,
   type TimestampLike,
-} from "./admin-shared";
+} from "./admin-utils";
 
 type LogsTabId = "activity" | "ai" | "diagnosis";
 type AuditCategoryFilter = "all" | "account" | "content" | "cohort" | "reviews";

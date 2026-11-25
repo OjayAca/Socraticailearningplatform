@@ -137,7 +137,7 @@ logicalValidity (0..25): 21–25 requires sound, step-by-step reasoning AND an e
 accuracy (0..25): Measures BOTH mathematical accuracy during the process AND correctness of the final accepted calculation/proof. Award 21–25 ONLY when calculations/proof steps were accurate without multiple errors or Level 2–3 hints (at most a single minor self-corrected slip). Lower to 14–20 when an error was corrected after feedback or Level 1 help; lower to 6–13 when multiple arithmetic/final-answer errors or Level 2–3 hints were required; award 0–5 when neither valid intermediate work nor a correct calculation is shown.
 Evidence citation rule: For each criterion (accuracy, logicalValidity, methodSelection, explanationQuality), evidenceIds MUST select only exact message IDs from requiredEvidenceOptions[criterion] (cite at least one accepted message ID from that criterion's stage, plus any earlier incorrect/revised message IDs).`;
 
-export function requiredEvidenceOptionsFor(context: TutorContext): Record<string, string[]> {
+function requiredEvidenceOptionsFor(context: TutorContext): Record<string, string[]> {
   return Object.fromEntries(
     Object.entries(SCORECARD_RUBRIC).map(([criterion, rubric]) => {
       const ids = (context.assessedResponses ?? [])
@@ -276,7 +276,7 @@ function compactAssistanceForScoring(supportHistory: unknown, limit: number) {
  * when a multi-turn conversation would exceed the 32,000-character tutor prompt budget.
  * Learner evidence, rubric mappings, and assessed response links are always preserved intact.
  */
-export function buildBudgetedScoringContext(context: TutorContext, maxContextChars: number) {
+function buildBudgetedScoringContext(context: TutorContext, maxContextChars: number) {
   const base = educationalContext(context);
   if (JSON.stringify(base).length <= maxContextChars) return base;
 
@@ -314,7 +314,7 @@ export function buildBudgetedScoringContext(context: TutorContext, maxContextCha
 }
 type JsonSchemaNode = Record<string, unknown>;
 
-export function buildScoreJsonSchema(requiredEvidenceOptions?: Record<string, string[]>) {
+function buildScoreJsonSchema(requiredEvidenceOptions?: Record<string, string[]>) {
   const cloned = structuredClone(scoreJsonSchema) as {
     properties?: Record<string, { properties?: Record<string, JsonSchemaNode> }>;
   };

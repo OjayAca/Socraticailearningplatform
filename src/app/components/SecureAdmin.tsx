@@ -11,7 +11,8 @@ import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/fires
 import { Link, Navigate, useNavigate, useParams } from "react-router";
 import type { PresentableScorecardInput } from "@/lib/scorecard-presentation";
 import { AdminShell } from "./admin/AdminShell";
-import { PageTitle, SolutionDetails, Stat, errorMessage } from "./admin/admin-shared";
+import { PageTitle, SolutionDetails } from "./admin/admin-shared";
+import { errorMessage } from "./admin/admin-utils";
 import { AdminPrivacySettings } from "./AdminPrivacySettings";
 import { ScorecardDetails } from "./ScorecardDetails";
 import { NotificationContent } from "./student/NotificationContent";
@@ -20,7 +21,6 @@ import { Alert } from "./ui/alert";
 import { ConfirmDialog } from "./ui/confirm-dialog";
 import { ListRowSkeleton } from "./ui/skeleton";
 
-export { AdminShell, Stat };
 export { SecureAdminDashboard } from "./admin/AdminDashboard";
 export { SecureAdminUsers } from "./admin/AdminUsers";
 export { SecureAdminContent } from "./admin/AdminContentLibrary";

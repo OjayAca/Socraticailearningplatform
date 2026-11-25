@@ -40,7 +40,8 @@ import { ConfirmDialog } from "../ui/confirm-dialog";
 import { ListRowSkeleton } from "../ui/skeleton";
 import { type QuestionType, type ResponseFormat } from "./AdminContentLibrary";
 import { AdminShell } from "./AdminShell";
-import { PageTitle, errorMessage as formatErrorMessage, statusBadgeClass } from "./admin-shared";
+import { PageTitle } from "./admin-shared";
+import { errorMessage as formatErrorMessage, statusBadgeClass } from "./admin-utils";
 
 /** Props for {@link AdminContentEditor}. */
 interface AdminContentEditorProps {

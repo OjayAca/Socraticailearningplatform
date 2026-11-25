@@ -36,11 +36,13 @@ import {
   AdminSearchInput,
   AdminTabs,
   PageTitle,
+  type AdminTabItem,
+} from "./admin-shared";
+import {
   errorMessage as formatErrorMessage,
   paginateSlice,
   statusBadgeClass,
-  type AdminTabItem,
-} from "./admin-shared";
+} from "./admin-utils";
 
 /** Question delivery mode for problem records. */
 export type QuestionType = "constructed_response" | "multiple_choice";

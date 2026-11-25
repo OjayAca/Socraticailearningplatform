@@ -84,10 +84,6 @@ export async function createFollowUpSession(sessionId: string): Promise<SessionM
   return call("createFollowUpSession", { sessionId, requestId: newRequestId() });
 }
 
-export async function abandonLearningSession(sessionId: string): Promise<SessionMutationResponse> {
-  return call("abandonLearningSession", { sessionId, requestId: newRequestId() });
-}
-
 export async function adminReviewSession(
   input: Omit<AdminReviewSessionRequest, "requestId">
 ): Promise<Record<string, unknown>> {

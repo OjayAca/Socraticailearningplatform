@@ -24,8 +24,8 @@ import {
   AdminSearchInput,
   JsonTable,
   PageTitle,
-  errorMessage,
 } from "./admin-shared";
+import { errorMessage } from "./admin-utils";
 
 type ReportCategoryId = "learner_performance" | "subject_topic" | "scorecards" | "system_usage";
 

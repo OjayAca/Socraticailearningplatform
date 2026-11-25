@@ -4,7 +4,6 @@ import { Timestamp } from "firebase/firestore";
 import {
   awardEligibleAchievements,
   effectiveCurrentStreak,
-  isStudentMutationAllowed,
   nextLearningProgress,
   projectStageProgress,
   resolveStoredStreak,
@@ -81,13 +80,6 @@ describe("session state helpers", () => {
       currentStreak: 4,
       lastSessionDate: "2026-07-27",
     });
-  });
-
-  it("keeps student mutations constrained by lifecycle status", () => {
-    expect(isStudentMutationAllowed("in_progress", "reasoning")).toBe(true);
-    expect(isStudentMutationAllowed("ready_for_submission", "submit")).toBe(true);
-    expect(isStudentMutationAllowed("submitted", "support")).toBe(false);
-    expect(isStudentMutationAllowed("returned", "follow_up")).toBe(true);
   });
 
   it("awards all deterministic achievements exactly once", () => {

@@ -13,7 +13,3 @@ export function sessionLifecycleAction(options: {
   if (!options.reminderAlreadySent && elapsed >= expiry * 0.75) return "remind";
   return "none";
 }
-
-export function inactivityReminderId(sessionId: string, userId: string): string {
-  return `session_inactivity_reminder__${sessionId}__${userId}`;
-}
