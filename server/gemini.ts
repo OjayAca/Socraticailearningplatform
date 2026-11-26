@@ -363,14 +363,16 @@ export class GeminiTutor implements Tutor {
       systemInstruction: { parts: [{ text: instruction }] }, contents: [{ role: "user", parts: [{ text: contextText }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 4096, responseMimeType: "application/json", responseJsonSchema: jsonSchema }
     });
-    const raw = await this.callGemini(body, false);
+    const raw = await this.callGemini(body, 0);
     const candidate = raw.candidates?.[0];
     ensure(candidate?.finishReason === "STOP", "The tutor response was incomplete. Your stage has not changed; retry later.", 503);
     try { return schema.parse(JSON.parse(candidate.content.parts.filter((p: any) => !p.thought && p.text).map((p: any) => p.text).join(""))); }
     catch { throw new ServiceError(503, "invalid-ai-output", "The tutor could not produce a reliable response. Your stage has not changed; retry later."); }
   }
-  /** Call Gemini with a single automatic retry on 503 (not on location blocks). */
-  private async callGemini(body: string, retried: boolean): Promise<any> {
+  /** Call Gemini with bounded retries on transient 503 or non-timeout network resets (not on 404/429/location blocks). */
+  private async callGemini(body: string, attempt = 0): Promise<any> {
+    const retried = attempt > 0;
+    const maxRetries = 2;
     let response: Response;
     const started = Date.now();
     try {
@@ -379,6 +381,11 @@ export class GeminiTutor implements Tutor {
       });
     } catch (networkError) {
       if (networkError instanceof ServiceError) throw networkError;
+      const isTimeout = networkError instanceof Error && (networkError.name === "TimeoutError" || networkError.name === "AbortError");
+      if (!isTimeout && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        return this.callGemini(body, attempt + 1);
+      }
       throw new ServiceError(503, "ai-network-error", "Could not reach the AI provider. Your work is preserved; retry later.");
     } finally {
       console.info(JSON.stringify({ event: "gemini_request_timing", retried, durationMs: Date.now() - started }));
@@ -391,9 +398,9 @@ export class GeminiTutor implements Tutor {
       console.warn(JSON.stringify({ event: "gemini_request_failed", httpStatus: response.status, providerCode: failure.error?.status ?? "unknown", locationBlocked, retried }));
       if (locationBlocked) throw new ServiceError(503, "ai-region-unavailable", "The AI provider does not support this server location. Your administrator needs to adjust the free backend deployment.");
       if (response.status === 404) throw new ServiceError(503, "ai-model-unavailable", "The configured AI model is unavailable for this project. Your work is preserved; ask your administrator to update the tutor model.");
-      if (response.status === 503 && !retried) {
-        await new Promise(r => setTimeout(r, 2000)); // wall-clock delay only, no CPU cost
-        return this.callGemini(body, true);
+      if (response.status === 503 && attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); // wall-clock delay only, no CPU cost
+        return this.callGemini(body, attempt + 1);
       }
       throw new ServiceError(503, `ai-provider-${response.status}`, "The AI tutor is temporarily unavailable. Your work is preserved; retry later.");
     }

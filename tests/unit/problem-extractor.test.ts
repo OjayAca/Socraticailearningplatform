@@ -354,4 +354,49 @@ describe("problem-extractor unit and route tests", () => {
     );
     expect(chunkedResponse.status).toBe(413);
   });
+
+  it("retries transient network resets during extraction before succeeding", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              finishReason: "STOP",
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      detected: true,
+                      problemText: "Given f(x) = 2x + 3, find f(5).",
+                      confidence: "high",
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = extractProblemFromMedia(env, {
+        bytes: VALID_PNG_BYTES,
+        mimeType: "image/png",
+      });
+      await vi.runAllTimersAsync();
+      await expect(pending).resolves.toMatchObject({
+        detected: true,
+        problemText: "Given f(x) = 2x + 3, find f(5).",
+      });
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
 });

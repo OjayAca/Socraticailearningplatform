@@ -168,8 +168,8 @@ export function ProfileContent() {
               </div>
             </form>
           ) : (
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
+            <div className="flex flex-col md:flex-row md:items-center gap-4 min-w-0">
+              <h2 className="min-w-0 [overflow-wrap:anywhere] text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{displayName}</h2>
               <button
                 type="button"
                 disabled={isSaving || isNameSaving}
@@ -178,7 +178,7 @@ export function ProfileContent() {
                   setSaveError(null);
                   setIsEditing(true);
                 }}
-                className="inline-flex min-h-11 items-center self-center rounded-full bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 md:self-auto dark:bg-indigo-950/50 dark:text-indigo-400 dark:hover:text-indigo-300"
+                className="inline-flex min-h-11 shrink-0 whitespace-nowrap items-center self-center rounded-full bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-600 transition-colors hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 md:self-auto dark:bg-indigo-950/50 dark:text-indigo-400 dark:hover:text-indigo-300"
               >
                 {isSaving || isNameSaving ? "Saving name…" : "Edit Name"}
               </button>

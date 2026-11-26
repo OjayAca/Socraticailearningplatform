@@ -299,7 +299,7 @@ export async function extractProblemFromMedia(
     },
   });
 
-  const rawResponse = await callGeminiExtraction(env, requestBody, false);
+  const rawResponse = await callGeminiExtraction(env, requestBody, 0);
   const candidate = rawResponse.candidates?.[0];
   ensure(
     candidate?.finishReason === "STOP",
@@ -355,8 +355,10 @@ interface GeminiGenerateContentResponse {
 async function callGeminiExtraction(
   env: Env,
   body: string,
-  retried: boolean,
+  attempt = 0,
 ): Promise<GeminiGenerateContentResponse> {
+  const retried = attempt > 0;
+  const maxRetries = 2;
   let response: Response;
   const started = Date.now();
   try {
@@ -374,6 +376,13 @@ async function callGeminiExtraction(
     );
   } catch (networkError) {
     if (networkError instanceof ServiceError) throw networkError;
+    const isTimeout =
+      networkError instanceof Error &&
+      (networkError.name === "TimeoutError" || networkError.name === "AbortError");
+    if (!isTimeout && attempt < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+      return callGeminiExtraction(env, body, attempt + 1);
+    }
     throw new ServiceError(
       503,
       "ai-network-error",
@@ -421,9 +430,9 @@ async function callGeminiExtraction(
         "The configured AI model is unavailable for this project.",
       );
     }
-    if (response.status === 503 && !retried) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      return callGeminiExtraction(env, body, true);
+    if (response.status === 503 && attempt < maxRetries) {
+      await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
+      return callGeminiExtraction(env, body, attempt + 1);
     }
     throw new ServiceError(
       503,

@@ -425,20 +425,20 @@ export function SecureTaskStart() {
                     <p className="mt-2 break-words text-sm text-slate-600 dark:text-slate-300">
                       {subject.description}
                     </p>
-                    <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-600 sm:grid sm:grid-cols-3 sm:gap-2 dark:text-slate-400">
-                      <span>
+                    <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-600 dark:text-slate-400">
+                      <span className="whitespace-nowrap">
                         <strong className="block text-slate-950 dark:text-white">
                           {progress?.sessionsCompleted ?? 0}
                         </strong>
                         Completed
                       </span>
-                      <span>
+                      <span className="whitespace-nowrap">
                         <strong className="block text-slate-950 dark:text-white">
                           {progress?.averageCTScore ?? 0}/100
                         </strong>
                         Average
                       </span>
-                      <span>
+                      <span className="whitespace-nowrap">
                         <strong className="block text-indigo-700 dark:text-indigo-300">
                           {progress?.recommendedDifficulty ?? "Basic"}
                         </strong>

@@ -14,7 +14,7 @@ import {
 } from "firebase/app-check";
 import { getAuth, type Auth } from "firebase/auth";
 import { setClientAppCheck } from "./app-check-client";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFirestore, initializeFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -53,8 +53,18 @@ const firebaseApp: FirebaseApp | null = isFirebaseConfigured
 /** Firebase Authentication service instance. */
 export const auth: Auth | null = firebaseApp ? getAuth(firebaseApp) : null;
 
-/** Cloud Firestore database instance. */
-export const db: Firestore | null = firebaseApp ? getFirestore(firebaseApp) : null;
+/** Cloud Firestore database instance configured with automatic long-polling detection. */
+export const db: Firestore | null = firebaseApp
+  ? (() => {
+      try {
+        return initializeFirestore(firebaseApp, {
+          experimentalAutoDetectLongPolling: true,
+        });
+      } catch {
+        return getFirestore(firebaseApp);
+      }
+    })()
+  : null;
 
 const appCheckSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY as
   | string

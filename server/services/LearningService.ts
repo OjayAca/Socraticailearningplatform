@@ -48,19 +48,24 @@ export class LearningService {
     return { ...verified, topicId, context, confirmationHash, instructionalLevel };
   }
   private async member() {
-    const profile = await this.db.get(`users/${this.uid}`);
+    const [profile, privacy, pilot, roster] = await Promise.all([
+      this.db.get(`users/${this.uid}`),
+      this.db.get("system_settings/privacy"),
+      this.db.get("system_settings/pilot"),
+      this.db.get(`pilot_roster/${this.uid}`),
+    ]);
     ensure(profile.data?.status === "active", "Your account is not active.", 403);
-    const privacy = await this.db.get("system_settings/privacy");
     const version = privacy.data?.currentConsentVersion;
     ensure(typeof version === "string" && !version.includes("/"), "The learning privacy notice is not configured.", 503);
-    const [policy, consent] = await Promise.all([this.db.get(`policy_documents/${version}`), this.db.get(`users/${this.uid}/consents/${version}`)]);
+    const [policy, consent] = await Promise.all([
+      this.db.get(`policy_documents/${version}`),
+      this.db.get(`users/${this.uid}/consents/${version}`),
+    ]);
     ensure(policy.data?.status === "active" && policy.data?.aiProcessingVersion === "gemini-free-v1", "The administrator must publish the Gemini learning privacy notice before AI sessions begin.", 503);
     ensure(consent.data?.version === version, "Read and acknowledge the current learning privacy notice before continuing.", 403);
-    const pilot = await this.db.get("system_settings/pilot");
     ensure(pilot.data?.state !== "write-freeze", "Learning is temporarily paused by your administrator. Your saved work remains available.", 503);
-    const roster = await this.db.get(`pilot_roster/${this.uid}`);
     ensure(roster.data?.status !== "revoked", "Your account is not currently admitted to AI practice.", 403);
-    return profile.data;
+    return { profile: profile.data, pilot: pilot.data };
   }
   private async session(id: string) {
     ensure(typeof id === "string" && /^[\w:-]{1,180}$/.test(id), "Invalid session identifier.");
@@ -101,8 +106,8 @@ export class LearningService {
     }
     let input: any;
     try { input = validateOperation(name, raw); } catch { throw new ServiceError(400,"invalid-request","Check the request fields and try again."); }
-    const profile = await this.member();
-    if (name === "getPreparedTopicIds") return this.availablePreparedTopics(input.subjectId);
+    const { profile, pilot } = await this.member();
+    if (name === "getPreparedTopicIds") return this.availablePreparedTopics(input.subjectId, pilot);
     if (name === "previewVerifiedProblem") {
       const { confirmationHash, description } = await this.resolveOwnProblem(input);
       return { confirmationHash, description };
@@ -656,9 +661,14 @@ export class LearningService {
   private async preparedReference(candidate: RecordDoc, subject: RecordDoc) {
     if (candidate.data.status !== "approved" || !candidate.data.validationRecordId
       || (candidate.data.subjectId && candidate.data.subjectId !== idOf(subject))) return null;
-    if (containsExcludedContent([candidate.data.title,candidate.data.problemText])) return null;
-    const approval = await this.db.get(`content_validation_records/${candidate.data.validationRecordId}`);
-    const ref = await this.db.get(`problem_scoring/${idOf(candidate)}`);
+    if (containsExcludedContent([candidate.data.title, candidate.data.problemText])) return null;
+    const [approval, ref, imported] = await Promise.all([
+      this.db.get(`content_validation_records/${candidate.data.validationRecordId}`),
+      this.db.get(`problem_scoring/${idOf(candidate)}`),
+      candidate.data.sourceHash
+        ? this.db.get(`${candidate.path}/private/import_source`)
+        : Promise.resolve(null),
+    ]);
     if (approval.data?.decision !== "approved" || approval.data.problemId !== idOf(candidate) || approval.data.problemVersion !== candidate.data.version || ref.data?.problemVersion !== candidate.data.version || ref.data?.validationRecordId !== candidate.data.validationRecordId) return null;
     if (approval.data.scoringSnapshotHash && await contentHash(ref.data) !== approval.data.scoringSnapshotHash) return null;
     if (!answerSpecification.safeParse(ref.data.answerSpecification).success || !ref.data.expectedConcepts?.length
@@ -666,8 +676,7 @@ export class LearningService {
     if (containsExcludedContent(ref.data)) return null;
     let reference = ref.data;
     if (candidate.data.sourceHash) {
-      const imported = await this.db.get(`${candidate.path}/private/import_source`);
-      const source = imported.data?.source;
+      const source = imported?.data?.source;
       if (!source || await contentHash(source) !== candidate.data.sourceHash || source.problem_id !== idOf(candidate)) return null;
       reference = {...reference,sourceGuidance:{sourceHash:candidate.data.sourceHash,
         assumptions:source.student_facing.given_information_and_assumptions,
@@ -680,18 +689,24 @@ export class LearningService {
     return reference;
   }
 
-  private async availablePreparedTopics(subjectId: string) {
+  private async availablePreparedTopics(subjectId: string, pilotData?: any) {
     const [pilot, subject, topics] = await Promise.all([
-      this.db.get("system_settings/pilot"), this.db.get(`subjects/${subjectId}`), this.db.query("topics", "subjectId", subjectId),
+      pilotData !== undefined ? Promise.resolve({ path: "system_settings/pilot", data: pilotData }) : this.db.get("system_settings/pilot"),
+      this.db.get(`subjects/${subjectId}`),
+      this.db.query("topics", "subjectId", subjectId),
     ]);
     if (subject.data?.status !== "approved" || pilot.data?.state !== "open") return [];
     const enabled = topics.filter(t => isValidatedTopic(idOf(t), t.data) && t.data.status === "approved"
       && t.data.subject === subject.data.name && pilot.data.enabledTopicIds?.includes(idOf(t)));
-    const available = await Promise.all(enabled.map(async topic => {
-      const candidates = await this.db.query("problems", "topicId", idOf(topic));
+    const topicProblems = await Promise.all(
+      enabled.map(topic => this.db.query("problems", "topicId", idOf(topic))),
+    );
+    const available = await Promise.all(enabled.map(async (topic, index) => {
+      const candidates = topicProblems[index]
+        .filter(candidate => ["Basic", "Intermediate", "Advanced"].includes(candidate.data.difficulty))
+        .sort((a, b) => idOf(a).localeCompare(idOf(b)));
       for (const candidate of candidates) {
-        if (["Basic", "Intermediate", "Advanced"].includes(candidate.data.difficulty)
-          && await this.preparedReference(candidate, subject)) return idOf(topic);
+        if (await this.preparedReference(candidate, subject)) return idOf(topic);
       }
       return null;
     }));

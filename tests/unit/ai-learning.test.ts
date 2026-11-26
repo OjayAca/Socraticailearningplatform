@@ -963,6 +963,25 @@ describe("Mathematics and adaptation",()=>{
       expect(fetchMock).toHaveBeenCalledTimes(1);
     } finally {vi.unstubAllGlobals();}
   });
+  it("recovers from two consecutive transient 503 responses before failing", async () => {
+    vi.useFakeTimers();
+    const validTurn = response({ question: "What quantities are given?" });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ error: { status: "UNAVAILABLE" } }, { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ error: { status: "UNAVAILABLE" } }, { status: 503 }))
+      .mockResolvedValueOnce(Response.json({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: JSON.stringify(validTurn) }] } }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const pending = new GeminiTutor(env).generate({ session: {}, reference: {}, messages: [], intent: "opening" });
+      await vi.runAllTimersAsync();
+      await expect(pending).resolves.toMatchObject({ question: "What quantities are given?" });
+      expect(fetchMock).toHaveBeenCalledTimes(3);
+    } finally {
+      vi.useRealTimers();
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('custom problem secure integration', () => {

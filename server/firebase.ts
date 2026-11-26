@@ -1,7 +1,7 @@
 import "server-only";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getAppCheck } from "firebase-admin/app-check";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, initializeFirestore, type Firestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getServerEnv } from "./config";
 import { ensure } from "./platform";
@@ -21,7 +21,21 @@ export function getAdminApp() {
 }
 
 export const getAdminAuth = () => getAuth(getAdminApp());
-export const getAdminFirestore = () => getFirestore(getAdminApp());
+
+/**
+ * Returns the Firebase Admin Firestore instance configured with REST transport
+ * to prevent idle HTTP/2 gRPC channel stalls across serverless/dev requests.
+ *
+ * @returns The configured Firebase Admin Firestore instance.
+ */
+export const getAdminFirestore = (): Firestore => {
+  const app = getAdminApp();
+  try {
+    return initializeFirestore(app, { preferRest: true });
+  } catch {
+    return getFirestore(app);
+  }
+};
 
 /**
  * Returns the Firebase Admin App Check instance bound to the configured project app.
