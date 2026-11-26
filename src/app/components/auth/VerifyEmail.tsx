@@ -8,7 +8,7 @@
  * @module components/auth/VerifyEmail
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router";
 import {
   Mail,
@@ -54,6 +54,8 @@ export function VerifyEmail() {
     string | null
   >(null);
   const actionPendingRef = useRef(false);
+
+  useEffect(() => () => clearError(), [clearError]);
 
   if (isLoading) {
     return (

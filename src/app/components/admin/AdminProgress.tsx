@@ -1369,7 +1369,14 @@ export function SecureAdminProgressDetail() {
           />
           <AdminStat
             label="Current Streak"
-            value={`${resolveStoredStreak(Number(progress?.currentStreak ?? 0), progress?.lastSessionDate, progress?.lastSessionAt)} days`}
+            value={(() => {
+              const streak = resolveStoredStreak(
+                Number(progress?.currentStreak ?? 0),
+                progress?.lastSessionDate,
+                progress?.lastSessionAt,
+              );
+              return `${streak} ${streak === 1 ? "day" : "days"}`;
+            })()}
             Icon={Flame}
             iconClassName="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-400"
             helperText={`Last activity: ${formatTimestamp(progress?.lastActivityAt)}`}

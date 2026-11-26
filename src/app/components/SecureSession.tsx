@@ -1271,5 +1271,5 @@ function hintTierStatusText(
     allowedSupport.includes("partial_step");
   return hasAnySubstantive
     ? "Submit an attempt to unlock the next hint level"
-    : "Submit an attempt to unlock Level 1–3 hints";
+    : "Socratic prompt ready · submit an attempt for Level 1–3 hints";
 }

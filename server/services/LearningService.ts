@@ -65,7 +65,20 @@ export class LearningService {
     ensure(consent.data?.version === version, "Read and acknowledge the current learning privacy notice before continuing.", 403);
     ensure(pilot.data?.state !== "write-freeze", "Learning is temporarily paused by your administrator. Your saved work remains available.", 503);
     ensure(roster.data?.status !== "revoked", "Your account is not currently admitted to AI practice.", 403);
-    return { profile: profile.data, pilot: pilot.data };
+    return { profile: profile.data, pilot: pilot.data, privacy: privacy.data };
+  }
+  private isSessionExpired(
+    sessionData: Record<string, unknown>,
+    privacyData?: Record<string, unknown> | null,
+  ): boolean {
+    const hours = Number(privacyData?.sessionInactivityHours ?? 24);
+    const lastActivityMs = new Date(String(sessionData.lastActivityAt ?? "")).getTime();
+    return (
+      Number.isFinite(hours) &&
+      hours > 0 &&
+      Number.isFinite(lastActivityMs) &&
+      Date.now() - lastActivityMs > hours * 3600000
+    );
   }
   private async session(id: string) {
     ensure(typeof id === "string" && /^[\w:-]{1,180}$/.test(id), "Invalid session identifier.");
@@ -106,7 +119,7 @@ export class LearningService {
     }
     let input: any;
     try { input = validateOperation(name, raw); } catch { throw new ServiceError(400,"invalid-request","Check the request fields and try again."); }
-    const { profile, pilot } = await this.member();
+    const { profile, pilot, privacy } = await this.member();
     if (name === "getPreparedTopicIds") return this.availablePreparedTopics(input.subjectId, pilot);
     if (name === "previewVerifiedProblem") {
       const { confirmationHash, description } = await this.resolveOwnProblem(input);
@@ -115,9 +128,7 @@ export class LearningService {
     if (name === "checkLearningSessionActivity") {
       const doc = await this.session(input.sessionId);
       if (["in_progress", "ready_for_submission"].includes(doc.data.status)) {
-        const privacy = await this.db.get("system_settings/privacy");
-        const hours = Number(privacy.data?.sessionInactivityHours ?? 24);
-        if (Date.now()-new Date(doc.data.lastActivityAt).getTime() > hours*3600000) {
+        if (this.isSessionExpired(doc.data, privacy)) {
           const state = await this.db.get(`learning_progress/${this.uid}/assignment_state/${doc.data.topicId}`);
           await this.db.commit([{doc, data:{...doc.data,status:"expired",revision:doc.data.revision+1,updatedAt:stamp()}}, ...(state.data?.activeSessionId === input.sessionId ? [{doc:state,data:{...state.data,activeSessionId:null}}] : [])]);
         }
@@ -137,6 +148,7 @@ export class LearningService {
     let reference: any;
     let assignment: RecordDoc | undefined;
     let parentSession: RecordDoc | undefined;
+    let expiredExisting: RecordDoc | undefined;
     let starting = name === "startLearningSession" || name === "createFollowUpSession";
     if (starting) {
       if (name === "createFollowUpSession") {
@@ -163,22 +175,26 @@ export class LearningService {
         const existing = await this.db.get(`sessions/${assignment.data.activeSessionId}`);
         if (existing.data?.workflowVersion === AI_WORKFLOW_VERSION && ["in_progress","ready_for_submission"].includes(existing.data.status)) {
           ensure(existing.data.studentId === this.uid, "This learning session is unavailable.", 403);
-          if (own) {
-            ensure(existing.data.problemMode === "free_form"
-              && (existing.data.originalProblemText ?? existing.data.originalQuestion) === input.question
-              && (existing.data.originalProblemLatex ?? "") === (input.questionLatex ?? "")
-              && existing.data.subjectId === input.subjectId
-              && existing.data.instructionalLevel === own.instructionalLevel,
-            "A different problem is already active for this topic. Finish or abandon that session before starting this problem.", 409);
+          if (this.isSessionExpired(existing.data, privacy)) {
+            expiredExisting = existing;
           } else {
-            await this.approvedTopic(input.topicId, input.subjectId);
-            ensure(existing.data.problemMode === "curated" && existing.data.subjectId === input.subjectId,
-              "Another session is active for this topic. Finish or abandon it in Learning History before starting a new problem.", 409);
+            if (own) {
+              ensure(existing.data.problemMode === "free_form"
+                && (existing.data.originalProblemText ?? existing.data.originalQuestion) === input.question
+                && (existing.data.originalProblemLatex ?? "") === (input.questionLatex ?? "")
+                && existing.data.subjectId === input.subjectId
+                && existing.data.instructionalLevel === own.instructionalLevel,
+              "A different problem is already active for this topic. Finish or abandon that session before starting this problem.", 409);
+            } else {
+              await this.approvedTopic(input.topicId, input.subjectId);
+              ensure(existing.data.problemMode === "curated" && existing.data.subjectId === input.subjectId,
+                "Another session is active for this topic. Finish or abandon it in Learning History before starting a new problem.", 409);
+            }
+            if (!existing.data.needsOpening) return {session:projection(idOf(existing),existing.data)};
+            session = existing;
+            reference = (await this.db.get(`${session.path}/private/reference`)).data;
+            starting = false;
           }
-          if (!existing.data.needsOpening) return {session:projection(idOf(existing),existing.data)};
-          session = existing;
-          reference = (await this.db.get(`${session.path}/private/reference`)).data;
-          starting = false;
         }
       }
       if (!session!) {
@@ -224,6 +240,17 @@ export class LearningService {
     if (starting) {
       reservation.push({doc:session!,data:s}, {doc:empty(`${session!.path}/private/reference`),data:reference});
       reservation.push({doc:assignment!,data:{...assignment!.data,activeSessionId:idOf(session!),updatedAt:stamp()}});
+      if (expiredExisting) {
+        reservation.push({
+          doc: expiredExisting,
+          data: {
+            ...expiredExisting.data,
+            status: "expired",
+            revision: Number(expiredExisting.data.revision ?? 0) + 1,
+            updatedAt: stamp(),
+          },
+        });
+      }
       if (parentSession) {
         s.parentSessionId = idOf(parentSession);
         reservation.push({doc:parentSession,data:{...parentSession.data,followUpSessionId:idOf(session!),updatedAt:stamp(),revision:parentSession.data.revision+1}});

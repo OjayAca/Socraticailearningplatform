@@ -149,6 +149,15 @@
     @apply text-slate-400;
   }
 
+  /* Auth cards stay intentionally light-surface under dark mode; keep inputs matching. */
+  .dark .auth-page input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']) {
+    @apply bg-white text-slate-950;
+  }
+
+  .dark .auth-page input::placeholder {
+    @apply text-slate-500;
+  }
+
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.

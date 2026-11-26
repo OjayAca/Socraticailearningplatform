@@ -268,6 +268,16 @@ describe("authentication supporting flows", () => {
 
     expect(screen.getByRole("button", { name: /signing in/i })).toBeDisabled();
   });
+
+  it("clears store auth error when navigating away from Login or SignUp", () => {
+    const loginView = renderAt(<Login />, "/login");
+    loginView.unmount();
+    expect(mocks.clearError).toHaveBeenCalledTimes(1);
+
+    const signupView = renderAt(<SignUp />, "/signup");
+    signupView.unmount();
+    expect(mocks.clearError).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("protected route recovery and role enforcement", () => {

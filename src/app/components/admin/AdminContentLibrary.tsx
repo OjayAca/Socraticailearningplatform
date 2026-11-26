@@ -1004,23 +1004,23 @@ function AdminContentLibraryInner({ collectionName }: { collectionName: ContentC
                               {item.variant ? ` · Variant ${item.variant}` : ""}
                             </p>
                           </td>
-                          <td className="px-4 py-3.5 text-slate-700 dark:text-slate-300">
+                          <td className="whitespace-nowrap px-4 py-3.5 text-slate-700 dark:text-slate-300">
                             {item.subject ?? "—"}
                           </td>
-                          <td className="px-4 py-3.5 text-slate-700 dark:text-slate-300">
+                          <td className="whitespace-nowrap px-4 py-3.5 text-slate-700 dark:text-slate-300">
                             {item.topic ?? "—"}
                           </td>
                           <td className="px-4 py-3.5">
-                            <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                            <span className="inline-flex whitespace-nowrap rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
                               {item.difficulty ?? "—"}
                             </span>
                           </td>
-                          <td className="px-4 py-3.5 text-slate-700 dark:text-slate-300">
+                          <td className="whitespace-nowrap px-4 py-3.5 text-slate-700 dark:text-slate-300">
                             {formatQuestionTypeLabel(item.questionType)}
                           </td>
                           <td className="px-4 py-3.5">
                             <span
-                              className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(item.status)}`}
+                              className={`inline-flex whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusBadgeClass(item.status)}`}
                             >
                               {formatStatusLabel(item.status)}
                             </span>

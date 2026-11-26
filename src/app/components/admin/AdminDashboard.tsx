@@ -626,7 +626,7 @@ export function SecureAdminDashboard() {
             helperText={
               error
                 ? undefined
-                : `${metrics.totalUsersCount} total accounts · ${metrics.adminCount} admins`
+                : `${metrics.totalUsersCount} total accounts · ${metrics.adminCount} ${metrics.adminCount === 1 ? "admin" : "admins"}`
             }
             Icon={Users}
             iconClassName="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400"

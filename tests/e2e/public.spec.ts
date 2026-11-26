@@ -193,3 +193,23 @@ test("enforces accessible touch targets, keyboard focus, inline form errors, and
   expect(describedBy).toBeTruthy();
   await expect(page.locator(`#${describedBy}`)).toHaveText("Please enter your email address.");
 });
+
+test("keeps auth inputs light-surface in dark mode and does not leak auth errors across routes", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await expect(page.locator("html")).toHaveClass(/dark/);
+
+  await page.goto("/login");
+  const emailInput = page.getByLabel("Email");
+  await expect(emailInput).toBeVisible();
+  expect(await emailInput.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+    "rgb(255, 255, 255)",
+  );
+
+  await page.getByRole("button", { name: /^sign up$/i }).click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await expect(page.locator('[data-slot="alert"]')).toHaveCount(0);
+});

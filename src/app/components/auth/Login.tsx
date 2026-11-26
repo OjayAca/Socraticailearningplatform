@@ -68,6 +68,8 @@ export function Login() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const submitPendingRef = useRef(false);
 
+  useEffect(() => () => clearError(), [clearError]);
+
   useEffect(() => {
     let token: string | null;
     try {

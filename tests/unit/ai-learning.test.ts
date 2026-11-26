@@ -1262,4 +1262,36 @@ describe('remediation regressions across the six core features', () => {
     });
     expect(verified.session.currentPhase).toBe('controlled_solution_release');
   });
+
+  it('auto-expires stale inactive sessions instead of resuming them on startLearningSession', async () => {
+    const staleDate = new Date(Date.now() - 25 * 3600000);
+    db.put('system_settings/privacy', { currentConsentVersion: 'ai-notice', sessionInactivityHours: 24 });
+    db.put('sessions/alice_stale-1', {
+      schemaVersion: 5,
+      workflowVersion: AI_WORKFLOW_VERSION,
+      revision: 2,
+      studentId: 'alice',
+      subjectId: 'quantitative-methods',
+      topicId: 'quantitative-methods-descriptive-statistics',
+      problemMode: 'curated',
+      problemId: 'problem',
+      status: 'in_progress',
+      needsOpening: false,
+      responseCount: 0,
+      lastActivityAt: staleDate,
+      createdAt: staleDate,
+      updatedAt: staleDate,
+    });
+    db.put('learning_progress/alice/assignment_state/quantitative-methods-descriptive-statistics', {
+      activeSessionId: 'alice_stale-1',
+    });
+
+    const started = await start();
+    expect(started.session.id).not.toBe('alice_stale-1');
+    expect(started.session.status).toBe('in_progress');
+    expect((await db.get('sessions/alice_stale-1')).data.status).toBe('expired');
+    expect(
+      (await db.get('learning_progress/alice/assignment_state/quantitative-methods-descriptive-statistics')).data.activeSessionId,
+    ).toBe(started.session.id);
+  });
 });

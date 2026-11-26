@@ -28,6 +28,7 @@ import {
 import { Link } from "react-router";
 import { db } from "@/lib/firebase";
 import { displayPhaseLabel, displaySessionStatus } from "@/lib/learning/display-labels";
+import { sanitizeScorecardEvidence } from "@/lib/scorecard-presentation";
 import { Alert } from "../ui/alert";
 import { ListRowSkeleton } from "../ui/skeleton";
 import { AdminShell } from "./AdminShell";
@@ -439,7 +440,10 @@ function buildDiagnosisEntry(session: SessionMonitorRecord): NormalizedDiagnosis
   const incorrectStep = asNonEmptyString(session.lastDiagnosis?.incorrectStep);
   const recommendedAction = asNonEmptyString(session.lastDiagnosis?.recommendedAction);
   const correctivePrompt = asNonEmptyString(session.lastDiagnosis?.correctivePrompt);
-  const evidence = asStringArray(session.lastDiagnosis?.evidence);
+  const RAW_TURN_ID_PATTERN = /^(?:[0-9a-f-]{36}|[a-z0-9_-]+)_(?:student|tutor)$/i;
+  const evidence = asStringArray(session.lastDiagnosis?.evidence)
+    .map(sanitizeScorecardEvidence)
+    .filter((item) => item.length > 0 && !RAW_TURN_ID_PATTERN.test(item));
   const scorecardFeedback = asNonEmptyString(session.scorecard?.feedback);
   const scoreTotal =
     typeof session.scorecard?.total === "number" && Number.isFinite(session.scorecard.total)

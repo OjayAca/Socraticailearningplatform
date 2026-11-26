@@ -1,6 +1,6 @@
 /** Student account creation screen. */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Mail,
@@ -76,6 +76,8 @@ export function SignUp() {
     confirmPassword: null,
   });
   const submitPendingRef = useRef(false);
+
+  useEffect(() => () => clearError(), [clearError]);
 
   /**
    * Handles new account creation.
@@ -294,7 +296,7 @@ export function SignUp() {
                     password: validatePassword(password),
                   }))
                 }
-                placeholder="Create a password (min. 8 characters)"
+                placeholder="At least 8 characters"
                 required
                 minLength={8}
                 maxLength={128}
