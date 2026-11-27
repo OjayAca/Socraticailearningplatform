@@ -10,7 +10,7 @@ import {
 } from "@/lib/learning/display-labels";
 import { Tooltip } from "./ui/tooltip";
 import { closedSessionMessage } from "@/lib/learning/session-message";
-import { MathText } from "./MathText";
+import { MathText, ProblemStatementText } from "./MathText";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { Link, Navigate, useParams } from "react-router";
@@ -683,7 +683,11 @@ export function SecureSession() {
             id="current-problem-panel"
             className="max-h-28 overflow-y-auto pb-2 text-sm text-slate-800 dark:text-slate-200"
           >
-            <MathText text={session.originalQuestion} />
+            <ProblemStatementText
+              question={session.originalQuestion}
+              problemText={session.originalProblemText}
+              problemLatex={session.originalProblemLatex}
+            />
           </div>
         )}
       </section>
@@ -1123,6 +1127,12 @@ function firestoreProjection(id: string, data: Record<string, any>): SessionProj
     difficulty: data.difficulty,
     problemId: data.problemId ?? null,
     originalQuestion: data.originalQuestion,
+    ...(typeof data.originalProblemText === "string"
+      ? { originalProblemText: data.originalProblemText }
+      : {}),
+    ...(typeof data.originalProblemLatex === "string"
+      ? { originalProblemLatex: data.originalProblemLatex }
+      : {}),
     status: data.status,
     currentPhase,
     currentStage,

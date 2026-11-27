@@ -14,6 +14,7 @@ import { AdminShell } from "./admin/AdminShell";
 import { PageTitle, SolutionDetails } from "./admin/admin-shared";
 import { errorMessage } from "./admin/admin-utils";
 import { AdminPrivacySettings } from "./AdminPrivacySettings";
+import { ProblemStatementText } from "./MathText";
 import { ScorecardDetails } from "./ScorecardDetails";
 import { NotificationContent } from "./student/NotificationContent";
 import { ProfileContent } from "./student/ProfileContent";
@@ -316,7 +317,13 @@ export function SecureAdminReview() {
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           <h2 className="font-bold text-slate-950 dark:text-white">Problem</h2>
-          <p className="mt-2 text-slate-700 dark:text-slate-300">{session.originalQuestion}</p>
+          <div className="mt-2 text-slate-700 dark:text-slate-300">
+            <ProblemStatementText
+              question={String(session.originalQuestion ?? "")}
+              problemText={typeof session.originalProblemText === "string" ? session.originalProblemText : undefined}
+              problemLatex={typeof session.originalProblemLatex === "string" ? session.originalProblemLatex : undefined}
+            />
+          </div>
           {session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}
         </div>
 

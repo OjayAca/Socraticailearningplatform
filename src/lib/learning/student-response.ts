@@ -70,6 +70,7 @@ export function studentOperationResult(data: Record<string, any>) {
 
 // Historical records have a smaller display contract and can predate gate tracking.
 const history = z.object({id:str,status:str,subject:str.nullish(),topic:str.nullish(),originalQuestion:str.nullish(),
+  originalProblemText:str.nullish(),originalProblemLatex:str.nullish(),
   schemaVersion:num.nullish(),workflowVersion:num.nullish(),ctScore:num.nullish(),followUpSessionId:str.nullish(),
   problemContext:z.object({promptSnapshot:str.optional()}).nullish(),adminReview:z.object({comment:str.optional()}).nullish(),
   scorecard:score.nullish(),draft:draft.nullish(),releasedSolution:solution.nullish(),

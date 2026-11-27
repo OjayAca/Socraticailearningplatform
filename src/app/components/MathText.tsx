@@ -94,3 +94,44 @@ export function FormattedMathText({ text }: FormattedMathTextProps) {
     </>
   );
 }
+
+/** Props for {@link ProblemStatementText}. */
+export interface ProblemStatementTextProps {
+  question?: string;
+  problemText?: string;
+  problemLatex?: string;
+}
+
+/**
+ * Renders a problem statement, substituting a single `[math]` placeholder in `problemText`
+ * with KaTeX-rendered `problemLatex` when present, and otherwise rendering `question` via
+ * {@link FormattedMathText}.
+ *
+ * @param props.question - Combined problem statement fallback.
+ * @param props.problemText - Original learner-authored sentence containing an optional `[math]` placeholder.
+ * @param props.problemLatex - Optional raw LaTeX expression associated with `[math]`.
+ * @returns Rendered problem statement with KaTeX notation when present.
+ */
+export function ProblemStatementText({
+  question,
+  problemText,
+  problemLatex,
+}: ProblemStatementTextProps) {
+  const trimmedLatex = problemLatex?.trim();
+  if (
+    typeof problemText === "string" &&
+    problemText.length > 0 &&
+    trimmedLatex &&
+    problemText.split("[math]").length === 2
+  ) {
+    const [before, after] = problemText.split("[math]");
+    return (
+      <span>
+        {before && <FormattedMathText text={before} />}
+        <MathText latex={trimmedLatex} />
+        {after && <FormattedMathText text={after} />}
+      </span>
+    );
+  }
+  return <FormattedMathText text={question ?? problemText ?? ""} />;
+}

@@ -677,4 +677,25 @@ describe("SecureSession AI workflow v6 workflow", () => {
       screen.getByText(/All hint levels used — Socratic prompt available/i),
     ).toBeVisible();
   });
+
+  it("renders custom problem LaTeX via KaTeX instead of raw markup in the current problem panel", async () => {
+    mocks.getDoc.mockResolvedValue(sessionSnapshot("new-session", {
+      problemMode: "free_form",
+      problemId: null,
+      difficulty: null,
+      originalQuestion: "Given f(x) = x^{2}+\\frac{2x}{3} , find f(3)",
+      originalProblemText: "Given f(x) = [math] , find f(3)",
+      originalProblemLatex: "x^{2}+\\frac{2x}{3}",
+    }));
+    const { container } = renderSession();
+    await screen.findByLabelText("Message your tutor");
+
+    const panel = container.querySelector("#current-problem-panel");
+    expect(panel).not.toBeNull();
+    expect(panel?.querySelector(".katex")).not.toBeNull();
+    expect(panel?.querySelector(".katex-html")?.textContent).not.toContain("\\frac");
+    expect(panel?.textContent).not.toContain("[math]");
+    expect(panel?.textContent).toContain("Given f(x) =");
+    expect(panel?.textContent).toContain(", find f(3)");
+  });
 });

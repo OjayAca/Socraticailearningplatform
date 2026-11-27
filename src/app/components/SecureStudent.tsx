@@ -1,6 +1,6 @@
 import { studentHistory, historyResponse, historyMessage, type HistoryMessage } from "@/lib/learning/student-response";
 import { displayPhaseLabel, displaySessionStatus } from "@/lib/learning/display-labels";
-import { FormattedMathText, MathText } from "./MathText";
+import { FormattedMathText, MathText, ProblemStatementText } from "./MathText";
 import { TutorMessageBubble } from "./TutorMessageBubble";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { collection, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from "firebase/firestore";
@@ -595,8 +595,10 @@ export function SecureStudentReview() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/80">
           <h3 className="font-bold text-slate-950 dark:text-white">Problem</h3>
           <div className="mt-2 text-sm leading-6 text-slate-700 dark:text-slate-300">
-            <FormattedMathText
-              text={String(session.originalQuestion ?? session.problemContext?.promptSnapshot ?? "")}
+            <ProblemStatementText
+              question={String(session.originalQuestion ?? session.problemContext?.promptSnapshot ?? "")}
+              problemText={typeof session.originalProblemText === "string" ? session.originalProblemText : undefined}
+              problemLatex={typeof session.originalProblemLatex === "string" ? session.originalProblemLatex : undefined}
             />
           </div>
           {session.scorecard && <ScorecardDetails scorecard={session.scorecard} />}
