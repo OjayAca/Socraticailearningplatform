@@ -13,11 +13,15 @@ const mocks = vi.hoisted(() => ({
   signOut: vi.fn(),
   authStateCallback: null as null | ((user: unknown) => Promise<void> | void),
   onAuthStateChanged: vi.fn(),
+  syncOwnEmailVerification: vi.fn(),
 }));
 vi.mock("@/lib/firebase", () => ({
   auth: { currentUser: mocks.user }, db: {}, isFirebaseConfigured: true,
 }));
-vi.mock("@/lib/secure-api", () => ({ bootstrapProfile: vi.fn() }));
+vi.mock("@/lib/secure-api", () => ({
+  bootstrapProfile: vi.fn(),
+  syncOwnEmailVerification: mocks.syncOwnEmailVerification,
+}));
 vi.mock("firebase/auth", async (original) => ({
   ...await original<typeof import("firebase/auth")>(),
   signInWithEmailAndPassword: mocks.signInWithEmailAndPassword,
@@ -40,6 +44,7 @@ import { useAuthStore } from "@/stores/auth-store";
 describe("administrator profile loading", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.syncOwnEmailVerification.mockResolvedValue({ synced: true, emailVerified: false });
     useAuthStore.setState({ firebaseUser: mocks.user as never, userProfile: null, error: null });
     mocks.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ role: "admin", status: "active" }) });
     mocks.user.getIdTokenResult.mockResolvedValue({ claims: { role: "admin" } });
@@ -122,6 +127,7 @@ describe("administrator profile loading", () => {
     const verified = await useAuthStore.getState().refreshVerification();
     expect(verified).toBe(true);
     expect(callOrder).toEqual(["reload", "getIdToken:true"]);
+    expect(mocks.syncOwnEmailVerification).toHaveBeenCalledWith(false);
     expect(useAuthStore.getState().userProfile?.emailVerified).toBe(true);
 
     const storeData = new Map<string, string>([
@@ -180,5 +186,15 @@ describe("administrator profile loading", () => {
       unsubscribe();
       mocks.authStateCallback = null;
     }
+  });
+
+  it("syncs emailVerified automatically when stored user doc is missing emailVerified", async () => {
+    mocks.user.emailVerified = true;
+    mocks.getDoc.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ role: "student", status: "active" }),
+    });
+    await useAuthStore.getState().reloadProfile();
+    expect(mocks.syncOwnEmailVerification).toHaveBeenCalledWith(false);
   });
 });

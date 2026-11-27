@@ -341,3 +341,118 @@ export type PilotStatus = { state: "closed" | "open" | "drain" | "write-freeze";
 export async function getPilotStatus(): Promise<PilotStatus> { return call("getPilotStatus", {}); }
 export async function adminSetPilot(input: { state: PilotStatus["state"]; enabledTopicIds: string[]; releaseArtifactId?: string }): Promise<PilotStatus> { return call("adminSetPilot", input); }
 export async function adminPilotRoster(uid: string, status: "admitted" | "revoked"): Promise<{ status: string }> { return call("adminPilotRoster", { uid, status }); }
+
+/** Response from syncing the signed-in user's own email verification state to Firestore. */
+export interface SelfVerificationSyncResult {
+  readonly synced: boolean;
+  readonly emailVerified: boolean;
+}
+
+/** Response from an administrator bulk-syncing user email verification states from Firebase Auth. */
+export interface AdminVerificationSyncResult {
+  readonly checked: number;
+  readonly updated: number;
+  readonly alreadySynced: number;
+  readonly verified: number;
+  readonly unverified: number;
+  readonly missingInAuth: number;
+  readonly statuses: Readonly<Record<string, boolean>>;
+}
+
+async function postAuthenticatedEndpoint<TResponse>(
+  path: string,
+  fallbackError: string,
+  options?: { forceRefreshToken?: boolean },
+): Promise<TResponse> {
+  const user = auth?.currentUser;
+  if (!user) throw new Error("Sign in to continue.");
+
+  let token: string;
+  try {
+    token = await user.getIdToken(options?.forceRefreshToken ?? false);
+  } catch {
+    throw Object.assign(
+      new Error("Your sign-in could not be refreshed. Check your connection and sign in again if needed."),
+      { code: "auth-unavailable" },
+    );
+  }
+
+  const appCheckToken = await getOptionalAppCheckToken();
+  const requestHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+  if (appCheckToken) {
+    requestHeaders["X-Firebase-AppCheck"] = appCheckToken;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      headers: requestHeaders,
+      signal: AbortSignal.timeout(60000),
+    });
+  } catch (cause) {
+    const timedOut = cause instanceof Error && (cause.name === "TimeoutError" || cause.name === "AbortError");
+    throw Object.assign(
+      new Error(
+        timedOut
+          ? "The verification sync request timed out. Try again shortly."
+          : "The server could not be reached. Check your connection and try again.",
+      ),
+      { code: timedOut ? "request-timeout" : "network-unavailable" },
+    );
+  }
+
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    throw Object.assign(
+      new Error("The server returned an unreadable response."),
+      { code: "invalid-server-response" },
+    );
+  }
+
+  if (!response.ok) {
+    const errorPayload = (result as { error?: { message?: string; code?: string } })?.error;
+    const error = new Error(errorPayload?.message ?? fallbackError);
+    Object.assign(error, { code: errorPayload?.code, details: errorPayload });
+    throw error;
+  }
+
+  return result as TResponse;
+}
+
+/**
+ * Syncs the currently signed-in user's verified Firebase ID token `email_verified`
+ * flag to their Firestore `users/{uid}` document via the backend API.
+ *
+ * @param forceRefreshToken - Whether to force-refresh the Firebase ID token first.
+ * @returns Whether the Firestore document was updated and the persisted verification status.
+ */
+export async function syncOwnEmailVerification(
+  forceRefreshToken = false,
+): Promise<SelfVerificationSyncResult> {
+  return postAuthenticatedEndpoint<SelfVerificationSyncResult>(
+    "/api/auth/sync-verification",
+    "Could not sync account verification status.",
+    { forceRefreshToken },
+  );
+}
+
+/**
+ * Triggers an administrator bulk sync of `emailVerified` from Firebase Authentication
+ * onto all Firestore `users/{uid}` documents and invalidates cached admin views.
+ *
+ * @returns Aggregate sync counts and per-UID verification statuses.
+ */
+export async function adminSyncEmailVerification(): Promise<AdminVerificationSyncResult> {
+  const result = await postAuthenticatedEndpoint<AdminVerificationSyncResult>(
+    "/api/admin/sync-verification",
+    "Could not sync learner verification statuses.",
+  );
+  invalidateViews();
+  return result;
+}

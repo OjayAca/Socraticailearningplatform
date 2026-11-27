@@ -19,6 +19,7 @@ import { displayCohortStateLabel } from "@/lib/learning/display-labels";
 import {
   adminPilotRoster,
   adminSetPilot,
+  adminSyncEmailVerification,
   getPilotStatus,
   type PilotStatus,
 } from "@/lib/secure-api";
@@ -213,6 +214,7 @@ function AdminCohortAccess() {
   const [verificationFilter, setVerificationFilter] = useState<VerificationFilter>("all");
   const [participantPage, setParticipantPage] = useState(1);
   const [busyRosterKey, setBusyRosterKey] = useState<string | null>(null);
+  const [syncingVerification, setSyncingVerification] = useState(false);
 
   // Expandable manual UID fallback
   const [manualUid, setManualUid] = useState("");
@@ -459,6 +461,26 @@ function AdminCohortAccess() {
       setCohortErrorMessage(errorMessage(cause, "Pilot update failed."));
     } finally {
       setSavingCohort(false);
+    }
+  }
+
+  async function syncParticipantVerification() {
+    if (syncingVerification || participantsLoading) return;
+    setSyncingVerification(true);
+    setRosterActionMessage(null);
+    setRosterActionError(null);
+    try {
+      const summary = await adminSyncEmailVerification();
+      await loadParticipants();
+      const missingSuffix =
+        summary.missingInAuth > 0 ? `, ${summary.missingInAuth} not found in Auth` : "";
+      setRosterActionMessage(
+        `Synced verification for ${summary.checked} accounts (${summary.updated} updated, ${summary.verified} verified, ${summary.unverified} unverified${missingSuffix}).`,
+      );
+    } catch (cause) {
+      setRosterActionError(errorMessage(cause, "Account verification sync failed."));
+    } finally {
+      setSyncingVerification(false);
     }
   }
 
@@ -852,13 +874,22 @@ function AdminCohortAccess() {
                   clearAriaLabel="Clear participant search"
                   className="flex-1"
                 />
-                <Action
-                  disabled={participantsLoading}
-                  busy={participantsLoading}
-                  onClick={() => void loadParticipants()}
-                >
-                  Refresh roster
-                </Action>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Action
+                    disabled={participantsLoading || syncingVerification}
+                    busy={syncingVerification}
+                    onClick={() => void syncParticipantVerification()}
+                  >
+                    Sync verification
+                  </Action>
+                  <Action
+                    disabled={participantsLoading || syncingVerification}
+                    busy={participantsLoading}
+                    onClick={() => void loadParticipants()}
+                  >
+                    Refresh roster
+                  </Action>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">

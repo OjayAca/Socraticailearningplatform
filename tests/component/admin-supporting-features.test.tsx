@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   adminPublishAnnouncement: vi.fn(),
   adminQueryReport: vi.fn(),
   adminReviewSession: vi.fn(),
+  adminSyncEmailVerification: vi.fn(),
   adminUpsertContent: vi.fn(),
 }));
 
@@ -57,6 +58,7 @@ vi.mock("@/lib/secure-api", () => ({
   adminPublishAnnouncement: mocks.adminPublishAnnouncement,
   adminQueryReport: mocks.adminQueryReport,
   adminReviewSession: mocks.adminReviewSession,
+  adminSyncEmailVerification: mocks.adminSyncEmailVerification,
   adminUpsertContent: mocks.adminUpsertContent,
 }));
 
@@ -466,5 +468,61 @@ describe("administrator review safeguards", () => {
     expect(toInput).toHaveAttribute("min", "2026-10-01");
     expect(topicInput).toHaveAttribute("list", "admin-report-topics");
     expect(container.querySelectorAll("#admin-report-topics option").length).toBeGreaterThan(0);
+  });
+
+  it("triggers bulk verification sync from User Account Management and Cohort Participants", async () => {
+    mocks.adminSyncEmailVerification.mockResolvedValue({
+      checked: 2,
+      updated: 1,
+      alreadySynced: 1,
+      verified: 2,
+      unverified: 0,
+      missingInAuth: 0,
+      statuses: { "student-1": true },
+    });
+    mocks.getDocs
+      .mockResolvedValueOnce(
+        snapshot([
+          { id: "student-1", displayName: "Student One", email: "one@example.com", role: "student", status: "active" },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        snapshot([
+          { id: "student-1", displayName: "Student One", email: "one@example.com", role: "student", status: "active", emailVerified: true },
+        ]),
+      );
+
+    const usersView = renderRoute(<SecureAdminUsers />);
+    await screen.findByText("Student One");
+    fireEvent.click(screen.getByRole("button", { name: "Sync verification" }));
+    expect(
+      await screen.findByText("Synced verification for 2 accounts (1 updated, 2 verified, 0 unverified)."),
+    ).toBeVisible();
+    expect(mocks.adminSyncEmailVerification).toHaveBeenCalledTimes(1);
+    usersView.unmount();
+
+    mocks.getDocs
+      .mockResolvedValueOnce(snapshot([]))
+      .mockResolvedValueOnce(
+        snapshot([
+          { id: "student-1", displayName: "Student One", email: "one@example.com", role: "student", status: "active" },
+        ]),
+      )
+      .mockResolvedValueOnce(snapshot([{ id: "student-1", status: "admitted" }]))
+      .mockResolvedValueOnce(
+        snapshot([
+          { id: "student-1", displayName: "Student One", email: "one@example.com", role: "student", status: "active", emailVerified: true },
+        ]),
+      )
+      .mockResolvedValueOnce(snapshot([{ id: "student-1", status: "admitted" }]));
+
+    renderRoute(<SecureAdminMaintenance />);
+    fireEvent.click(await screen.findByRole("button", { name: /participant records/i }));
+    await screen.findByText("Student One");
+    fireEvent.click(screen.getByRole("button", { name: "Sync verification" }));
+    expect(
+      await screen.findByText("Synced verification for 2 accounts (1 updated, 2 verified, 0 unverified)."),
+    ).toBeVisible();
+    expect(mocks.adminSyncEmailVerification).toHaveBeenCalledTimes(2);
   });
 });

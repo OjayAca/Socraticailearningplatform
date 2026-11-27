@@ -36,7 +36,7 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db, firebaseSetupMessage, isFirebaseConfigured } from "@/lib/firebase";
-import { bootstrapProfile } from "@/lib/secure-api";
+import { bootstrapProfile, syncOwnEmailVerification } from "@/lib/secure-api";
 import type { UserProfile, UserStats } from "@/types";
 
 type CanonicalUserRole = "student" | "admin";
@@ -347,6 +347,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await reload(user);
     await getIdToken(user, true);
     if (auth?.currentUser?.uid !== user.uid) throw new Error("The signed-in account changed. Try again.");
+    await syncEmailVerificationSafely();
     if (user.emailVerified) {
       clearViews();
     }
@@ -450,6 +451,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
 // ─── Helpers ─────────────────────────────────────────────────
 
+async function syncEmailVerificationSafely(): Promise<void> {
+  if (typeof syncOwnEmailVerification !== "function") return;
+  try {
+    await syncOwnEmailVerification(false);
+  } catch {
+    // Non-fatal: Firebase Auth remains authoritative if Firestore sync is temporarily unavailable.
+  }
+}
+
 /**
  * Fetches the Firestore user profile, creating one if it doesn't exist.
  *
@@ -461,9 +471,13 @@ async function fetchOrCreateProfile(user: User): Promise<UserProfile> {
   const snapshot = await getDoc(userRef);
 
   if (snapshot.exists()) {
-    await verifyAdministratorAccess(user, snapshot.data());
+    const storedData = snapshot.data();
+    await verifyAdministratorAccess(user, storedData);
+    if (storedData.emailVerified !== user.emailVerified) {
+      void syncEmailVerificationSafely();
+    }
     return normalizeUserProfile({
-      ...snapshot.data(),
+      ...storedData,
       uid: user.uid,
       emailVerified: user.emailVerified,
     });
@@ -503,6 +517,7 @@ async function createUserProfile(
       "Your secure account profile could not be created. Retry or contact the system administrator."
     );
   }
+  void syncEmailVerificationSafely();
   return normalizeUserProfile({
     ...snapshot.data(),
     uid: user.uid,

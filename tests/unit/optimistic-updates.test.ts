@@ -4,7 +4,10 @@ const mocks = vi.hoisted(() => ({
   user: { uid: "student-1" }, updateDoc: vi.fn(), setDoc: vi.fn(), updateProfile: vi.fn(), onSnapshot: vi.fn(),
 }));
 vi.mock("@/lib/firebase", () => ({ auth: { currentUser: mocks.user }, db: {}, isFirebaseConfigured: true, firebaseSetupMessage: "Firebase is not configured" }));
-vi.mock("@/lib/secure-api", () => ({ bootstrapProfile: vi.fn() }));
+vi.mock("@/lib/secure-api", () => ({
+  bootstrapProfile: vi.fn(),
+  syncOwnEmailVerification: vi.fn().mockResolvedValue({ synced: false, emailVerified: false }),
+}));
 vi.mock("firebase/auth", async original => ({
   ...await original<typeof import("firebase/auth")>(), updateProfile: mocks.updateProfile,
 }));

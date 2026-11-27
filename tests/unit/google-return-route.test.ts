@@ -9,7 +9,10 @@ vi.mock("@/lib/firebase", () => ({
   firebaseSetupMessage: "",
   isFirebaseConfigured: false,
 }));
-vi.mock("@/lib/secure-api", () => ({ bootstrapProfile: vi.fn() }));
+vi.mock("@/lib/secure-api", () => ({
+  bootstrapProfile: vi.fn(),
+  syncOwnEmailVerification: vi.fn().mockResolvedValue({ synced: false, emailVerified: false }),
+}));
 
 import { POST } from "../../app/api/auth/google-return/route";
 import nextConfig from "../../next.config.mjs";

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { authenticate } from "../../server/auth";
+import { authenticate, authenticateIdentity } from "../../server/auth";
 import { getServerEnv } from "../../server/config";
 import type { Env } from "../../server/platform";
 
@@ -66,6 +66,20 @@ describe("server authentication", () => {
   ])("rejects mismatched claims", async claims => {
     verifyIdToken.mockResolvedValue(claims);
     await expect(authenticate(request("invalid"), env)).rejects.toMatchObject({ status: 401 });
+  });
+  it("extracts identity metadata without rejecting unverified student tokens", async () => {
+    verifyIdToken.mockResolvedValueOnce({
+      uid: "pending-student",
+      aud: "existing-project",
+      iss: "https://securetoken.google.com/existing-project",
+      email_verified: false,
+    });
+    await expect(authenticateIdentity(request("pending-token"), env)).resolves.toEqual({
+      uid: "pending-student",
+      emailVerified: false,
+      isAdminClaim: false,
+      isOperator: false,
+    });
   });
   it("reports verification outages without exposing provider errors", async () => {
     verifyIdToken.mockRejectedValue(new Error("private provider detail"));

@@ -19,12 +19,17 @@ import {
 import { collection, getDocs, type DocumentData } from "firebase/firestore";
 import { accountActions, type AccountAction } from "@/lib/account-transitions";
 import { db } from "@/lib/firebase";
-import { adminEditAcademicProfile, adminManageUser } from "@/lib/secure-api";
+import {
+  adminEditAcademicProfile,
+  adminManageUser,
+  adminSyncEmailVerification,
+} from "@/lib/secure-api";
 import { Alert } from "../ui/alert";
 import { ConfirmDialog } from "../ui/confirm-dialog";
 import { ListRowSkeleton } from "../ui/skeleton";
 import { AdminShell } from "./AdminShell";
 import {
+  Action,
   AdminFilterPill,
   AdminPagination,
   AdminSearchInput,
@@ -717,6 +722,7 @@ export function SecureAdminUsers() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyUserKey, setBusyUserKey] = useState<string | null>(null);
+  const [syncingVerification, setSyncingVerification] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAccountAction | null>(null);
   const [profileUser, setProfileUser] = useState<AdminUserRecord | null>(null);
   const [editingUser, setEditingUser] = useState<AdminUserRecord | null>(null);
@@ -758,6 +764,26 @@ export function SecureAdminUsers() {
   );
 
   const hasFilters = Boolean(search.trim()) || statusFilter !== "all" || roleFilter !== "all";
+
+  async function syncVerification() {
+    if (syncingVerification || loading) return;
+    setSyncingVerification(true);
+    setStatusMessage(null);
+    setActionError(null);
+    try {
+      const summary = await adminSyncEmailVerification();
+      await load();
+      const missingSuffix =
+        summary.missingInAuth > 0 ? `, ${summary.missingInAuth} not found in Auth` : "";
+      setStatusMessage(
+        `Synced verification for ${summary.checked} accounts (${summary.updated} updated, ${summary.verified} verified, ${summary.unverified} unverified${missingSuffix}).`,
+      );
+    } catch (cause) {
+      setActionError(errorMessage(cause, "Account verification sync failed."));
+    } finally {
+      setSyncingVerification(false);
+    }
+  }
 
   async function act(userId: string, action: AccountAction) {
     if (busyUserKey) return;
@@ -892,6 +918,16 @@ export function SecureAdminUsers() {
             Clear filters
           </button>
         )}
+
+        <div className="ml-auto">
+          <Action
+            disabled={loading || syncingVerification}
+            busy={syncingVerification}
+            onClick={() => void syncVerification()}
+          >
+            Sync verification
+          </Action>
+        </div>
       </div>
 
       <p className="mt-4 text-sm text-slate-600 dark:text-slate-300">
